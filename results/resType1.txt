@@ -1,0 +1,4 @@
+Linear_Encrypted| numBlocks: 1, BLOCK_DATA_SIZE: 2, numQueries: 50, time: 0.000402
+Linear_Encrypted| numBlocks: 3, BLOCK_DATA_SIZE: 2, numQueries: 50, time: 0.000819
+Linear_Encrypted| numBlocks: 1, BLOCK_DATA_SIZE: 4, numQueries: 50, time: 0.000400
+Linear_Encrypted| numBlocks: 3, BLOCK_DATA_SIZE: 4, numQueries: 50, time: 0.000858

@@ -1,0 +1,4 @@
+Linear_Unencrypted| numBlocks: 1, BLOCK_DATA_SIZE: 2, numQueries: 50, time: 0.000218
+Linear_Unencrypted| numBlocks: 3, BLOCK_DATA_SIZE: 2, numQueries: 50, time: 0.000370
+Linear_Unencrypted| numBlocks: 1, BLOCK_DATA_SIZE: 4, numQueries: 50, time: 0.000219
+Linear_Unencrypted| numBlocks: 3, BLOCK_DATA_SIZE: 4, numQueries: 50, time: 0.000372

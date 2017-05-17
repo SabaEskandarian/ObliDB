@@ -1,0 +1,4 @@
+ORAM| numBlocks: 1, BLOCK_DATA_SIZE: 2, numQueries: 50, time: 0.001251
+ORAM| numBlocks: 3, BLOCK_DATA_SIZE: 2, numQueries: 50, time: 0.002046
+ORAM| numBlocks: 1, BLOCK_DATA_SIZE: 4, numQueries: 50, time: 0.001291
+ORAM| numBlocks: 3, BLOCK_DATA_SIZE: 4, numQueries: 50, time: 0.002071
