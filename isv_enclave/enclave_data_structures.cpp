@@ -118,6 +118,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	if(sgx_read_rand((uint8_t*)&positionMaps[structureId][index], sizeof(unsigned int)) != SGX_SUCCESS) return 1;//Error comes from here
 	positionMaps[structureId][index] = positionMaps[structureId][index] % (treeSize/2+1);
 	int newLeaf = positionMaps[structureId][index];
+	//if(newLeaf < 0) printf("bad!!!\n");
 
 	//empty bucket to write to structure to erase stale data from tree
 	uint8_t* junk = (uint8_t*)malloc(bucketSize);
@@ -243,6 +244,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	//printf("check5\n");
 	//printf("end stash size: %d %d\n", stashOccs[structureId], stashes[structureId]->size());
 	if(stashOccs[structureId] > EXTRA_STASH_SPACE){
+		printf("using too much stash!\n");
 		return 1;
 	}
 
@@ -256,13 +258,13 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	return 0;
 }
 
-int posMapAccess(int structureId, int index, int* value, int write){
+int posMapAccess(int structureId, int index, unsigned int* value, int write){
 	int out = -1, dummyOut = -1;
-	int writeVal = -1, dummyWriteVal = -1;
+	int dummyWriteVal = -1;
 	for(int i = 0; i < logicalSizes[structureId]; i++){
 		if(i == index) {
 			if(write){
-				writeVal = *value;
+				positionMaps[structureId][index] = *value;
 			}
 			else{
 				out = positionMaps[structureId][i];
@@ -270,20 +272,17 @@ int posMapAccess(int structureId, int index, int* value, int write){
 		}
 		else {
 			if(write){
-				dummyWriteVal = *value;
+				positionMaps[structureId][index] = positionMaps[structureId][index]-1+1;
 			}
 			else{
 				dummyOut = positionMaps[structureId][i];
 			}
 		}
 	}
-	if(write){
-		positionMaps[structureId][index] = writeVal;
-	}
-	else{
-		*value = out;
-	}
-	return out;
+	//printf("%d, %d\n", index,  out);
+	//if(write == 0 && out < 0) printf("WHOAOAOAOOAA\n");
+	//if(write == 1 && *value < 0) printf("AOAOOAOAOAAOAWH\n");
+	return 0;
 }
 
 int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write){
@@ -296,21 +295,28 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 	Oram_Block* block = (Oram_Block*)malloc(sizeof(Oram_Block));
 	Oram_Bucket* bucket = (Oram_Bucket*)malloc(sizeof(Oram_Bucket));
 	Encrypted_Oram_Bucket* encBucket = (Encrypted_Oram_Bucket*)malloc(sizeof(Encrypted_Oram_Bucket));
-	int oldLeaf = -1;
+	unsigned int oldLeaf = -1;
 	posMapAccess(structureId, index, &oldLeaf, 0);
+	//printf("old leaf: %d\n", oldLeaf);
 	int treeSize = logicalSizes[structureId];
 	//pick a leaf between 0 and logicalSizes[structureId]/2
-	int newLeaf = -1;
-	if(sgx_read_rand((uint8_t*)&newLeaf, sizeof(unsigned int)) != SGX_SUCCESS) return 1;//Error comes from here
+	unsigned int newLeaf = -1;
+	if(sgx_read_rand((uint8_t*)&newLeaf, sizeof(unsigned int)) != SGX_SUCCESS) {
+		return 1;//Error comes from here
+	}
 	newLeaf = newLeaf % (treeSize/2+1);
 	posMapAccess(structureId, index, &newLeaf, 1);
+	//printf("new leaf: %d\n", newLeaf);
+
 
 	//empty bucket to write to structure to erase stale data from tree
 	uint8_t* junk = (uint8_t*)malloc(bucketSize);
 	uint8_t* encJunk = (uint8_t*)malloc(encBucketSize);
 	memset(junk, 0xff, bucketSize);
 	memset(encJunk, 0xff, encBucketSize);
-	if(encryptBlock(encJunk, junk, obliv_key, TYPE_ORAM)) return 1;
+	if(encryptBlock(encJunk, junk, obliv_key, TYPE_ORAM)) {
+		return 1;
+	}
 
 
 	//printf("old leaf: %d, new leaf: %d\n", oldLeaf, positionMaps[structureId][index]);
@@ -326,7 +332,9 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 		//encrypt/decrypt buckets all at once instead of blocks
 		//let index be the node number in a levelorder traversal and size the encBucketSize
 		ocall_read_block(structureId, nodeNumber, encBucketSize, encBucket);//printf("here\n");
-		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) return 1;
+		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) {
+			return 1;
+		}
 		//write back dummy blocks to replace blocks we just took out
 		ocall_write_block(structureId, nodeNumber, encBucketSize, encJunk);
 		for(int j = 0; j < BUCKET_SIZE;j++){
@@ -390,7 +398,9 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 		int div = pow((double)2, ((int)log2(treeSize+1.1)-1)-i);
 		//read contents of bucket
 		ocall_read_block(structureId, nodeNumber, encBucketSize, encBucket);//printf("here\n");
-		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) return 1;
+		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) {
+			return 1;
+		}
 
 		//for each dummy entry in bucket, fill with candidates from stash
 		int stashCounter = stashOccs[structureId];
@@ -399,8 +409,9 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 			//printf("bucket entry %d\n", j);
 			if(bucket->blocks[j].actualAddr == -1){
 				while(stashCounter > 0){
-					int destinationLeaf = -1;
+					unsigned int destinationLeaf = -1;
 					posMapAccess(structureId, p->actualAddr, &destinationLeaf, 0);
+					if(destinationLeaf < 0) printf("destLeaf %d\n", destinationLeaf);
 					int conditionMet = 0;
 					//div is 2 raised to the number of levels from the leaf to the current depth
 					conditionMet = ((treeSize/2)+oldLeaf-(div-1))/div == ((treeSize/2)+destinationLeaf-(div-1))/div;
@@ -422,7 +433,9 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 		}
 		//write bucket back to tree
 		//printf("blocks we are inserting at this level: %d %d %d %d\n", currentBucket.blocks[0].actualAddr, currentBucket.blocks[1].actualAddr, currentBucket.blocks[2].actualAddr,currentBucket.blocks[3].actualAddr);
-		if(encryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) return 1;
+		if(encryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) {
+			return 1;
+		}
 		ocall_write_block(structureId, nodeNumber, encBucketSize, encBucket);
 		nodeNumber = (nodeNumber-1)/2;
 	}
@@ -430,6 +443,7 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 	//printf("check5\n");
 	//printf("end stash size: %d %d\n", stashOccs[structureId], stashes[structureId]->size());
 	if(stashOccs[structureId] > EXTRA_STASH_SPACE){
+		printf("using too much stash: %d\n", stashOccs[structureId]);
 		return 1;
 	}
 

@@ -1,3 +1,6 @@
+Oram on SGX project built on top of remote attestation example code.
+
+
 ----------------------------
 Purpose of RemoteAttestation
 ----------------------------

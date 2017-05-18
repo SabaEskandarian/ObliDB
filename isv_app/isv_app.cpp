@@ -1012,7 +1012,7 @@ int main(int argc, char* argv[])
             	printf("oram failed.\n");
             	goto CLEANUP;
             }
-            printf("ORAM| numBlocks: %d, BLOCK_DATA_SIZE: %d, numQueries: %d, time: %f\n", numBlocks, BLOCK_DATA_SIZE, numQueries, elapsedOram);
+            printf("ORAMSafe| numBlocks: %d, BLOCK_DATA_SIZE: %d, numQueries: %d, time: %f\n", numBlocks, BLOCK_DATA_SIZE, numQueries, elapsedOram);
             //free the memory we used
             //function to free the memory used for the position map
             free_oram(enclave_id, &status, 0);
@@ -1041,7 +1041,7 @@ int main(int argc, char* argv[])
             	printf("encrypted linear scan failed.\n");
             	goto CLEANUP;
             }
-            printf("Linear_Encrypted| numBlocks: %d, BLOCK_DATA_SIZE: %d, numQueries: %d, time: %f\n", numBlocks, BLOCK_DATA_SIZE, numQueries, elapsedEnc);
+            printf("Linear_EncryptedWrite| numBlocks: %d, BLOCK_DATA_SIZE: %d, numQueries: %d, time: %f\n", numBlocks, BLOCK_DATA_SIZE, numQueries, elapsedEnc);
             //free the memory we used
             free(oblivStructures[0]);
             free(b1);
@@ -1069,7 +1069,7 @@ int main(int argc, char* argv[])
             	printf("unencrypted linear scan failed.\n");
             	goto CLEANUP;
             }
-            printf("Linear_Unencrypted| numBlocks: %d, BLOCK_DATA_SIZE: %d, numQueries: %d, time: %f\n", numBlocks, BLOCK_DATA_SIZE, numQueries, elapsedUnEnc);
+            printf("Linear_UnencryptedWrite| numBlocks: %d, BLOCK_DATA_SIZE: %d, numQueries: %d, time: %f\n", numBlocks, BLOCK_DATA_SIZE, numQueries, elapsedUnEnc);
             //free the memory we used
             free(oblivStructures[0]);
             free(b2);
