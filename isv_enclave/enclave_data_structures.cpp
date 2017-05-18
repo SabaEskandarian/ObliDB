@@ -280,6 +280,9 @@ int posMapAccess(int structureId, int index, unsigned int* value, int write){
 		}
 	}
 	//printf("%d, %d\n", index,  out);
+	if(!write){
+		*value = out;
+	}
 	//if(write == 0 && out < 0) printf("WHOAOAOAOOAA\n");
 	//if(write == 1 && *value < 0) printf("AOAOOAOAOAAOAWH\n");
 	return 0;
@@ -302,6 +305,7 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 	//pick a leaf between 0 and logicalSizes[structureId]/2
 	unsigned int newLeaf = -1;
 	if(sgx_read_rand((uint8_t*)&newLeaf, sizeof(unsigned int)) != SGX_SUCCESS) {
+		printf("fail position 0\n");
 		return 1;//Error comes from here
 	}
 	newLeaf = newLeaf % (treeSize/2+1);
@@ -315,6 +319,7 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 	memset(junk, 0xff, bucketSize);
 	memset(encJunk, 0xff, encBucketSize);
 	if(encryptBlock(encJunk, junk, obliv_key, TYPE_ORAM)) {
+		printf("fail position 1\n");
 		return 1;
 	}
 
@@ -333,6 +338,7 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 		//let index be the node number in a levelorder traversal and size the encBucketSize
 		ocall_read_block(structureId, nodeNumber, encBucketSize, encBucket);//printf("here\n");
 		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) {
+			printf("fail position 2\n");
 			return 1;
 		}
 		//write back dummy blocks to replace blocks we just took out
@@ -399,6 +405,7 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 		//read contents of bucket
 		ocall_read_block(structureId, nodeNumber, encBucketSize, encBucket);//printf("here\n");
 		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) {
+			printf("fail position 3\n");
 			return 1;
 		}
 
@@ -434,6 +441,7 @@ int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write)
 		//write bucket back to tree
 		//printf("blocks we are inserting at this level: %d %d %d %d\n", currentBucket.blocks[0].actualAddr, currentBucket.blocks[1].actualAddr, currentBucket.blocks[2].actualAddr,currentBucket.blocks[3].actualAddr);
 		if(encryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) {
+			printf("fail position 4\n");
 			return 1;
 		}
 		ocall_write_block(structureId, nodeNumber, encBucketSize, encBucket);

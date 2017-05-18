@@ -7,12 +7,15 @@
 #note each one is queried 50 times to get the final time listed
 
 ulimit -s unlimited #probably don't need this
-for i in {1..4}
+for i in {1..5}
 do
     for j in {1..2}
     do
         for k in {1..2}
         do	
+        if [[ $j+$k -ge 33 ]];then
+        continue
+        fi
 		echo "test $i block power $j num block power $k"
 		var=$((2**$j))
 		make clean
