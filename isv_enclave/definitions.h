@@ -10,29 +10,23 @@
 #include "sgx_tcrypto.h"
 #include "string.h"
 
-/*
- * values to be defined as environment variables given to makefile:
- * BLOCK_DATA_SIZE
- * NUM_BLOCKS_POW power of two up to which the number of blocks will go
- * TEST_TYPE - 1 = linear, encrypted, 2 = linear, unencrypted, 3 = oram
- *
- * those will determine which experiment the code is compiled to run
- *
-*/
-//temporary for testing
-//#define BLOCK_DATA_SIZE 1000 //as big as possible, I got it working up to 8000000; seems to exhaust heap memory faster than expected; try on supported ubuntu box
-//#define NUM_BLOCKS_POW 3
-//#define TEST_TYPE 1
+
+#define BLOCK_DATA_SIZE 512 //as big as possible, I got it working up to 8000000; seems to exhaust heap memory faster than expected; try on supported ubuntu box
+#define NUM_BLOCKS_POW 10
+#define TEST_TYPE 1
 
 //made up parameters to use
 #define ORAM_CAPACITY 32 //must be power of two, real number of nodes in tree is twice this minus 1
-#define MAX_BRANCH 10 //should be log in size of B+-tree, right?
 #define BUCKET_SIZE 4
 #define NUM_STRUCTURES 10 //number of structures supported
+#define MAX_BRANCH 10
 #define MAX_COLS 20
 #define NUM_BLOCKS_LINEAR 16
 #define NUM_BLOCKS_ORAM 64
 #define EXTRA_STASH_SPACE 90
+#define MAX_CONDITIONS 5
+#define ROWS_IN_ENCLAVE 100
+#define PERCENT_ALMOST_ALL 99
 //NUM_BLOCKS_ORAM is larger than the logical size of the oram;
 //within the oram, there will be a B+-tree in whose leaves we will store the actual data
 //so to match a linear scan structure with 16 blocks, we need 16 blocks of leaves in the B+-tree, meaning 31 nodes in the B+-tree
@@ -44,13 +38,6 @@ typedef enum _Obliv_Type{
 	TYPE_ORAM,
 	TYPE_LINEAR_UNENCRYPTED,
 } Obliv_Type;
-
-typedef enum _DB_TYPE{
-	INTEGER, //4 bytes
-	TINYTEXT, //255 bytes
-	CHAR, //1 byte
-	FLOAT, //4 bytes
-} DB_Type;
 
 typedef struct{
 	uint8_t data[BLOCK_DATA_SIZE];
@@ -98,14 +85,29 @@ typedef struct{
 	uint8_t iv[12]; //12 bytes
 } Encrypted_Oram_Block;
 
+typedef enum _DB_TYPE{
+	INTEGER, //4 bytes
+	TINYTEXT, //255 bytes
+	CHAR, //1 byte
+} DB_Type;
+
 typedef struct{
 	int numFields;
 	int fieldOffsets[MAX_COLS];
 	int fieldSizes[MAX_COLS];
 	DB_Type fieldTypes[MAX_COLS];
-	int index;//this is structNum
+	//int index;//this is structNum
 } Schema;
 
+//conditions will be in CNF form (product of sums)
+typedef struct Condition Condition;
+struct Condition{
+	int numClauses;
+	int fieldNums[MAX_CONDITIONS];
+	int conditionType[MAX_CONDITIONS]; //0 equal, -1 less than, 1 greater than for integers, only support equality for other types
+	uint8_t *values[MAX_CONDITIONS];
+	Condition *nextCondition;
+};
 
 
 int getEncBlockSize(Obliv_Type type);

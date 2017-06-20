@@ -72,6 +72,7 @@ enclave {
 		public sgx_status_t testOramPerformance(int structNum, int queryIndex, [out, size=respLen]Oram_Block* b, int respLen);	
 		public sgx_status_t testOramSafePerformance(int structNum, int queryIndex, [out, size=respLen]Oram_Block* b, int respLen);	
 		public sgx_status_t testOpOram();
+		public sgx_status_t oramDistribution(int structureId);
 		public sgx_status_t free_oram(int structureId);
 		public sgx_status_t testMemory();
 		

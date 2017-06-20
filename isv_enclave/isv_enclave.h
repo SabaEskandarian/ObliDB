@@ -39,6 +39,7 @@ extern int opLinearScanBlock(int structureId, int index, Linear_Scan_Block* bloc
 extern int opLinearScanUnencryptedBlock(int structureId, int index, Linear_Scan_Block* block, int write);
 extern int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write);
 extern int posMapAccess(int structureId, int index, int* value, int write);
+extern sgx_status_t oramDistribution(int structureId);
 extern int opOramBlockSafe(int structureId, int index, Oram_Block* retBlock, int write);
 extern int opOramTreeBlock(int structureId, int index, Oram_Tree_Block* block, int write);
 extern int encryptBlock(void *ct, void *pt, sgx_aes_gcm_128bit_key_t *key, Obliv_Type type);
@@ -47,16 +48,18 @@ extern int getNextId();
 extern sgx_status_t total_init();
 extern sgx_status_t init_structure(int size, Obliv_Type type, int* structureId);
 extern sgx_status_t free_oram(int structureId);
+extern sgx_status_t free_structure(int structureId);
 
 //enclave_db.cpp
-extern int opLinearScanInsert(int structureId, int index, int offset, int length, uint8_t* data);
-extern int opLinearScanUnencryptedInsert(int structureId, int index, int offset, int length, uint8_t* data);
-extern int opLinearScanExactMatch(int structureId, int colNum, uint8_t* query, uint8_t* response, int* resRows);
-extern int opLinearScanUnencryptedExactMatch(int structureId, int colNum, uint8_t* query, uint8_t* response, int* resRows);
+extern int rowMatchesCondition(Condition c, uint8_t* row, Schema s);
 extern int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, int numberOfRows, int* structureId);
 extern int growStructure(int structureId);
-extern int insertRow(int structureId, uint8_t* data);
-extern int exactSearch(int structureId, int colNum, uint8_t* query, uint8_t* response, int* resRows);
+extern int getTableId(char *tableName);
+extern int insertRow(char* tableName, uint8_t* row);
+extern int deleteRows(char* tableName, Condition c);
+extern int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal);
+extern int select(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
+//joins are still absent
 
 //enclave_tests.cpp
 extern sgx_status_t run_tests();

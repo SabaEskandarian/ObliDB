@@ -258,6 +258,40 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	return 0;
 }
 
+sgx_status_t oramDistribution(int structureId) {
+	int blockSize = sizeof(Oram_Block);
+	int bucketSize = sizeof(Oram_Bucket);
+	int encBucketSize = sizeof(Encrypted_Oram_Bucket);
+	Oram_Block* block = (Oram_Block*)malloc(sizeof(Oram_Block));
+	Oram_Bucket* bucket = (Oram_Bucket*)malloc(sizeof(Oram_Bucket));
+	Encrypted_Oram_Bucket* encBucket = (Encrypted_Oram_Bucket*)malloc(sizeof(Encrypted_Oram_Bucket));
+	int treeSize = oblivStructureSizes[structureId];
+
+	for(int i = (int)log2(treeSize+1.1)-1; i>=0; i--){
+		int depthCount = 0;
+		for (int k = 0; k < (int)pow((double)2, i)-.9; k++){
+			//printf("reading block %d\n", (int)(pow((double)2, i)-.9)+k);
+			ocall_read_block((double)structureId, (int)(pow((double)2, i)-.9)+k, encBucketSize, encBucket);//printf("here\n");
+			if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) {
+				printf("fail\n");
+				return SGX_ERROR_UNEXPECTED;
+			}
+
+			for(int j = 0; j < BUCKET_SIZE;j++){
+				//printf("saw block %d  ", bucket->blocks[j].actualAddr);
+				if(bucket->blocks[j].actualAddr != -1){
+					depthCount++;
+					stashes[structureId]->push_front(bucket->blocks[j]);
+					stashOccs[structureId]++;
+				}
+			}
+		}
+		printf("depth: %d, count: %d\n", i, depthCount);
+	}
+
+	return SGX_SUCCESS;
+}
+
 int posMapAccess(int structureId, int index, unsigned int* value, int write){
 	int out = -1, dummyOut = -1;
 	int dummyWriteVal = -1;
@@ -613,7 +647,7 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
 
 	uint8_t* junk = (uint8_t*)malloc(blockSize);
 	uint8_t* encJunk = (uint8_t*)malloc(encBlockSize);
-	memset(junk, 0xff, blockSize);
+	memset(junk, '\0', blockSize);
 	memset(encJunk, 0xff, encBlockSize);
 	if(type != TYPE_LINEAR_UNENCRYPTED){
 		ret2 = encryptBlock(encJunk, junk, obliv_key, type);
@@ -644,5 +678,18 @@ sgx_status_t free_oram(int structureId){
 	free(positionMaps[structureId]);
 	//free(stashes[structureId]);
 	delete(stashes[structureId]);
+	return ret;
+}
+
+//clean up a structure
+sgx_status_t free_structure(int structureId) {
+	sgx_status_t ret = SGX_SUCCESS;
+	if(oblivStructureTypes[structureId] == TYPE_ORAM || oblivStructureTypes[structureId] == TYPE_TREE_ORAM) {
+		free_oram(structureId);
+	}
+	stashOccs[structureId] = 0;
+	logicalSizes[structureId] = 0;
+	oblivStructureTypes[structureId] = 0;
+	oblivStructureSizes[structureId] = 0; //most important since this is what we use to check if a slot is open
 	return ret;
 }

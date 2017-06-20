@@ -1002,6 +1002,12 @@ int main(int argc, char* argv[])
             }
             //run oram
             //printf("running oram\n");
+
+            //temp for distribuction experiment
+            oramDistribution(enclave_id, &status, 0);
+
+            break;
+            //end temp
             time_t startOram = clock();
             for(int i = 0; i < numQueries; i++) {
                 testOramSafePerformance(enclave_id, &status, 0, numBlocks/2, b3, sizeof(Oram_Block));
