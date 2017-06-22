@@ -64,8 +64,7 @@ extern int printTable(char* tableName);
 extern int createTestTable(char* tableName, int numRows);
 extern Schema getTableSchema(char *tableName);
 extern int deleteTable(char *tableName);
-extern int joinTables(char* tableName1, char* tableName2, int joinCol);
-//joins are still absent
+extern int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2);
 
 //enclave_tests.cpp
 extern sgx_status_t run_tests();

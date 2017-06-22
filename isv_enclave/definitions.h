@@ -11,12 +11,12 @@
 #include "string.h"
 
 
-#define BLOCK_DATA_SIZE 512 //as big as possible, I got it working up to 8000000; seems to exhaust heap memory faster than expected; try on supported ubuntu box
+#define BLOCK_DATA_SIZE 1024 //as big as possible, I got it working up to 8000000; seems to exhaust heap memory faster than expected; try on supported ubuntu box
 #define NUM_BLOCKS_POW 10
 #define TEST_TYPE 1
 
 //made up parameters to use
-#define ORAM_CAPACITY 32 //must be power of two, real number of nodes in tree is twice this minus 1
+#define ORAM_CAPACITY 32 //must be power of two, real number of nodes in tree is twice this minus 1 (I don't think this is used)
 #define BUCKET_SIZE 4
 #define NUM_STRUCTURES 10 //number of structures supported
 #define MAX_BRANCH 10

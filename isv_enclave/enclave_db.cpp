@@ -69,6 +69,7 @@ int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, i
 	//validate schema a little bit
 	if(schema->numFields > MAX_COLS) return 1;
 	int rowSize = getRowSize(schema);
+	//printf("row size: %d\n", rowSize);
 	if(rowSize <= 0) return rowSize;
 	if(BLOCK_DATA_SIZE/rowSize == 0) {//can't fit a row in a block of the data structure!
 		return 4;
@@ -204,9 +205,174 @@ int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal){
 	free(dummyRow);
 }
 
-int joinTables(char* tableName1, char* tableName2, int joinCol) {
+int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2) {//put the smaller table first for
 	//create an oram, do block nested loop join in it, and manually convert it to a linear scan table
-	//the conversion doesn't allow anything to be learned from the output of the
+	int structureId1 = getTableId(tableName1);
+	int structureId2 = getTableId(tableName2);
+	Obliv_Type type1 = oblivStructureTypes[structureId1];
+	Obliv_Type type2 = oblivStructureTypes[structureId2];
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	uint8_t* row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	uint8_t* row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	Oram_Block *block = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+	char* retTableName = "JoinTable";
+	char* realRetTableName = "JoinReturn";
+	int retStructId = -1;
+	int realRetStructId = -1;
+	int dummyVal = 0;
+
+	int size = 0;
+	if(numRows[structureId1] < numRows[structureId2]) size = numRows[structureId1];
+	else size = numRows[structureId2];
+
+	//figure out joined table schema
+	Schema s;
+	s.numFields = schemas[structureId1].numFields+schemas[structureId2].numFields - 2; //duplicate first field, duplicate join col
+	int shift = 0;
+	for(int i = 0; i < schemas[structureId1].numFields; i++){
+		s.fieldOffsets[i] = schemas[structureId1].fieldOffsets[i];
+		s.fieldSizes[i] = schemas[structureId1].fieldSizes[i];
+		s.fieldTypes[i] = schemas[structureId1].fieldTypes[i];
+		shift++;
+	}
+	for(int i = 1; i < schemas[structureId2].numFields; i++){
+		if(i == joinCol2) continue;
+		//printf("shift: %d\n", shift);
+		s.fieldOffsets[shift] = s.fieldOffsets[shift-1]+s.fieldSizes[shift-1];
+		s.fieldSizes[shift] = schemas[structureId2].fieldSizes[i];
+		s.fieldTypes[shift] = schemas[structureId2].fieldTypes[i];
+		shift++;
+	}
+
+	if(type1 == TYPE_LINEAR_SCAN && type2 == TYPE_LINEAR_SCAN){
+		//allocate hash table
+		uint8_t* hashTable = (uint8_t*)malloc(ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
+		uint8_t* hashIn = (uint8_t*)malloc(1+s.fieldSizes[joinCol1]);
+		sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
+		unsigned int index = 0;
+
+		//create oram "table"
+		createTable(&s, retTableName, strlen(retTableName), TYPE_ORAM, size, &retStructId);
+		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
+		//printf("table creation returned %d %d %d %d\n", out, retStructId, size, strlen(retTableName));
+
+		for(int i = 0; i < oblivStructureSizes[structureId1]; i+=(ROWS_IN_ENCLAVE/2)){
+			//initialize hash table
+			memset(hashTable, '\0', ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
+
+			for(int j = 0; j<(ROWS_IN_ENCLAVE/2); j++){
+				//get row
+				opOneLinearScanBlock(structureId1, i+j, (Linear_Scan_Block*)row, 0);
+				//insert into hash table
+				int insertCounter = 0;//increment on failure to insert, set to -1 on successful insertion
+
+				do{
+					//compute hash
+					hashIn[0] = insertCounter;
+					memcpy(&hashIn[1], &row[s.fieldOffsets[joinCol1]], s.fieldSizes[joinCol1]);
+					sgx_sha256_msg(hashIn, 1+s.fieldSizes[joinCol1], hashOut);
+					memcpy(&index, hashOut, 4);
+					index %= ROWS_IN_ENCLAVE;
+					//try inserting or increment counter
+					if(hashTable[BLOCK_DATA_SIZE*index] == '\0'){
+						memcpy(&hashTable[BLOCK_DATA_SIZE*index], row, BLOCK_DATA_SIZE);
+						insertCounter = -1;
+					}
+					else{
+						//printf("%d next\n", index);
+						insertCounter++;
+					}
+				}
+				while(insertCounter != -1);
+			}
+
+			for(int j = 0; j<oblivStructureSizes[structureId2]; j++){
+				//get row
+				opOneLinearScanBlock(structureId2, j, (Linear_Scan_Block*)row, 0);
+				int checkCounter = 0, match = -1;
+				do{
+					//compute hash
+					hashIn[0] = checkCounter;
+					memcpy(&hashIn[1], &row[s.fieldOffsets[joinCol1]], s.fieldSizes[joinCol1]);
+					sgx_sha256_msg(hashIn, 1+s.fieldSizes[joinCol1], hashOut);
+					memcpy(&index, hashOut, 4);
+					index %= ROWS_IN_ENCLAVE;
+					//compare hash against hash table
+					if(hashTable[BLOCK_DATA_SIZE*index] == '\0' || row[0] == '\0'){
+						checkCounter = -1;
+						//printf("here");
+					}
+					else if(memcmp(&row[schemas[structureId2].fieldOffsets[joinCol2]], &hashTable[index*BLOCK_DATA_SIZE+s.fieldOffsets[joinCol1]], s.fieldSizes[joinCol1]) == 0){//match
+						//printf("valid byte: %d %d\n", hashTable[BLOCK_DATA_SIZE*index], hashTable[BLOCK_DATA_SIZE*index+1]);
+
+						//printf("matching vals: %d %d %d\n", row[schemas[structureId2].fieldOffsets[joinCol2]], hashTable[index*BLOCK_DATA_SIZE+s.fieldOffsets[joinCol1]], s.fieldSizes[joinCol1]);
+						match = index;
+						checkCounter = -1;
+					}
+					else{//false match
+						checkCounter++;
+					}
+
+				}while(checkCounter != -1);
+
+				if(match != -1){
+					//assemble new row
+					memcpy(&row1[0], &hashTable[match*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
+					shift = getRowSize(&schemas[structureId1]);
+					for(int k = 1; k < schemas[structureId2].numFields; k++){
+						if(k == joinCol2) continue;
+						memcpy(&row1[shift], &row[schemas[structureId2].fieldOffsets[k]], schemas[structureId2].fieldSizes[k]);
+						shift+= schemas[structureId2].fieldSizes[k];
+					}
+					match = 1;
+				}
+				else{//dummy op
+					memcpy(&row1[0], &hashTable[0*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
+					shift = getRowSize(&schemas[structureId1]);
+					for(int k = 1; k < schemas[structureId2].numFields; k++){
+						if(k == joinCol2) continue;
+						memcpy(&row1[shift], &row[schemas[structureId2].fieldOffsets[k]], schemas[structureId2].fieldSizes[k]);
+						shift+= schemas[structureId2].fieldSizes[k];
+					}
+					match = 0;
+				}
+
+
+				block->actualAddr = numRows[retStructId];
+				memcpy(&block->data[0], &row1[0], BLOCK_DATA_SIZE);
+
+				//do oram op, write if there's a match
+				//printf("here? %d %d", retStructId, numRows[retStructId]);
+				opOramBlock(retStructId, numRows[retStructId], block, match);
+				if(match) {
+					//printf("here? %d\n", numRows[retStructId]);
+					numRows[retStructId]++;
+				}
+				else {
+					dummyVal++;
+				}
+
+			}
+			//printTable("JoinTable");
+		}
+		for(int i = 0; i < size; i++){
+			opOramBlock(retStructId, i, block, 0);
+			opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)&block->data[0], 1);
+		}
+
+		deleteTable("JoinTable");
+
+		free(hashTable);
+		free(hashIn);
+		free(hashOut);
+	}
+	else{
+		return 1;//TODO
+	}
+	free(row);
+	free(row1);
+	free(row2);
+	free(block);
 }
 
 //groupCol = -1 means not to order or group by, aggregate = -1 means no aggregate, aggregate = 0 count, 1 sum, 2 min, 3 max, 4 mean
@@ -214,6 +380,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol) {
 //select column colNum; if colChoice = -1, select all columns
 int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice) {
 	int structureId = getTableId(tableName);
+
 	Obliv_Type type = oblivStructureTypes[structureId];
 	int colChoiceSize = BLOCK_DATA_SIZE;
 	DB_Type colChoiceType = INTEGER;
@@ -269,6 +436,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 							}
 						}
 				}
+
 				if(count > oblivStructureSizes[structureId]*.01*PERCENT_ALMOST_ALL && colChoice == -1){ //return almost all only if the whole row is selected (to make my life easier)
 					almostAll = 1;
 				}
@@ -301,7 +469,8 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				}
 
 				//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
-				createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
+				int out = createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
+				printf("%d |\n", out);
 				//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
 				//printf("%s\n", tableNames[retStructId]);
 				//printTable("ReturnTable");
@@ -486,10 +655,12 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				}
 
 			}
-			else{//doing an aggregate with no group by
+			else{//doing an aggregate with no group byprintf("here %d", structureId);
 				if(colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER){
 					return 1;
 				}
+				//printf("here %d", structureId);
+
 				retNumRows = 1;
 				retSchema.numFields = 2;
 				retSchema.fieldOffsets[0] = 0;
@@ -742,9 +913,8 @@ int printTableCheating(char* tableName){//non-oblivious version that's good for 
 	}
 }
 
-int printTable(char* tableName){
+int printTable(char* tableName){//only for linear scan tables
 	//looks like select small since all other selects have possibility of including empties in output and we can't do dummies here
-	//also, start from random position and wrap around so as not to give away what's at the beginning vs end of the data structure
 	int structureId = getTableId(tableName);
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	uint8_t* dummy = (uint8_t*)malloc(BLOCK_DATA_SIZE);

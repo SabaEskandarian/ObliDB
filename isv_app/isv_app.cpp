@@ -923,6 +923,23 @@ int main(int argc, char* argv[])
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
 		*/
 
+        //test join
+        /*
+        createTestTable(enclave_id, (int*)&status, "join1", 50);
+        createTestTable(enclave_id, (int*)&status, "join2", 50);
+        deleteRows(enclave_id, (int*)&status, "join2", condition1);
+        printTable(enclave_id, (int*)&status, "join2");
+        joinTables(enclave_id, (int*)&status, "join1", "join2", 1, 1);
+        printTable(enclave_id, (int*)&status, "JoinReturn");
+        printTable(enclave_id, (int*)&status, "join2");
+        selectRows(enclave_id, (int*)&status, "JoinReturn", 1, condition3, 0, 3, -1);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "JoinReturn");
+        */
+
+
+
         //ret = newStructure(enclave_id, TYPE_TREE_ORAM, (*oramCapacity*2-1)*BUCKET_SIZE); //real size of oram is bigger than logical size
         //JK, ignore all this, I'm going to call the testing ecall. TODO: clean this and the service_provider up later
         //ret = newStructure(enclave_id, TYPE_LINEAR_SCAN, 7);//as per the requirements of the hard-coded test

@@ -14,7 +14,7 @@ int logicalSizes[NUM_STRUCTURES] = {0};
 
 
 int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write){
-	if(oblivStructureTypes[structureId] != TYPE_LINEAR_SCAN) return 1; //if the designated data structure is not a linear scan structure
+	//if(oblivStructureTypes[structureId] != TYPE_LINEAR_SCAN) return 1; //if the designated data structure is not a linear scan structure
 	int size = oblivStructureSizes[structureId];
 	int blockSize = sizeof(Linear_Scan_Block);
 	int encBlockSize = sizeof(Encrypted_Linear_Scan_Block);
@@ -155,7 +155,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	//empty bucket to write to structure to erase stale data from tree
 	uint8_t* junk = (uint8_t*)malloc(bucketSize);
 	uint8_t* encJunk = (uint8_t*)malloc(encBucketSize);
-	memset(junk, 0xff, bucketSize);
+	memset(junk, '\0', bucketSize);
 	memset(encJunk, 0xff, encBucketSize);
 	if(encryptBlock(encJunk, junk, obliv_key, TYPE_ORAM)) return 1;
 

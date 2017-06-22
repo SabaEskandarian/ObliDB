@@ -59,7 +59,7 @@ int getDBTypeSize(DB_Type type){
 int getRowSize(Schema *schema){
 	int rowSize = 0;
 	for(int i = 0; i < schema->numFields; i++){
-		if(schema->fieldOffsets[i] != rowSize) return -1;//offsets wrong
+		if(schema->fieldOffsets[i] != rowSize) return -i;//offsets wrong
 		if(i > 0 && schema->fieldOffsets[i] != schema->fieldOffsets[i-1]+getDBTypeSize(schema->fieldTypes[i-1])) return -2; //offsets wrong
 		rowSize += schema->fieldSizes[i];
 	}
