@@ -61,9 +61,6 @@ enclave {
         public sgx_status_t send_msg([in,size=message_size] uint8_t* message, size_t message_size, [in, count=16] uint8_t* gcm_mac);//TODO        
         public sgx_status_t total_init();
 		public sgx_status_t run_tests();
-		public sgx_status_t setup_timed_test_encrypted(int numberOfRows, Schema tempSchema);
-		public sgx_status_t setup_timed_test_unencrypted(int numberOfRows, Schema tempSchema);
-		public sgx_status_t linScanTimedTest(int numberOfRows, Schema tempSchema, [in, size=4] uint8_t* query, [out, size=respLen]uint8_t* response, int respLen);
 		public sgx_status_t setupPerformanceTest(int structNum, int size, Obliv_Type type);
 		public sgx_status_t testLinScanBlockPerformance(int structNum, int queryIndex, [out, size=respLen]Linear_Scan_Block* b, int respLen);
 		public sgx_status_t testLinScanBlockUnencryptedPerformance(int structNum, int queryIndex, [out, size=respLen]Linear_Scan_Block* b, int respLen);
@@ -75,6 +72,20 @@ enclave {
 		public sgx_status_t oramDistribution(int structureId);
 		public sgx_status_t free_oram(int structureId);
 		public sgx_status_t testMemory();
+		
+		//I got lazy here
+		public int rowMatchesCondition(Condition c, [user_check]uint8_t* row, Schema s);
+		public int createTable([user_check]Schema *schema, [user_check]char* tableName, int nameLen, Obliv_Type type, int numberOfRows, [user_check]int* structureId);
+		public int growStructure(int structureId);
+		public int getTableId([user_check]char *tableName);
+		public int insertRow([user_check]char* tableName, [user_check]uint8_t* row);
+		public int deleteRows([user_check]char* tableName, Condition c);
+		public int updateRows([user_check]char* tableName, Condition c, int colChoice, [user_check]uint8_t* colVal);
+		public int selectRows([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
+		public int printTable([user_check]char* tableName);
+		public int createTestTable([user_check]char* tableName, int numRows);
+		public Schema getTableSchema([user_check]char *tableName);
+		public int deleteTable([user_check]char *tableName);
 		
     };
 

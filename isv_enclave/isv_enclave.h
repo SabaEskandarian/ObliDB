@@ -15,7 +15,7 @@
 extern sgx_aes_gcm_128bit_key_t *obliv_key;
 //for keeping track of structures, should reflect the structures held by the untrusted app;
 extern int oblivStructureSizes[NUM_STRUCTURES]; //actual size, not logical size for orams
-extern int oblivStructureTypes[NUM_STRUCTURES];
+extern Obliv_Type oblivStructureTypes[NUM_STRUCTURES];
 //specific to database application, hidden from app
 extern Schema schemas[NUM_STRUCTURES];
 extern char* tableNames[NUM_STRUCTURES];
@@ -58,7 +58,11 @@ extern int getTableId(char *tableName);
 extern int insertRow(char* tableName, uint8_t* row);
 extern int deleteRows(char* tableName, Condition c);
 extern int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal);
-extern int select(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
+extern int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
+extern int printTable(char* tableName);
+extern int createTestTable(char* tableName, int numRows);
+extern Schema getTableSchema(char *tableName);
+extern int deleteTable(char *tableName);
 //joins are still absent
 
 //enclave_tests.cpp
@@ -73,8 +77,3 @@ extern sgx_status_t testOramPerformance(int structNum, int queryIndex, Oram_Bloc
 extern sgx_status_t testOramSafePerformance(int structNum, int queryIndex, Oram_Block* b, int respLen);
 extern sgx_status_t testOpOram();
 extern sgx_status_t testOpLinScanBlock();
-extern sgx_status_t testLinScan(int order);
-extern sgx_status_t testLinScanUnencrypted(int order);
-extern sgx_status_t setup_timed_test_encrypted(int numberOfRows, Schema tempSchema);
-extern sgx_status_t setup_timed_test_unencrypted(int numberOfRows, Schema tempSchema);
-extern sgx_status_t linScanTimedTest(int numberOfRows, Schema tempSchema, uint8_t* query, uint8_t* response, int respLen);

@@ -52,9 +52,6 @@ int getDBTypeSize(DB_Type type){
 	case CHAR:
 		ret = 1;
 		break;
-	case FLOAT:
-		ret = 4;
-		break;
 	}
 	return ret;
 }

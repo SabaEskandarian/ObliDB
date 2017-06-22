@@ -5,7 +5,7 @@
 sgx_aes_gcm_128bit_key_t *obliv_key;
 //for keeping track of structures, should reflect the structures held by the untrusted app;
 int oblivStructureSizes[NUM_STRUCTURES] = {0}; //actual size, not logical size for orams
-int oblivStructureTypes[NUM_STRUCTURES] = {0};
+Obliv_Type oblivStructureTypes[NUM_STRUCTURES];
 //specific to oram structures
 unsigned int* positionMaps[NUM_STRUCTURES] = {0};
 std::list<Oram_Block>* stashes[NUM_STRUCTURES];
@@ -689,7 +689,6 @@ sgx_status_t free_structure(int structureId) {
 	}
 	stashOccs[structureId] = 0;
 	logicalSizes[structureId] = 0;
-	oblivStructureTypes[structureId] = 0;
 	oblivStructureSizes[structureId] = 0; //most important since this is what we use to check if a slot is open
 	return ret;
 }

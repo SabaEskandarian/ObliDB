@@ -127,6 +127,7 @@ void PRINT_ATTESTATION_SERVICE_RESPONSE(
     {
         sgx_ra_msg2_t* p_msg2_body = (sgx_ra_msg2_t*)(response->body);
 
+        /*
         fprintf(file, "MSG2 gb - ");
         PRINT_BYTE_ARRAY(file, &(p_msg2_body->g_b), sizeof(p_msg2_body->g_b));
 
@@ -147,11 +148,13 @@ void PRINT_ATTESTATION_SERVICE_RESPONSE(
         fprintf(file, "MSG2 sig_rl - ");
         PRINT_BYTE_ARRAY(file, &(p_msg2_body->sig_rl),
                          p_msg2_body->sig_rl_size);
+        */
     }
     else if(response->type == TYPE_RA_ATT_RESULT)
     {
         sample_ra_att_result_msg_t *p_att_result =
             (sample_ra_att_result_msg_t *)(response->body);
+        /*
         fprintf(file, "ATTESTATION RESULT MSG platform_info_blob - ");
         PRINT_BYTE_ARRAY(file, &(p_att_result->platform_info_blob),
                          sizeof(p_att_result->platform_info_blob));
@@ -165,6 +168,7 @@ void PRINT_ATTESTATION_SERVICE_RESPONSE(
         fprintf(file, "ATTESTATION RESULT MSG secret.payload - ");
         PRINT_BYTE_ARRAY(file, p_att_result->secret.payload,
                 p_att_result->secret.payload_size);
+        */
     }
     else
     {
@@ -284,8 +288,8 @@ int main(int argc, char* argv[])
 
         if( VERIFICATION_INDEX_IS_VALID())
         {
-            fprintf(OUTPUT, "\nVerifying precomputed attestation messages "
-                            "using precomputed values# %d\n", verify_index);
+            //fprintf(OUTPUT, "\nVerifying precomputed attestation messages "
+            //                "using precomputed values# %d\n", verify_index);
         }
         else
         {
@@ -328,14 +332,14 @@ int main(int argc, char* argv[])
         *(uint32_t*)((uint8_t*)p_msg0_full + sizeof(ra_samp_request_header_t)) = extended_epid_group_id;
         {
 
-            fprintf(OUTPUT, "\nMSG0 body generated -\n");
+            //fprintf(OUTPUT, "\nMSG0 body generated -\n");
 
-            PRINT_BYTE_ARRAY(OUTPUT, p_msg0_full->body, p_msg0_full->size);
+            //PRINT_BYTE_ARRAY(OUTPUT, p_msg0_full->body, p_msg0_full->size);
 
         }
         // The ISV application sends msg0 to the SP.
         // The ISV decides whether to support this extended epid group id.
-        fprintf(OUTPUT, "\nSending msg0 to remote attestation service provider.\n");
+        //fprintf(OUTPUT, "\nSending msg0 to remote attestation service provider.\n");
 
         ret = ra_network_send_receive("http://SampleServiceProvider.intel.com/",
             p_msg0_full,
@@ -346,7 +350,7 @@ int main(int argc, char* argv[])
                 "[%s].", __FUNCTION__);
             goto CLEANUP;
         }
-        fprintf(OUTPUT, "\nSent MSG0 to remote attestation service.\n");
+        //fprintf(OUTPUT, "\nSent MSG0 to remote attestation service.\n");
     }
     // Remote attestation will be initiated the ISV server challenges the ISV
     // app or if the ISV app detects it doesn't have the credentials
@@ -416,11 +420,11 @@ int main(int argc, char* argv[])
         }
         else
         {
-            fprintf(OUTPUT, "\nCall sgx_ra_get_msg1 success.\n");
+            //fprintf(OUTPUT, "\nCall sgx_ra_get_msg1 success.\n");
 
-            fprintf(OUTPUT, "\nMSG1 body generated -\n");
+            //fprintf(OUTPUT, "\nMSG1 body generated -\n");
 
-            PRINT_BYTE_ARRAY(OUTPUT, p_msg1_full->body, p_msg1_full->size);
+            //PRINT_BYTE_ARRAY(OUTPUT, p_msg1_full->body, p_msg1_full->size);
 
         }
 
@@ -434,15 +438,15 @@ int main(int argc, char* argv[])
             fprintf(OUTPUT, "\nInstead of using the recently generated MSG1, "
                             "we will use the following precomputed MSG1 -\n");
 
-            PRINT_BYTE_ARRAY(OUTPUT, p_msg1_full->body, p_msg1_full->size);
+            //PRINT_BYTE_ARRAY(OUTPUT, p_msg1_full->body, p_msg1_full->size);
         }
 
 
         // The ISV application sends msg1 to the SP to get msg2,
         // msg2 needs to be freed when no longer needed.
         // The ISV decides whether to use linkable or unlinkable signatures.
-        fprintf(OUTPUT, "\nSending msg1 to remote attestation service provider."
-                        "Expecting msg2 back.\n");
+        //fprintf(OUTPUT, "\nSending msg1 to remote attestation service provider."
+          //              "Expecting msg2 back.\n");
 
 
         ret = ra_network_send_receive("http://SampleServiceProvider.intel.com/",
@@ -476,9 +480,9 @@ int main(int argc, char* argv[])
                 memcpy_s(p_msg2_full, msg2_full_size, precomputed_msg2,
                          msg2_full_size);
 
-                PRINT_BYTE_ARRAY(OUTPUT, p_msg2_full,
-                                 sizeof(ra_samp_response_header_t)
-                                 + p_msg2_full->size);
+                //PRINT_BYTE_ARRAY(OUTPUT, p_msg2_full,
+                //                 sizeof(ra_samp_response_header_t)
+                //                 + p_msg2_full->size);
             }
             else
             {
@@ -506,14 +510,14 @@ int main(int argc, char* argv[])
                 }
             }
 
-            fprintf(OUTPUT, "\nSent MSG1 to remote attestation service "
-                            "provider. Received the following MSG2:\n");
-            PRINT_BYTE_ARRAY(OUTPUT, p_msg2_full,
-                             sizeof(ra_samp_response_header_t)
-                             + p_msg2_full->size);
+            //fprintf(OUTPUT, "\nSent MSG1 to remote attestation service "
+            //                "provider. Received the following MSG2:\n");
+            //PRINT_BYTE_ARRAY(OUTPUT, p_msg2_full,
+             //                sizeof(ra_samp_response_header_t)
+              //               + p_msg2_full->size);
 
-            fprintf(OUTPUT, "\nA more descriptive representation of MSG2:\n");
-            PRINT_ATTESTATION_SERVICE_RESPONSE(OUTPUT, p_msg2_full);
+            //fprintf(OUTPUT, "\nA more descriptive representation of MSG2:\n");
+            //PRINT_ATTESTATION_SERVICE_RESPONSE(OUTPUT, p_msg2_full);
 
             if( VERIFICATION_INDEX_IS_VALID() )
             {
@@ -523,7 +527,7 @@ int main(int argc, char* argv[])
                     msg2_samples[GET_VERIFICATION_ARRAY_INDEX()];
                 if(memcmp( precomputed_msg2, p_msg2_full,
                    sizeof(ra_samp_response_header_t) + p_msg2_full->size))
-                {
+                {/*
                     fprintf(OUTPUT, "\nVerification ERROR. Our precomputed "
                                     "value for MSG2 does NOT match.\n");
                     fprintf(OUTPUT, "\nPrecomputed value for MSG2:\n");
@@ -533,7 +537,7 @@ int main(int argc, char* argv[])
                     fprintf(OUTPUT, "\nA more descriptive representation "
                                     "of precomputed value for MSG2:\n");
                     PRINT_ATTESTATION_SERVICE_RESPONSE(OUTPUT,
-                                                       precomputed_msg2);
+                                                       precomputed_msg2);*/
                 }
                 else
                 {
@@ -603,7 +607,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        PRINT_BYTE_ARRAY(OUTPUT, p_msg3, msg3_size);
+        //PRINT_BYTE_ARRAY(OUTPUT, p_msg3, msg3_size);
 
         p_msg3_full = (ra_samp_request_header_t*)malloc(
                        sizeof(ra_samp_request_header_t) + msg3_size);
@@ -675,8 +679,8 @@ int main(int argc, char* argv[])
         }
 
         fprintf(OUTPUT, "\nATTESTATION RESULT RECEIVED - ");
-        PRINT_BYTE_ARRAY(OUTPUT, p_att_result_msg_full->body,
-                         p_att_result_msg_full->size);
+        //PRINT_BYTE_ARRAY(OUTPUT, p_att_result_msg_full->body,
+        //                 p_att_result_msg_full->size);
 
 
         if( VERIFICATION_INDEX_IS_VALID() )
@@ -801,16 +805,119 @@ int main(int argc, char* argv[])
             &oramInitMsg_resp);
         if (ret != 0)
         {
-            fprintf(OUTPUT, "\nError, ra_network_send_receive for oramInitMsg failed "
-                "[%s].", __FUNCTION__);
+            //fprintf(OUTPUT, "\nError, ra_network_send_receive for oramInitMsg failed "
+             //   "[%s].", __FUNCTION__);
             goto CLEANUP;
         }
-        fprintf(OUTPUT, "\nSent oram init to remote attestation service.\n");
+        //fprintf(OUTPUT, "\nSent oram init to remote attestation service.\n");
 
         //now use the request in oramInitMsg to initialize oram
 
         unsigned int *oramCapacity = (unsigned int*)malloc(sizeof(int));
         memcpy(oramCapacity, oramInitMsg_resp->body, sizeof(int));
+
+
+        //Tests for database functionalities here
+
+        Condition condition1, condition2, condition3;
+        char a = 'a', b = 'b', c='c';
+        int low = 1, high = 200;
+        condition1.numClauses = 2;
+        condition1.fieldNums[0] = 3;
+        condition1.fieldNums[1] = 3;
+        condition1.conditionType[0] = 0;
+        condition1.conditionType[1] = 0;
+        condition1.values[0] = (uint8_t*)&a;
+        condition1.values[1] = (uint8_t*)&b;
+        condition1.nextCondition = &condition2;
+        condition2.numClauses = 1;
+        condition2.fieldNums[0] = 1;
+        condition2.conditionType[0] = 1;
+        condition2.values[0] = (uint8_t*)&low;
+        condition2.nextCondition = &condition3;
+        condition3.numClauses = 1;
+        condition3.fieldNums[0] = 1;
+        condition3.conditionType[0] = -1;
+        condition3.values[0] = (uint8_t*)&high;
+        condition3.nextCondition = NULL;
+
+        //test to create table and print it
+        createTestTable(enclave_id, (int*)&status, "myTestTable", 10);
+        printTable(enclave_id, (int*)&status, "myTestTable");
+
+        //test to satisfy conditions on rows
+        Schema s;
+        getTableSchema(enclave_id, &s, "myTestTable");
+        uint8_t* row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+        row1[0] = 'a';
+        int val = 260;
+        memcpy(&row1[1], &val, 4);
+        //row1[1] = 260;
+        int val2 = 313;
+        memcpy(&row1[5], &val2, 4);
+        row1[9] = 'b';
+        int output = 0;
+        rowMatchesCondition(enclave_id, &output, condition1, row1, s);
+        printf("row1 matches condition: %d", output);
+
+        //test to insert, update, delete
+        /*
+        insertRow(enclave_id, (int*)&status, "myTestTable", row1);
+        insertRow(enclave_id, (int*)&status, "myTestTable", row1);
+        printTable(enclave_id, (int*)&status, "myTestTable");
+        updateRows(enclave_id, (int*)&status, "myTestTable", condition2, 2, &row1[5]);
+        printTable(enclave_id, (int*)&status, "myTestTable");
+        deleteRows(enclave_id, (int*)&status, "myTestTable", condition2);
+        printTable(enclave_id, (int*)&status, "myTestTable");
+        */
+
+        //test select aggregate without group
+//int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice)
+        selectRows(enclave_id, (int*)&status, "myTestTable", 1, condition2, 0, -1, -1);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+        /*
+        //test select continuous:
+        selectRows(enclave_id, (int*)&status, "myTestTable", -1, condition2, -1, -1, -1);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+         */
+        /*
+        //test select almost all: (depending on how much extra space is left in the table data structure)
+        createTestTable(enclave_id, (int*)&status, "myTestTable2", 110);
+        insertRow(enclave_id, (int*)&status, "myTestTable2", row1);
+        insertRow(enclave_id, (int*)&status, "myTestTable2", row1);
+        printTable(enclave_id, (int*)&status, "myTestTable2");
+        selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+        */
+
+        //test select small:
+        /*
+        createTestTable(enclave_id, (int*)&status, "myTestTable2", 50);
+        insertRow(enclave_id, (int*)&status, "myTestTable2", row1);
+        insertRow(enclave_id, (int*)&status, "myTestTable2", row1);
+        printTable(enclave_id, (int*)&status, "myTestTable2");
+        selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	*/
+
+        //test group by
+        //int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice)
+        selectRows(enclave_id, (int*)&status, "myTestTable", 1, condition1, 0, 3, -1);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+
+        //test select hash
+        createTestTable(enclave_id, (int*)&status, "myTestTable2", 50);
+        insertRow(enclave_id, (int*)&status, "myTestTable2", row1);
+        selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
         //ret = newStructure(enclave_id, TYPE_TREE_ORAM, (*oramCapacity*2-1)*BUCKET_SIZE); //real size of oram is bigger than logical size
         //JK, ignore all this, I'm going to call the testing ecall. TODO: clean this and the service_provider up later
@@ -821,82 +928,18 @@ int main(int argc, char* argv[])
         	goto CLEANUP;
         }*/
 
-/*   tests for db
 
-        //set up timed tests
-    	Schema tempSchema = {3, {0, 4, 8}, {4, 4, 255}, {INTEGER, INTEGER, TINYTEXT}, 3};
-    	Schema tempSchema2 = {3, {0, 4, 8}, {4, 4, 255}, {INTEGER, INTEGER, TINYTEXT}, 4};
-        int numberOfRows = 4000000;
-
-        time_t startSetup1 = clock();
-        setup_timed_test_encrypted(enclave_id, &status, numberOfRows, tempSchema);
-        time_t endSetup1= clock();
-        double elapsedSetup1 = (double)(endSetup1 - startSetup1)/(CLOCKS_PER_SEC);
-        printf("setup timed_test_encrypted for %d rows of size %d with block data size %d took %f seconds\n", numberOfRows, getRowSize(&tempSchema), BLOCK_DATA_SIZE, elapsedSetup1);
-
-        time_t startSetup2 = clock();
-        setup_timed_test_unencrypted(enclave_id, &status, numberOfRows, tempSchema2);
-        time_t endSetup2 = clock();
-        double elapsedSetup2 = (double)(endSetup2 - startSetup2)/(CLOCKS_PER_SEC);
-        printf("setup timed_test_unencrypted for %d rows of size %d with block data size %d took %f seconds\n", numberOfRows, getRowSize(&tempSchema), BLOCK_DATA_SIZE, elapsedSetup2);
-
-        if(ret || status != SGX_SUCCESS){
-        	printf("setting up timed tests failed.\n");
-        	goto CLEANUP;
-        }
-        printf("initialization completed.\n");
-
-        int numQueries = 10;
-        uint8_t query[4] = {0xff, 0xff, 0xff, 0xff};
-        int respBufferSize = getRowSize(&tempSchema)*3;
-        uint8_t* response = (uint8_t*) malloc(respBufferSize);//very unlikely that there will be more rows of all 0xff except the planted one
-        time_t startScan1 = clock();
-        for(int i = 0; i < numQueries; i++){
-            linScanTimedTest(enclave_id, &status, numberOfRows, tempSchema, query, response, respBufferSize);
-        }
-        time_t endScan1 = clock();
-        double elapsedScan1 = (double)(endScan1 - startScan1)/(CLOCKS_PER_SEC);
-
-        //just check the response once since it's the same query every time anyway
-        if(*((int*)response) != 0xffffffff || *((int*)(response+4)) != 0xffffffff){
-        	printf("unexpected query response from linear scan!\n");
-        	ret = 1;
-        }
-
-        printf("%d queries in linScanTimedTest for %d rows with block data size %d took %f seconds\n", numQueries, numberOfRows, BLOCK_DATA_SIZE, elapsedScan1);
-        time_t startScan2 = clock();
-        for(int i = 0; i < numQueries; i++){
-            linScanTimedTest(enclave_id, &status, numberOfRows, tempSchema2, query, response, respBufferSize);
-        }
-        time_t endScan2 = clock();
-        double elapsedScan2 = (double)(endScan2 - startScan2)/(CLOCKS_PER_SEC);
-
-        //just check the response once since it's the same query every time anyway; I'll just compare the integer fields because I'm being lazy
-        if(*((int*)response) != 0xffffffff || *((int*)(response+4)) != 0xffffffff){
-        	printf("unexpected query response from unencrypted linear scan!\n");
-        	ret = 1;
-        }
-
-        printf("%d queries in linScanTimedTest (unencrypted) for %d rows with block data size %d took %f seconds\n", numQueries, numberOfRows, BLOCK_DATA_SIZE, elapsedScan2);
-
-        if(ret || status != SGX_SUCCESS){
-        	printf("running timed tests failed %d %d.\n", ret, status);
-        	goto CLEANUP;
-        }
-        printf("tests completed.\n");
-
- */
         //testMemory(enclave_id, &status);
 
         //begin performance tests for data structures
 
-        int numQueries = 50;
-        int numBlocks = pow(2, NUM_BLOCKS_POW)-1;
+        //int numQueries = 50;
+        //int numBlocks = pow(2, NUM_BLOCKS_POW)-1;
         //for(int n = 5; n < 6; n++){//make this something like 150 later and run for many different data block sizes
         	//numBlocks = pow(2, n)-1;
             //set up encrypted linear scan
 
-        switch(TEST_TYPE){
+        /*switch(TEST_TYPE){
         case 1:
         {
             printf("setting up encrypted linear scan\n");
@@ -1084,7 +1127,7 @@ int main(int argc, char* argv[])
         default:
         	printf("invalid TEST_TYPE!\n");
         	break;
-        }
+        }*/
 
 
 

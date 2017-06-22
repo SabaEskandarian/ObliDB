@@ -588,13 +588,13 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
             break;
         }
         FILE* OUTPUT = stdout;
-        fprintf(OUTPUT, "\n\n\tAtestation Report:");
-        fprintf(OUTPUT, "\n\tid: 0x%0x.", attestation_report.id);
-        fprintf(OUTPUT, "\n\tstatus: %d.", attestation_report.status);
-        fprintf(OUTPUT, "\n\trevocation_reason: %u.",
-                attestation_report.revocation_reason);
+       //fprintf(OUTPUT, "\n\n\tAtestation Report:");
+       //fprintf(OUTPUT, "\n\tid: 0x%0x.", attestation_report.id);
+       // fprintf(OUTPUT, "\n\tstatus: %d.", attestation_report.status);
+       // fprintf(OUTPUT, "\n\trevocation_reason: %u.",
+       //         attestation_report.revocation_reason);
         // attestation_report.info_blob;
-        fprintf(OUTPUT, "\n\tpse_status: %d.",  attestation_report.pse_status);
+       // fprintf(OUTPUT, "\n\tpse_status: %d.",  attestation_report.pse_status);
         // Note: This sample always assumes the PIB is sent by attestation server.  In the product
         // implementation, the attestation server could only send the PIB for certain attestation 
         // report statuses.  A product SP implementation needs to handle cases
@@ -634,47 +634,47 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
         // when sent. No need to have the Service Provider to check it.  The SP
         // should pass it down to the application for further analysis.
 
-        fprintf(OUTPUT, "\n\n\tEnclave Report:");
-        fprintf(OUTPUT, "\n\tSignature Type: 0x%x", p_quote->sign_type);
-        fprintf(OUTPUT, "\n\tSignature Basename: ");
-        for(i=0; i<sizeof(p_quote->basename.name) && p_quote->basename.name[i];
-            i++)
-        {
-            fprintf(OUTPUT, "%c", p_quote->basename.name[i]);
-        }
+        //fprintf(OUTPUT, "\n\n\tEnclave Report:");
+        //fprintf(OUTPUT, "\n\tSignature Type: 0x%x", p_quote->sign_type);
+        //fprintf(OUTPUT, "\n\tSignature Basename: ");
+        //for(i=0; i<sizeof(p_quote->basename.name) && p_quote->basename.name[i];
+        //    i++)
+        //{
+        //    fprintf(OUTPUT, "%c", p_quote->basename.name[i]);
+        //}
 #ifdef __x86_64__
-        fprintf(OUTPUT, "\n\tattributes.flags: 0x%0lx",
-                p_quote->report_body.attributes.flags);
-        fprintf(OUTPUT, "\n\tattributes.xfrm: 0x%0lx",
-                p_quote->report_body.attributes.xfrm);
+        //fprintf(OUTPUT, "\n\tattributes.flags: 0x%0lx",
+        //        p_quote->report_body.attributes.flags);
+        //fprintf(OUTPUT, "\n\tattributes.xfrm: 0x%0lx",
+        //        p_quote->report_body.attributes.xfrm);
 #else
-        fprintf(OUTPUT, "\n\tattributes.flags: 0x%0llx",
-                p_quote->report_body.attributes.flags);
-        fprintf(OUTPUT, "\n\tattributes.xfrm: 0x%0llx",
-                p_quote->report_body.attributes.xfrm);
+        //fprintf(OUTPUT, "\n\tattributes.flags: 0x%0llx",
+        //        p_quote->report_body.attributes.flags);
+        //fprintf(OUTPUT, "\n\tattributes.xfrm: 0x%0llx",
+        //        p_quote->report_body.attributes.xfrm);
 #endif
-        fprintf(OUTPUT, "\n\tmr_enclave: ");
-        for(i=0;i<sizeof(sample_measurement_t);i++)
-        {
+        //fprintf(OUTPUT, "\n\tmr_enclave: ");
+        //for(i=0;i<sizeof(sample_measurement_t);i++)
+        //{
 
-            fprintf(OUTPUT, "%02x",p_quote->report_body.mr_enclave[i]);
+            //fprintf(OUTPUT, "%02x",p_quote->report_body.mr_enclave[i]);
 
             //fprintf(stderr, "%02x",p_quote->report_body.mr_enclave.m[i]);
 
-        }
-        fprintf(OUTPUT, "\n\tmr_signer: ");
-        for(i=0;i<sizeof(sample_measurement_t);i++)
-        {
+        //}
+        //fprintf(OUTPUT, "\n\tmr_signer: ");
+        //for(i=0;i<sizeof(sample_measurement_t);i++)
+        //{
 
-            fprintf(OUTPUT, "%02x",p_quote->report_body.mr_signer[i]);
+          //  fprintf(OUTPUT, "%02x",p_quote->report_body.mr_signer[i]);
 
             //fprintf(stderr, "%02x",p_quote->report_body.mr_signer.m[i]);
 
-        }
-        fprintf(OUTPUT, "\n\tisv_prod_id: 0x%0x",
-                p_quote->report_body.isv_prod_id);
-        fprintf(OUTPUT, "\n\tisv_svn: 0x%0x",p_quote->report_body.isv_svn);
-        fprintf(OUTPUT, "\n");
+        //}
+        //fprintf(OUTPUT, "\n\tisv_prod_id: 0x%0x",
+         //       p_quote->report_body.isv_prod_id);
+        //fprintf(OUTPUT, "\n\tisv_svn: 0x%0x",p_quote->report_body.isv_svn);
+        //fprintf(OUTPUT, "\n");
 
         // A product service provider needs to verify that its enclave properties 
         // match what is expected.  The SP needs to check these values before
