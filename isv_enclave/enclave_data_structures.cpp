@@ -12,6 +12,38 @@ std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 int stashOccs[NUM_STRUCTURES] = {0};//stash occupancy, number of elements in stash
 int logicalSizes[NUM_STRUCTURES] = {0};
 
+
+int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write){
+	if(oblivStructureTypes[structureId] != TYPE_LINEAR_SCAN) return 1; //if the designated data structure is not a linear scan structure
+	int size = oblivStructureSizes[structureId];
+	int blockSize = sizeof(Linear_Scan_Block);
+	int encBlockSize = sizeof(Encrypted_Linear_Scan_Block);
+	int i = index;
+	//allocate dummy storage and real storage
+	Linear_Scan_Block* dummy = (Linear_Scan_Block*)malloc(blockSize);
+	Linear_Scan_Block* real = (Linear_Scan_Block*)malloc(blockSize);
+	Encrypted_Linear_Scan_Block* dummyEnc = (Encrypted_Linear_Scan_Block*)malloc(encBlockSize);
+	Encrypted_Linear_Scan_Block* realEnc = (Encrypted_Linear_Scan_Block*)malloc(encBlockSize);
+
+	ocall_read_block(structureId, i, encBlockSize, realEnc);//printf("here\n");
+	//printf("beginning of mac(op)? %d\n", realEnc->macTag[0]);
+	if(decryptBlock(realEnc, real, obliv_key, TYPE_LINEAR_SCAN) != 0) return 1;
+	if(write){//we leak whether an op is a read or a write; we could hide it, but it may not be necessary?
+		if(encryptBlock(realEnc, block, obliv_key, TYPE_LINEAR_SCAN)!=0) return 1; //replace encryption of real with encryption of block
+		ocall_write_block(structureId, i, encBlockSize, realEnc);
+	}//printf("end real\n");
+
+	//clean up
+	if(!write) memcpy(block, real, blockSize); //keep the value we extracted from real if we're reading
+
+	free(real);
+	free(dummy);
+	free(dummyEnc);
+	free(realEnc);
+
+	return 0;
+}
+
 //generic features I may want at some point
 int opLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write) {
 	if(oblivStructureTypes[structureId] != TYPE_LINEAR_SCAN) return 1; //if the designated data structure is not a linear scan structure

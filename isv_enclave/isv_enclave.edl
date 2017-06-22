@@ -86,6 +86,7 @@ enclave {
 		public int createTestTable([user_check]char* tableName, int numRows);
 		public Schema getTableSchema([user_check]char *tableName);
 		public int deleteTable([user_check]char *tableName);
+		public int joinTables([user_check]char* tableName1, [user_check]char* tableName2, int joinCol);
 		
     };
 

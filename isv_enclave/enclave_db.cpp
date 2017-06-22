@@ -128,13 +128,13 @@ int insertRow(char* tableName, uint8_t* row) {//trust that the row is good and i
 	switch(oblivStructureTypes[structureId]){
 	case TYPE_LINEAR_SCAN:
 		for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-			opLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 0);
+			opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 0);
 			if(tempRow[0] == '\0' && done == 0){
-				opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 1);
+				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 1);
 				done++;
 			}
 			else{
-				opLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
+				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
 				dummyDone++;
 			}
 		}
@@ -156,14 +156,14 @@ int deleteRows(char* tableName, Condition c) {
 	switch(oblivStructureTypes[structureId]){
 	case TYPE_LINEAR_SCAN:
 		for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-			opLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 0);
+			opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 0);
 			//delete if it matches the condition, write back otherwise
 			if(rowMatchesCondition(c, tempRow, schemas[structureId]) && tempRow[0] != '\0'){
-				opLinearScanBlock(structureId, i, (Linear_Scan_Block*)dummyRow, 1);
+				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)dummyRow, 1);
 				numRows[structureId]--;
 			}
 			else{
-				opLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
+				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
 				dummyVar--;
 			}
 		}
@@ -183,17 +183,17 @@ int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal){
 	switch(oblivStructureTypes[structureId]){
 	case TYPE_LINEAR_SCAN:
 		for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-			opLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 0);
+			opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 0);
 			//update if it matches the condition, write back otherwise
 			if(rowMatchesCondition(c, tempRow, schemas[structureId]) && tempRow[0] != '\0'){
 				//make changes
 				memcpy(&tempRow[schemas[structureId].fieldOffsets[colChoice]], colVal, schemas[structureId].fieldSizes[colChoice]);
-				opLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
+				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
 			}
 			else{
 				//make dummy changes
 				memcpy(&dummyRow[schemas[structureId].fieldOffsets[colChoice]], colVal, schemas[structureId].fieldSizes[colChoice]);
-				opLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
+				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
 			}
 		}
 		break;
@@ -202,6 +202,11 @@ int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal){
 	}
 	free(tempRow);
 	free(dummyRow);
+}
+
+int joinTables(char* tableName1, char* tableName2, int joinCol) {
+	//create an oram, do block nested loop join in it, and manually convert it to a linear scan table
+	//the conversion doesn't allow anything to be learned from the output of the
 }
 
 //groupCol = -1 means not to order or group by, aggregate = -1 means no aggregate, aggregate = 0 count, 1 sum, 2 min, 3 max, 4 mean
@@ -243,25 +248,26 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				int continuous = 0;
 				int small = 0;
 				int contTemp = 0;
+				int dummyVar = 0;
 				//first pass to determine 1) output size (count), 2) whether output is one continuous chunk (continuous)
 				for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-					opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+					opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 					row = ((Linear_Scan_Block*)row)->data;
-					if(row[0] == '\0') continue;
-					if(rowMatchesCondition(c, row, schemas[structureId])){
-						count++;
-						if(!continuous && !contTemp){//first hit
-							continuous = 1;
+						if(rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0'){
+							count++;
+							if(!continuous && !contTemp){//first hit
+								continuous = 1;
+							}
+							else if(continuous && contTemp){//a noncontinuous hit
+								continuous = 0;
+							}
 						}
-						else if(continuous && contTemp){//a noncontinuous hit
-							continuous = 0;
+						else{
+							dummyVar++;
+							if(continuous && !contTemp){//end of continuous chunk
+								contTemp = 1;
+							}
 						}
-					}
-					else{
-						if(continuous && !contTemp){//end of continuous chunk
-							contTemp = 1;
-						}
-					}
 				}
 				if(count > oblivStructureSizes[structureId]*.01*PERCENT_ALMOST_ALL && colChoice == -1){ //return almost all only if the whole row is selected (to make my life easier)
 					almostAll = 1;
@@ -304,27 +310,25 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				//pick algorithm
 				if(continuous){//use continuous chunk algorithm
 					printf("CONTINUOUS\n");
-					int rowi = -1, dummyVar = 0;
+					int rowi = -1, dummyVar = 0;//NOTE: rowi left in for historical reasons; it should be replaced by i
 					for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-						opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+						opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 						row = ((Linear_Scan_Block*)row)->data;
-						if(row[0] == '\0') continue;
-						else rowi++;
-
-						opLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row2, 0);
+						rowi++;
+						opOneLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row2, 0);
 						row2 = ((Linear_Scan_Block*)row2)->data;
-						if(row[0] == '\0') continue;
-						int match = rowMatchesCondition(c, row, schemas[structureId]);
+
+						int match = rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0';
 						if(colChoice != -1){
 							memset(&row[0], 'a', 1);
 							memmove(&row[1], &row[colChoiceOffset], colChoiceSize);//row[0] will already be not '\0'
 						}
 						if(match){
-							opLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row, 1);
+							opOneLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row, 1);
 							numRows[retStructId]++;//printf("HEER %d %d", retStructId, numRows[retStructId]);
 						}
 						else{
-							opLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row2, 1);
+							opOneLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row2, 1);
 							dummyVar++;
 						}
 					}
@@ -337,19 +341,19 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						//have new table that is copy of old table and delete any rows that are not supposed to be in the output
 						memset(row2, '\0', BLOCK_DATA_SIZE);
 						for(int i = 0; i < oblivStructureSizes[structureId]; i++){ //copy table
-							opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
-							opLinearScanBlock(retStructId, i, (Linear_Scan_Block*)row, 1);
+							opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+							opOneLinearScanBlock(retStructId, i, (Linear_Scan_Block*)row, 1);
 						}
 						numRows[retStructId] = numRows[structureId];
 						int dummyVar = 0;
 						for(int i = 0; i < oblivStructureSizes[structureId]; i++){ //delete bad rows
-							opLinearScanBlock(retStructId, i, (Linear_Scan_Block*)row, 0);
+							opOneLinearScanBlock(retStructId, i, (Linear_Scan_Block*)row, 0);
 							if(rowMatchesCondition(c, row, schemas[structureId]) || row[0] == '\0'){
-								opLinearScanBlock(retStructId, i, (Linear_Scan_Block*)row, 1);
+								opOneLinearScanBlock(retStructId, i, (Linear_Scan_Block*)row, 1);
 								dummyVar--;
 							}
 							else{
-								opLinearScanBlock(retStructId, i, (Linear_Scan_Block*)row2, 1);//write dummy row over unselected rows
+								opOneLinearScanBlock(retStructId, i, (Linear_Scan_Block*)row2, 1);//write dummy row over unselected rows
 								numRows[retStructId]--;
 								//printf("LOOLZ %d\n", numRows[retStructId]);
 							}
@@ -367,11 +371,13 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						do{
 							int rowi = -1;
 							for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-								opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+								opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 								row = ((Linear_Scan_Block*)row)->data;
-								if(row[0] == '\0') continue;
-								else rowi++;
-								isNotPaused = storageCounter < ROWS_IN_ENCLAVE && rowi >= pauseCounter;
+
+								if(row[0] != '\0') rowi++;
+								else dummyCounter++;
+
+								isNotPaused = storageCounter < ROWS_IN_ENCLAVE && rowi >= pauseCounter && row[0] != '\0';
 								if(isNotPaused){
 									pauseCounter++;
 								}
@@ -398,7 +404,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 								//printf("%d %d %d\n", i, storageCounter, storage[i*colChoiceSize]);
 								if(i == storageCounter)break;
 								memcpy(&row[twiddle], &storage[i*colChoiceSize], colChoiceSize);
-								opLinearScanBlock(retStructId, roundNum*ROWS_IN_ENCLAVE+i, (Linear_Scan_Block*)row, 1);
+								opOneLinearScanBlock(retStructId, roundNum*ROWS_IN_ENCLAVE+i, (Linear_Scan_Block*)row, 1);
 								numRows[retStructId]++;
 							}
 							storageCounter = 0;
@@ -423,12 +429,14 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						numRows[retStructId] = count;
 
 						for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-							opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+							opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 							row = ((Linear_Scan_Block*)row)->data;
-							if(row[0] == '\0') continue;
-							else rowi++;
+							//if(row[0] == '\0') continue;
+							//else rowi++;
+							if(row[0] != '\0') rowi++;
+							else dummyVar++;
 
-							int match = rowMatchesCondition(c, row, schemas[structureId]);
+							int match = rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0';
 							if(colChoice != -1){
 								memset(&row[0], 'a', 1);
 								memmove(&row[1], &row[colChoiceOffset], colChoiceSize);//row[0] will already be not '\0'
@@ -449,22 +457,22 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 							if(match && row[0]!='\0') written = 0;
 							else written = 1;
 							for(int j = 0; j < 5; j++){
-								opLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 0);
+								opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 0);
 								//printf("%d ", j*count+index1);
 								if(match && !written && row2[0]=='\0'){//printf("write1\n");
-									opLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row, 1);
+									opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row, 1);
 									written++;								}
 								else{
-									opLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 1);
+									opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 1);
 									dummyVar++;
 								}
-								opLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 0);
+								opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 0);
 								if(match && !written && row2[0]=='\0'){//printf("write2\n");
-									opLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row, 1);
+									opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row, 1);
 									written++;
 								}
 								else{
-									opLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 1);
+									opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 1);
 									dummyVar++;
 								}
 							}
@@ -491,9 +499,9 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				retSchema.fieldTypes[0] = CHAR;
 				retSchema.fieldTypes[1] = INTEGER;
 				createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
-				int first = 0;
+				int first = 0, dummyCount = 0;
 				for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-					opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+					opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 					row = ((Linear_Scan_Block*)row)->data;
 					if(rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0'){
 						count++;
@@ -516,6 +524,27 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						}
 						first = 1;
 					}
+					else{//dummy branch
+						dummyCount++;
+						int val = (int)row[schemas[structureId].fieldOffsets[colChoice]];
+						switch(aggregate){
+						case 1:
+								dummyCount+=val;
+							break;
+						case 2:
+							if(val < stat || first == 0)
+								dummyCount = val;
+							break;
+						case 3:
+							if(val > stat || first == 0)
+								dummyCount = val;
+							break;
+						case 4:
+							dummyCount+=val;
+							break;
+						}
+						dummyCount = 1;
+					}//end dummy branch
 				}
 				if(aggregate == 0) {
 					stat = count;
@@ -526,7 +555,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				memset(row, 'a', BLOCK_DATA_SIZE);
 				memcpy(&row[1], &stat, 4);
 				//printf("stat is %d", stat);
-				opLinearScanBlock(retStructId, 0, (Linear_Scan_Block*)row, 1);
+				opOneLinearScanBlock(retStructId, 0, (Linear_Scan_Block*)row, 1);
 				numRows[retStructId]++;
 			}
 		}
@@ -543,56 +572,108 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			uint8_t* groupVal = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
 			int aggrVal = 0;
 			uint8_t* groups[MAX_GROUPS];
+			uint8_t* dummyData;
 			int groupStat[MAX_GROUPS];
 			int groupCount[MAX_GROUPS];
 			for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-				opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 				memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
 				memcpy(&aggrVal, &row[schemas[structureId].fieldOffsets[colChoice]], 4);
 				row = ((Linear_Scan_Block*)row)->data;
-				if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) continue;
-				int foundAGroup = 0;
-				for(int j = 0; j < numGroups; j++){
-					if(memcmp(groupVal, groups[j], schemas[structureId].fieldSizes[groupCol]) == 0){
-						foundAGroup = 1;
-						groupCount[j]++;
-						switch(aggregate){
-						case 1:
-								groupStat[j]+=aggrVal;
-							break;
-						case 2:
-							if(aggrVal < groupStat[j])
-								groupStat[j] = aggrVal;
-							break;
-						case 3:
-							if(aggrVal > groupStat[j])
-								groupStat[j] = aggrVal;
-							break;
-						case 4:
-								groupStat[j]+=aggrVal;
-							break;
+				if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy brach
+					//continue;
+					int foundAGroup = 0;
+					for(int j = 0; j < numGroups; j++){
+						if(memcmp(groupVal, groups[j], schemas[structureId].fieldSizes[groupCol]) == 0){
+							foundAGroup = 1;
+							//groupCount[j]++;
+							dummyCounter++;
+							switch(aggregate){
+							case 1:
+									dummyCounter+=aggrVal;
+								break;
+							case 2:
+								if(aggrVal < groupStat[j])
+									dummyCounter = aggrVal;
+								break;
+							case 3:
+								if(aggrVal > groupStat[j])
+									dummyCounter = aggrVal;
+								break;
+							case 4:
+									dummyCounter+=aggrVal;
+								break;
+							}
 						}
 					}
+					if(!foundAGroup){
+						//groupCount[numGroups]++;
+						dummyCounter++;
+						//groups[numGroups] = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);//TODO
+						//memcpy(groups[numGroups], &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);//TODO
+						dummyData = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
+						memcpy(dummyData, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
+						switch(aggregate){
+						case 1:
+								dummyCounter+=aggrVal;
+							break;
+						case 2:
+							dummyCounter = aggrVal;
+							break;
+						case 3:
+							dummyCounter = aggrVal;
+							break;
+						case 4:
+							dummyCounter+=aggrVal;
+							break;
+						}
+						dummyCounter++;
+					}//end dummy branch
 				}
-				if(!foundAGroup){
-					groupCount[numGroups]++;
-					groups[numGroups] = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
-					memcpy(groups[numGroups], &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
-					switch(aggregate){
-					case 1:
-							groupStat[numGroups]+=aggrVal;
-						break;
-					case 2:
-							groupStat[numGroups] = aggrVal;
-						break;
-					case 3:
-							groupStat[numGroups] = aggrVal;
-						break;
-					case 4:
-							groupStat[numGroups]+=aggrVal;
-						break;
+				else{
+					int foundAGroup = 0;
+					for(int j = 0; j < numGroups; j++){
+						if(memcmp(groupVal, groups[j], schemas[structureId].fieldSizes[groupCol]) == 0){
+							foundAGroup = 1;
+							groupCount[j]++;
+							switch(aggregate){
+							case 1:
+									groupStat[j]+=aggrVal;
+								break;
+							case 2:
+								if(aggrVal < groupStat[j])
+									groupStat[j] = aggrVal;
+								break;
+							case 3:
+								if(aggrVal > groupStat[j])
+									groupStat[j] = aggrVal;
+								break;
+							case 4:
+									groupStat[j]+=aggrVal;
+								break;
+							}
+						}
 					}
-					numGroups++;
+					if(!foundAGroup){
+						groupCount[numGroups]++;
+						groups[numGroups] = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
+						memcpy(groups[numGroups], &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
+						switch(aggregate){
+						case 1:
+								groupStat[numGroups]+=aggrVal;
+							break;
+						case 2:
+								groupStat[numGroups] = aggrVal;
+							break;
+						case 3:
+								groupStat[numGroups] = aggrVal;
+							break;
+						case 4:
+								groupStat[numGroups]+=aggrVal;
+							break;
+						}
+						numGroups++;
+					}
 				}
 			}
 			for(int j = 0; j < numGroups; j++){
@@ -616,7 +697,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				row[0] = 'a';
 				memcpy(&row[1], &groupStat[j], 4);
 				memcpy(&row[5], groups[j], schemas[structureId].fieldSizes[groupCol]);
-				opLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+				opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
 				numRows[retStructId]++;
 				free(groups[j]);
 			}
@@ -632,12 +713,12 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 	free(row2);
 }
 
-int printTable(char* tableName){
+int printTableCheating(char* tableName){//non-oblivious version that's good for debugging
 	int structureId = getTableId(tableName);
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	printf("\nTable %s, %d rows, capacity for %d rows, stored in structure %d\n", tableNames[structureId], numRows[structureId], oblivStructureSizes[structureId], structureId);
 	for(int i = 0; i < oblivStructureSizes[structureId]; i++){
-		opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+		opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 		if(row[0] == '\0') {
 			continue;
 		}
@@ -659,6 +740,95 @@ int printTable(char* tableName){
 		}
 		printf("\n");
 	}
+}
+
+int printTable(char* tableName){
+	//looks like select small since all other selects have possibility of including empties in output and we can't do dummies here
+	//also, start from random position and wrap around so as not to give away what's at the beginning vs end of the data structure
+	int structureId = getTableId(tableName);
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	uint8_t* dummy = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	printf("\nTable %s, %d rows, capacity for %d rows, stored in structure %d\n", tableNames[structureId], numRows[structureId], oblivStructureSizes[structureId], structureId);
+
+	//unsigned int rand = 0;
+	//sgx_read_rand((unsigned char*)&rand, 4);
+	//rand %= oblivStructureSizes[structureId];
+
+	int storageCounter = 0;
+	int dummyCounter = 0;
+	int pauseCounter = 0;
+	int isNotPaused = 1;
+	int roundNum = 0;
+	uint8_t* storage = (uint8_t*)malloc(ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
+	do{
+		int rowi = -1;
+		//int flag = 0;
+		for(int i = 0; i < oblivStructureSizes[structureId]; i++){//printf("%d %d %d \n", flag, i, rand);
+		//for(int i = rand; !flag || i != rand; i++){//printf("%d %d %d \n", flag, i, rand);
+			/*
+			if(i == oblivStructureSizes[structureId]) {
+				if(rand == 0) break;
+				i = 0;
+				flag = 1;
+			}
+			else {
+				dummyCounter = 0;
+				dummyCounter = 1;
+			}
+			*/
+			opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+			row = ((Linear_Scan_Block*)row)->data;
+
+			if(row[0] != '\0') rowi++;
+			else dummyCounter++;
+
+			isNotPaused = storageCounter < ROWS_IN_ENCLAVE && rowi >= pauseCounter && row[0] != '\0';
+			if(isNotPaused){
+				pauseCounter++;
+			}
+			else{
+				dummyCounter++;
+			}
+			if(isNotPaused ){
+				//printf("row[0] %c\n", row[0]);
+				memcpy(&storage[storageCounter*BLOCK_DATA_SIZE], &row[0], BLOCK_DATA_SIZE);
+				storageCounter++;
+			}
+			else{
+				memcpy(dummy, dummy, BLOCK_DATA_SIZE);
+				dummyCounter++;
+			}
+		}
+		//copy to response
+		for(int i = 0; i < ROWS_IN_ENCLAVE; i++){
+			//printf("%d %d %d\n", i, storageCounter, storage[i*colChoiceSize]);
+			if(i == storageCounter)break;
+			memcpy(&row[0], &storage[i*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
+			//opOneLinearScanBlock(retStructId, roundNum*ROWS_IN_ENCLAVE+i, (Linear_Scan_Block*)row, 1);
+			for(int j = 1; j < schemas[structureId].numFields; j++){
+				switch(schemas[structureId].fieldTypes[j]){
+				case INTEGER:
+					int temp;
+					memcpy(&temp, &row[schemas[structureId].fieldOffsets[j]], 4);
+					printf("%d", temp);
+					break;
+				case CHAR:
+					printf("%c", row[schemas[structureId].fieldOffsets[j]]);
+					break;
+				case TINYTEXT:
+					printf("%s", &row[schemas[structureId].fieldOffsets[j]]);
+					break;
+				}
+				printf("  |  ");
+			}
+			printf("\n");
+		}
+		storageCounter = 0;
+		roundNum++;
+	}
+	while(pauseCounter < numRows[structureId]);
+	free(storage);
+
 }
 
 int createTestTable(char* tableName, int numberOfRows){
@@ -698,7 +868,7 @@ int createTestTable(char* tableName, int numberOfRows){
 		else row[9]= 'c';
 		memcpy(&row[10], text, strlen(text));
 		//put this row into the table manually to get a big table fast
-		opLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 1);
+		opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 1);
 		rowi++;
 	}
 	free(row);

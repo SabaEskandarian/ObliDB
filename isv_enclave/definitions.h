@@ -25,7 +25,7 @@
 #define NUM_BLOCKS_ORAM 64
 #define EXTRA_STASH_SPACE 90
 #define MAX_CONDITIONS 5
-#define ROWS_IN_ENCLAVE 2
+#define ROWS_IN_ENCLAVE 20
 #define PERCENT_ALMOST_ALL 90
 #define MAX_GROUPS 5
 //NUM_BLOCKS_ORAM is larger than the logical size of the oram;

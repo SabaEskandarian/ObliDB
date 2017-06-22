@@ -877,12 +877,14 @@ int main(int argc, char* argv[])
         printTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
-        /*
+
         //test select continuous:
+        /*
         selectRows(enclave_id, (int*)&status, "myTestTable", -1, condition2, -1, -1, -1);
         printTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
-         */
+        */
+
         /*
         //test select almost all: (depending on how much extra space is left in the table data structure)
         createTestTable(enclave_id, (int*)&status, "myTestTable2", 110);
@@ -913,11 +915,13 @@ int main(int argc, char* argv[])
 
 
         //test select hash
+        /*
         createTestTable(enclave_id, (int*)&status, "myTestTable2", 50);
         insertRow(enclave_id, (int*)&status, "myTestTable2", row1);
         selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1);
         printTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
+		*/
 
         //ret = newStructure(enclave_id, TYPE_TREE_ORAM, (*oramCapacity*2-1)*BUCKET_SIZE); //real size of oram is bigger than logical size
         //JK, ignore all this, I'm going to call the testing ecall. TODO: clean this and the service_provider up later

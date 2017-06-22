@@ -35,6 +35,7 @@ sgx_status_t send_msg(
 		uint8_t* gcm_mac);
 
 //enclave_data_structures.cpp
+extern int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write);
 extern int opLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write);
 extern int opLinearScanUnencryptedBlock(int structureId, int index, Linear_Scan_Block* block, int write);
 extern int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write);
@@ -63,6 +64,7 @@ extern int printTable(char* tableName);
 extern int createTestTable(char* tableName, int numRows);
 extern Schema getTableSchema(char *tableName);
 extern int deleteTable(char *tableName);
+extern int joinTables(char* tableName1, char* tableName2, int joinCol);
 //joins are still absent
 
 //enclave_tests.cpp
