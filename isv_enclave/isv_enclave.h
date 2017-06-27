@@ -26,6 +26,7 @@ extern unsigned int* positionMaps[NUM_STRUCTURES];
 extern std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 extern int stashOccs[NUM_STRUCTURES];//stash occupancy, number of elements in stash
 extern int logicalSizes[NUM_STRUCTURES];
+extern node* bPlusRoots[NUM_STRUCTURES];
 
 //isv_enclave.cpp
 extern void printf(const char *fmt, ...);
@@ -50,6 +51,8 @@ extern sgx_status_t total_init();
 extern sgx_status_t init_structure(int size, Obliv_Type type, int* structureId);
 extern sgx_status_t free_oram(int structureId);
 extern sgx_status_t free_structure(int structureId);
+extern int newBlock(int structureId);
+extern int freeBlock(int structureId, int blockNum);
 
 //enclave_db.cpp
 extern int rowMatchesCondition(Condition c, uint8_t* row, Schema s);
@@ -78,3 +81,42 @@ extern sgx_status_t testOramPerformance(int structNum, int queryIndex, Oram_Bloc
 extern sgx_status_t testOramSafePerformance(int structNum, int queryIndex, Oram_Block* b, int respLen);
 extern sgx_status_t testOpOram();
 extern sgx_status_t testOpLinScanBlock();
+
+// FUNCTION PROTOTYPES. (from B+ tree)
+
+// Output and utility.
+void print_leaves(int structureId,  node *root );
+int find_range(int structureId, node *root, int key_start, int key_end, int destStructId);//going to insert range into a new temporary linear scan table
+		//int returned_keys[], void * returned_pointers[]);
+node * find_leaf(int structureId, node * root, int key);
+record * find(int structureId, node * root, int key);
+int cut(int length );
+
+// Insertion.
+record * make_record(int structureId, uint8_t* row);
+node * make_node(int structureId, int isLeaf);
+int get_left_index(int structureId, node * parent, node * left);
+node * insert_into_leaf(int structureId,  node * leaf, int key, record * pointer );
+node * insert_into_leaf_after_splitting(int structureId, node * root, node * leaf, int key,
+                                        record * pointer);
+node * insert_into_node(int structureId, node * root, node * parent,
+		int left_index, int key, node * right);
+node * insert_into_node_after_splitting(int structureId, node * root, node * parent,
+                                        int left_index,
+		int key, node * right);
+node * insert_into_parent(int structureId, node * root, node * left, int key, node * right);
+node * insert_into_new_root(int structureId, node * left, int key, node * right);
+node * start_new_tree(int structureId, int key, record * pointer);
+node * insert(int structureId,  node * root, int key, record *pointer );
+
+// Deletion.
+
+int get_neighbor_index(int structureId,  node * n );
+node * adjust_root(int structureId, node * root);
+node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor,
+                      int neighbor_index, int k_prime);
+node * redistribute_nodes(int structureId, node * root, node * n, node * neighbor,
+                          int neighbor_index,
+		int k_prime_index, int k_prime);
+node * delete_entry(int structureId,  node * root, node * n, int key, void * pointer );
+node* deleteKey(int structureId,  node* root, int key );

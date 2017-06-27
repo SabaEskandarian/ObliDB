@@ -231,7 +231,7 @@ void ocall_respond( uint8_t* message, size_t message_size, uint8_t* gcm_mac){
 void ocall_newStructure(int newId, Obliv_Type type, int size){ //this is actual size, the logical size will be smaller for orams
     //printf("app: initializing structure type %d of capacity %d blocks\n", type, size);
     int encBlockSize = getEncBlockSize(type);
-    if(type == TYPE_ORAM) encBlockSize = sizeof(Encrypted_Oram_Bucket);
+    if(type == TYPE_ORAM || type == TYPE_TREE_ORAM) encBlockSize = sizeof(Encrypted_Oram_Bucket);
     //printf("Encrypted blocks of this type get %d bytes of storage\n", encBlockSize);
     oblivStructureSizes[newId] = size;
     oblivStructureTypes[newId] = type;

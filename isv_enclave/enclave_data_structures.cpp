@@ -8,9 +8,27 @@ int oblivStructureSizes[NUM_STRUCTURES] = {0}; //actual size, not logical size f
 Obliv_Type oblivStructureTypes[NUM_STRUCTURES];
 //specific to oram structures
 unsigned int* positionMaps[NUM_STRUCTURES] = {0};
+uint8_t* usedBlocks[NUM_STRUCTURES] = {0};
 std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 int stashOccs[NUM_STRUCTURES] = {0};//stash occupancy, number of elements in stash
 int logicalSizes[NUM_STRUCTURES] = {0};
+node* bPlusRoots[NUM_STRUCTURES] = {0};
+
+int newBlock(int structureId){
+	int blockNum = -1;
+	for(int i = 0; i < logicalSizes[structureId]; i++){
+		if(usedBlocks[structureId][blockNum] == 0){
+			blockNum = i;
+		}
+	}
+	usedBlocks[structureId][blockNum] = 1;
+	return blockNum;
+}
+
+int freeBlock(int structureId, int blockNum){
+	usedBlocks[structureId][blockNum] = 0;
+	return 0;
+}
 
 
 int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write){
@@ -657,6 +675,10 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
     	encBlockSize = sizeof(Encrypted_Oram_Bucket);
     	//size = BUCKET_SIZE*size;
     	positionMaps[newId] = (unsigned int*)malloc(logicalSize*sizeof(unsigned int));
+    	if(type == TYPE_TREE_ORAM){
+    		usedBlocks[newId] = (uint8_t*)malloc(logicalSize*sizeof(uint8_t));
+    		memset(&usedBlocks[newId][0], 0, logicalSize*sizeof(uint8_t));
+    	}
     	//stashes[*structureId] = (Oram_Block*)malloc(BLOCK_DATA_SIZE*(BUCKET_SIZE*((int)(log2(logicalSize+1.1))) + EXTRA_STASH_SPACE));//Zlog_2(N)B+90B
     	stashes[newId] = new std::list<Oram_Block>();
     	stashOccs[newId] = 0;
@@ -666,6 +688,7 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
     		positionMaps[newId][i] = positionMaps[newId][i] % (logicalSize/2+1);
     		//printf("%d %d\n", newId, positionMaps[newId][i]);
     	}
+    	bPlusRoots[structureId] = NULL;
     }
 
     //printf("initcheck2\n");
@@ -692,10 +715,10 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
 	//printf("block size to write: %d\n", encBlockSize);
 	for(int i = 0; i < size; i++)
 	{
-		//printf("about to write to encrypted block %d of size %d... ", i, encBlockSize);
-		if(!encJunk) printf("buffer is null pointer!");
-		ocall_write_block(newId, i, encBlockSize, encJunk);
-		//printf("written\n");
+			//printf("about to write to encrypted block %d of size %d... ", i, encBlockSize);
+			if(!encJunk) printf("buffer is null pointer!");
+			ocall_write_block(newId, i, encBlockSize, encJunk);
+			//printf("written\n");
 	}
 	printf("enclave: done initializing structure\n");
 	*structureId = newId;

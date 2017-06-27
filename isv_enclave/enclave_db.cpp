@@ -76,6 +76,9 @@ int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, i
 	}
 
 	int initialSize = numberOfRows;
+	if(type == TYPE_TREE_ORAM){
+		initialSize *= 3; //need a larger memory, to store all the tree
+	}
 	retVal = init_structure(initialSize, type, structureId);
 	if(retVal != SGX_SUCCESS) return 5;
 

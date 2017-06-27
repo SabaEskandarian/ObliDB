@@ -33,6 +33,14 @@
 //so to match a linear scan structure with 16 blocks, we need 16 blocks of leaves in the B+-tree, meaning 31 nodes in the B+-tree
 //for 31 nodes in the B+-tree, we need
 
+// Default order is 4.
+#define DEFAULT_ORDER 4
+
+// Minimum order is necessarily 3.  We set the maximum
+// order arbitrarily.  You may change the maximum order.
+#define MIN_ORDER 3
+#define MAX_ORDER 20
+
 typedef enum _Obliv_Type{
 	TYPE_LINEAR_SCAN,
 	TYPE_TREE_ORAM,
@@ -57,6 +65,25 @@ typedef struct{
 	//int leafNum;
 	uint8_t data[BLOCK_DATA_SIZE];
 } Oram_Block;
+
+typedef struct{ //for compatibility with bplustree, same as Oram_Block
+	int actualAddr;
+	//int leafNum;
+	uint8_t data[BLOCK_DATA_SIZE];
+} record;
+
+typedef struct node { //size 8*MAX_ORDER + 16 = currently 176, which wastes a lot of space, but oh well
+	//void ** pointers;
+	int pointers[MAX_ORDER];//let NULL be -1
+	int keys[MAX_ORDER];
+	//struct node * parent;
+	int parentAddr;
+	int is_leaf;
+	int num_keys;
+	int actualAddr; //this is the oram address
+	uint8_t waste[BLOCK_DATA_SIZE - 8*MAX_ORDER - 12]; //to make all oram blocks the same size
+	//struct node * next; // Used for queue.
+} node;
 
 typedef struct{
 	Oram_Block blocks[BUCKET_SIZE];
