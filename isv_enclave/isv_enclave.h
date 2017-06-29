@@ -26,7 +26,7 @@ extern unsigned int* positionMaps[NUM_STRUCTURES];
 extern std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 extern int stashOccs[NUM_STRUCTURES];//stash occupancy, number of elements in stash
 extern int logicalSizes[NUM_STRUCTURES];
-extern node* bPlusRoots[NUM_STRUCTURES];
+extern node *bPlusRoots[NUM_STRUCTURES];
 
 //isv_enclave.cpp
 extern void printf(const char *fmt, ...);
@@ -59,15 +59,18 @@ extern int rowMatchesCondition(Condition c, uint8_t* row, Schema s);
 extern int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, int numberOfRows, int* structureId);
 extern int growStructure(int structureId);
 extern int getTableId(char *tableName);
-extern int insertRow(char* tableName, uint8_t* row);
-extern int deleteRows(char* tableName, Condition c);
-extern int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal);
+extern int insertRow(char* tableName, uint8_t* row, int key);
+extern int deleteRows(char* tableName, Condition c, int startKey, int endKey);
+extern int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int startKey, int endKey);
 extern int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
 extern int printTable(char* tableName);
+extern int printTableCheating(char* tableName);
 extern int createTestTable(char* tableName, int numRows);
 extern Schema getTableSchema(char *tableName);
 extern int deleteTable(char *tableName);
-extern int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2);
+extern int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey);
+extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end);
+extern int createTestTableIndex(char* tableName, int numberOfRows);
 
 //enclave_tests.cpp
 extern sgx_status_t run_tests();
@@ -83,6 +86,9 @@ extern sgx_status_t testOpOram();
 extern sgx_status_t testOpLinScanBlock();
 
 // FUNCTION PROTOTYPES. (from B+ tree)
+
+int followNodePointer(int structureId, node* destinationNode, int pointerIndex);
+int followRecordPointer(int structureId, record* destinationNode, int pointerIndex);
 
 // Output and utility.
 void print_leaves(int structureId,  node *root );

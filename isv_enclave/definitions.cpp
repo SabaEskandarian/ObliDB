@@ -8,7 +8,7 @@ int getEncBlockSize(Obliv_Type type){
 		encBlockSize = sizeof(Encrypted_Linear_Scan_Block);
 		break;
 	case TYPE_TREE_ORAM:
-		encBlockSize = sizeof(Encrypted_Oram_Tree_Block);
+		encBlockSize = sizeof(Encrypted_Oram_Block);
 		break;
 	case TYPE_ORAM:
 		encBlockSize = sizeof(Encrypted_Oram_Block);
@@ -31,7 +31,7 @@ int getBlockSize(Obliv_Type type){
 		encBlockSize = sizeof(Linear_Scan_Block);
 		break;
 	case TYPE_TREE_ORAM:
-		encBlockSize = sizeof(Oram_Tree_Block);
+		encBlockSize = sizeof(Oram_Block);
 		break;
 	case TYPE_ORAM:
 		encBlockSize = sizeof(Oram_Block);
@@ -64,4 +64,15 @@ int getRowSize(Schema *schema){
 		rowSize += schema->fieldSizes[i];
 	}
 	return rowSize;
+}
+
+int nextPowerOfTwo(unsigned int v){
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+	return v;
 }

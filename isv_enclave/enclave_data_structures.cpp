@@ -12,21 +12,28 @@ uint8_t* usedBlocks[NUM_STRUCTURES] = {0};
 std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 int stashOccs[NUM_STRUCTURES] = {0};//stash occupancy, number of elements in stash
 int logicalSizes[NUM_STRUCTURES] = {0};
-node* bPlusRoots[NUM_STRUCTURES] = {0};
+node *bPlusRoots[NUM_STRUCTURES] = { NULL };
 
 int newBlock(int structureId){
 	int blockNum = -1;
 	for(int i = 0; i < logicalSizes[structureId]; i++){
-		if(usedBlocks[structureId][blockNum] == 0){
+		if(usedBlocks[structureId][i] == 0){
 			blockNum = i;
 		}
 	}
 	usedBlocks[structureId][blockNum] = 1;
+	//printf("allocating block #%d\n", blockNum);
 	return blockNum;
 }
 
 int freeBlock(int structureId, int blockNum){
+	uint8_t* dummyBlock = (uint8_t*)malloc(sizeof(Oram_Block));
+	//printf("hey");
+	memset(&dummyBlock[0], '\0', sizeof(Oram_Block));//printf("hey2");
+	memset(&dummyBlock[0], 0xff, 4);
+	opOramBlock(structureId, blockNum, (Oram_Block*)dummyBlock, 1);
 	usedBlocks[structureId][blockNum] = 0;
+	free(dummyBlock);
 	return 0;
 }
 
@@ -174,7 +181,12 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	uint8_t* junk = (uint8_t*)malloc(bucketSize);
 	uint8_t* encJunk = (uint8_t*)malloc(encBucketSize);
 	memset(junk, '\0', bucketSize);
+	memset(&junk[0], 0xff, 4);//set actualAddr to -1
+	memset(&junk[sizeof(Oram_Block)], 0xff, 4);//set actualAddr to -1
+	memset(&junk[2*sizeof(Oram_Block)], 0xff, 4);//set actualAddr to -1
+	memset(&junk[3*sizeof(Oram_Block)], 0xff, 4);//set actualAddr to -1
 	memset(encJunk, 0xff, encBucketSize);
+	//printf("check1.5\n");
 	if(encryptBlock(encJunk, junk, obliv_key, TYPE_ORAM)) return 1;
 
 
@@ -190,7 +202,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 		//read in bucket at depth i on path to oldLeaf
 		//encrypt/decrypt buckets all at once instead of blocks
 		//let index be the node number in a levelorder traversal and size the encBucketSize
-		ocall_read_block(structureId, nodeNumber, encBucketSize, encBucket);//printf("here\n");
+		ocall_read_block(structureId, nodeNumber, encBucketSize, encBucket);//printf("here %d %d %d\n", nodeNumber, treeSize, oldLeaf);
 		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) return 1;
 		//write back dummy blocks to replace blocks we just took out
 		ocall_write_block(structureId, nodeNumber, encBucketSize, encJunk);
@@ -207,11 +219,11 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	//printf("check3\n");
 
 	//debug: print blocks in stash
-	std::list<Oram_Block>::iterator stashScanDebug = stashes[structureId]->begin();
-	while(stashScanDebug != stashes[structureId]->end()){
+	//std::list<Oram_Block>::iterator stashScanDebug = stashes[structureId]->begin();
+	//while(stashScanDebug != stashes[structureId]->end()){
 			//printf("block %d is in stash\n", stashScanDebug->actualAddr);
-		stashScanDebug++;
-	}
+	//	stashScanDebug++;
+	//}
 	//printf("\n");
 
 	//read/write target block from stash
@@ -219,7 +231,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	std::list<Oram_Block>::iterator stashScan = stashes[structureId]->begin();
 	while(stashScan != stashes[structureId]->end()){
 		//printf("looking at %d\n", stashScan->actualAddr);
-		if(stashScan->actualAddr == index){
+		if(stashScan->actualAddr == index){//printf("hey! we're here!!\n");
 			foundItFlag = 1;
 			if(write){
 				//memcpy(&stashes[structureId][i], retBlock, blockSize);
@@ -261,15 +273,17 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 		int stashCounter = stashOccs[structureId];
 		std::list<Oram_Block>::iterator p = stashes[structureId]->begin();
 		for(int j = 0; j < BUCKET_SIZE; j++){
-			//printf("bucket entry %d\n", j);
+			//printf("bucket entry %d, actualAddr %d\n", j, bucket->blocks[j].actualAddr);
 			if(bucket->blocks[j].actualAddr == -1){
 				while(stashCounter > 0){
 					int destinationLeaf = positionMaps[structureId][p->actualAddr];
 					int conditionMet = 0;
 					//div is 2 raised to the number of levels from the leaf to the current depth
 					conditionMet = ((treeSize/2)+oldLeaf-(div-1))/div == ((treeSize/2)+destinationLeaf-(div-1))/div;
+					//printf("%d %d", ((treeSize/2)+oldLeaf-(div-1))/div, ((treeSize/2)+destinationLeaf-(div-1))/div);
 					if(conditionMet){//we can put this block in this bucket
 							//printf("condition met! leaves: %d %d, depth: %d, div: %d, block: %d\n", oldLeaf, destinationLeaf, i, div, p->actualAddr);
+						//printf("removing an item form the stash\n");
 						memcpy(&bucket->blocks[j], &(*p), blockSize);
 						//remove from stash
 						std::list<Oram_Block>::iterator prev = p++;
@@ -284,6 +298,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 			}
 
 		}
+		//printf("another check\n");
 		//write bucket back to tree
 		//printf("blocks we are inserting at this level: %d %d %d %d\n", currentBucket.blocks[0].actualAddr, currentBucket.blocks[1].actualAddr, currentBucket.blocks[2].actualAddr,currentBucket.blocks[3].actualAddr);
 		if(encryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) return 1;
@@ -294,7 +309,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	//printf("check5\n");
 	//printf("end stash size: %d %d\n", stashOccs[structureId], stashes[structureId]->size());
 	if(stashOccs[structureId] > EXTRA_STASH_SPACE){
-		printf("using too much stash!\n");
+		printf("using too much stash! %d\n", stashOccs[structureId]);
 		return 1;
 	}
 
@@ -585,6 +600,8 @@ int encryptBlock(void *ct, void *pt, sgx_aes_gcm_128bit_key_t *key, Obliv_Type t
 		ret = sgx_rijndael128GCM_encrypt(key, (unsigned char*)pt, blockSize, ((Encrypted_Oram_Tree_Block*)ct)->ciphertext,
 				((Encrypted_Oram_Tree_Block*)ct)->iv, 12, NULL, 0, &((Encrypted_Oram_Tree_Block*)ct)->macTag);
 		if(ret != SGX_SUCCESS) retVal = 1;
+		printf("I'M ACTUALLY HERE ENC, LOOK AT ME LOOK AT ME LOOK AT ME\n");
+
 		break;
 	case TYPE_ORAM:
 		//get random IV
@@ -593,6 +610,7 @@ int encryptBlock(void *ct, void *pt, sgx_aes_gcm_128bit_key_t *key, Obliv_Type t
 		//encrypt
 		ret = sgx_rijndael128GCM_encrypt(key, (unsigned char*)pt, blockSize, ((Encrypted_Oram_Bucket*)ct)->ciphertext,
 				((Encrypted_Oram_Bucket*)ct)->iv, 12, NULL, 0, &((Encrypted_Oram_Bucket*)ct)->macTag);
+		//printf("hereenc: %d", ret);
 		if(ret != SGX_SUCCESS) retVal = 1;
 		break;
 	default:
@@ -627,11 +645,13 @@ int decryptBlock(void *ct, void *pt, sgx_aes_gcm_128bit_key_t *key, Obliv_Type t
 		ret = sgx_rijndael128GCM_decrypt(key, ((Encrypted_Oram_Tree_Block*)ct)->ciphertext, blockSize, (unsigned char*)pt,
 				((Encrypted_Oram_Tree_Block*)ct)->iv, 12, NULL, 0, &((Encrypted_Oram_Tree_Block*)ct)->macTag);
 		if(ret != SGX_SUCCESS) retVal = 1;
+		printf("I'M ACTUALLY HERE, LOOK AT ME LOOK AT ME LOOK AT ME\n");
 		break;
 	case TYPE_ORAM:
 		//decrypt
 		ret = sgx_rijndael128GCM_decrypt(key, ((Encrypted_Oram_Bucket*)ct)->ciphertext, blockSize, (unsigned char*)pt,
 				((Encrypted_Oram_Bucket*)ct)->iv, 12, NULL, 0, &((Encrypted_Oram_Bucket*)ct)->macTag);
+		//printf("here: %d", ret);
 		if(ret != SGX_SUCCESS) retVal = 1;
 		break;
 	default:
@@ -665,7 +685,7 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
     if(newId == -1) return SGX_ERROR_UNEXPECTED;
     if(*structureId != -1) newId = *structureId;
     int logicalSize = size;
-    logicalSizes[*structureId] = logicalSize;
+    logicalSizes[newId] = logicalSize;
 	int encBlockSize = getEncBlockSize(type);
 	int blockSize = getBlockSize(type);
     //printf("initcheck1\n");
@@ -688,7 +708,7 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
     		positionMaps[newId][i] = positionMaps[newId][i] % (logicalSize/2+1);
     		//printf("%d %d\n", newId, positionMaps[newId][i]);
     	}
-    	bPlusRoots[structureId] = NULL;
+    	//bPlusRoots[structureId] = NULL;
     }
 
     //printf("initcheck2\n");
@@ -703,9 +723,22 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
 	uint8_t* junk = (uint8_t*)malloc(blockSize);
 	uint8_t* encJunk = (uint8_t*)malloc(encBlockSize);
 	memset(junk, '\0', blockSize);
+	//memset(junk, 0xff, blockSize);
 	memset(encJunk, 0xff, encBlockSize);
 	if(type != TYPE_LINEAR_UNENCRYPTED){
+		if(type == TYPE_TREE_ORAM) type = TYPE_ORAM;
+		if(type == TYPE_ORAM){
+			memset(&junk[0], 0xff, 4);//set actualAddr to -1
+			memset(&junk[sizeof(Oram_Block)], 0xff, 4);//set actualAddr to -1
+			memset(&junk[2*sizeof(Oram_Block)], 0xff, 4);//set actualAddr to -1
+			memset(&junk[3*sizeof(Oram_Block)], 0xff, 4);//set actualAddr to -1
+			//printf("%d thing %d %d %d %d %d \n", type, ((Oram_Bucket*)junk)->blocks[0].data[0], ((Oram_Bucket*)junk)->blocks[0].actualAddr, ((Oram_Bucket*)junk)->blocks[1].actualAddr, ((Oram_Bucket*)junk)->blocks[2].actualAddr, ((Oram_Bucket*)junk)->blocks[3].actualAddr);
+		}
 		ret2 = encryptBlock(encJunk, junk, obliv_key, type);
+		//debug
+		//ret2 = decryptBlock(encJunk, junk, obliv_key, type);
+		//printf("%d thing %d %d %d %d \n", type, ((Oram_Bucket*)junk)->blocks[0].actualAddr, ((Oram_Bucket*)junk)->blocks[1].actualAddr, ((Oram_Bucket*)junk)->blocks[2].actualAddr, ((Oram_Bucket*)junk)->blocks[3].actualAddr);
+		//end debug
 		if(ret2) return SGX_ERROR_UNEXPECTED;
 	}
 

@@ -16,16 +16,12 @@
 #define TEST_TYPE 1
 
 //made up parameters to use
-#define ORAM_CAPACITY 32 //must be power of two, real number of nodes in tree is twice this minus 1 (I don't think this is used)
 #define BUCKET_SIZE 4
 #define NUM_STRUCTURES 10 //number of structures supported
-#define MAX_BRANCH 10
 #define MAX_COLS 20
-#define NUM_BLOCKS_LINEAR 16
-#define NUM_BLOCKS_ORAM 64
 #define EXTRA_STASH_SPACE 90
 #define MAX_CONDITIONS 5
-#define ROWS_IN_ENCLAVE 20
+#define ROWS_IN_ENCLAVE 10
 #define PERCENT_ALMOST_ALL 90
 #define MAX_GROUPS 5
 //NUM_BLOCKS_ORAM is larger than the logical size of the oram;
@@ -33,13 +29,7 @@
 //so to match a linear scan structure with 16 blocks, we need 16 blocks of leaves in the B+-tree, meaning 31 nodes in the B+-tree
 //for 31 nodes in the B+-tree, we need
 
-// Default order is 4.
-#define DEFAULT_ORDER 4
-
-// Minimum order is necessarily 3.  We set the maximum
-// order arbitrarily.  You may change the maximum order.
-#define MIN_ORDER 3
-#define MAX_ORDER 20
+#define MAX_ORDER 10
 
 typedef enum _Obliv_Type{
 	TYPE_LINEAR_SCAN,
@@ -56,7 +46,7 @@ typedef struct{
 	int actualAddr;
 	int leafNum;
 	int numChildren;
-	int children[MAX_BRANCH];
+	int children[MAX_ORDER];
 	uint8_t data[BLOCK_DATA_SIZE];
 } Oram_Tree_Block;
 
@@ -74,13 +64,13 @@ typedef struct{ //for compatibility with bplustree, same as Oram_Block
 
 typedef struct node { //size 8*MAX_ORDER + 16 = currently 176, which wastes a lot of space, but oh well
 	//void ** pointers;
+	int actualAddr; //this is the oram address
+	int is_leaf;
 	int pointers[MAX_ORDER];//let NULL be -1
 	int keys[MAX_ORDER];
 	//struct node * parent;
 	int parentAddr;
-	int is_leaf;
 	int num_keys;
-	int actualAddr; //this is the oram address
 	uint8_t waste[BLOCK_DATA_SIZE - 8*MAX_ORDER - 12]; //to make all oram blocks the same size
 	//struct node * next; // Used for queue.
 } node;
@@ -142,4 +132,5 @@ int getEncBlockSize(Obliv_Type type);
 int getBlockSize(Obliv_Type type);
 int getDBTypeSize(DB_Type type);
 int getRowSize(Schema *schema);
+int nextPowerOfTwo(unsigned int num);
 #endif

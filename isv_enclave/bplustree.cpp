@@ -58,17 +58,34 @@
 
 //helper to replace pointers to nodes
 int followNodePointer(int structureId, node* destinationNode, int pointerIndex){
-	return opOramBlock(structureId, pointerIndex, (Oram_Block*)destinationNode, 0);
+	//printf("following a node pointer to address %d ", pointerIndex);
+	int t = opOramBlock(structureId, pointerIndex, (Oram_Block*)destinationNode, 0);
+	/*if(t == 0){
+		printf("oram op success\n");
+	}else {
+		printf("oram op failed %d\n", pointerIndex);
+	}*/
+	//printf("after return %d, which claims to be address %d\n", t, destinationNode->actualAddr);
+	//printf("size 1 %d size 2 %d 3 %d\n", sizeof(Oram_Block), sizeof(node), sizeof(record));
+	return 0;
 }
 
 //helper to replace pointers to records
 int followRecordPointer(int structureId, record* destinationNode, int pointerIndex){
+	//printf("following a record pointer\n");
 	return opOramBlock(structureId, pointerIndex, (Oram_Block*)destinationNode, 0);
 }
 
 //helpers to write back to oram after using a block
 int writeNode(int structureId, node *n){
-	return opOramBlock(structureId, n->actualAddr, (Oram_Block*)n, 1);
+	//printf("writing to block #%d\n", n->actualAddr);
+	int t = opOramBlock(structureId, n->actualAddr, (Oram_Block*)n, 1);
+	/*if(t == 0){
+		printf("oram op write success\n");
+	}else {
+		printf("oram op write failed %d\n", n->actualAddr);
+	}*/
+	return t;
 }
 int writeRecord(int structureId, record *r){
 	return opOramBlock(structureId, r->actualAddr, (Oram_Block*)r, 1);
@@ -86,7 +103,7 @@ int writeRecord(int structureId, record *r){
  * This global variable is initialized to the
  * default value.
  */
-int order = DEFAULT_ORDER;
+int order = MAX_ORDER;
 
 // FUNCTION DEFINITIONS.
 
@@ -128,8 +145,8 @@ void print_leaves(int structureId,  node * root ) {
  * returned_keys and returned_pointers, and returns the number of
  * entries found.
  */
-int find_range(int structureId, node * root, int key_start, int key_end, int destStructId)//,
-		/*int returned_keys[], void * returned_pointers[])*/ {
+int find_range(int structureId, node * root, int key_start, int key_end, int destStructId)// put the range in a specified table for debug printing
+		/*, int returned_keys[], void * returned_pointers[])*/ {
 	Oram_Block* b = (Oram_Block*)malloc(sizeof(Oram_Block));
 	int i, num_found;
 	num_found = 0;
@@ -165,15 +182,22 @@ node * find_leaf(int structureId, node * root, int key) {
 	if (root == NULL) {
 		return NULL;
 	}
-	memcpy(c, root, sizeof(node));
 
+	memcpy(c, root, sizeof(node));
+	//c = root;
+	int tempCount = 0;
+	//printf("here in find_leaf %d\n", c->is_leaf);
 	while (!c->is_leaf) {
+		//printf("here in find_leaf2\n");
 		i = 0;
-		while (i < c->num_keys) {
+		while (i < c->num_keys) {	//printf("here in find_leaf3\n");
 			if (key >= c->keys[i]) i++;
 			else break;
 		}
+		tempCount++;
+		//printf("following link from block %d to block %d\n", c->actualAddr, c->pointers[i]);
 		followNodePointer(structureId, c, c->pointers[i]);
+		//printf("now in node %d, tempCount=%d \n", c->actualAddr, tempCount);
 		//c = (node *)c->pointers[i];
 	}
 
@@ -280,6 +304,7 @@ node* insert_into_leaf(int structureId,  node * leaf, int key, record * pointer 
 	leaf->keys[insertion_point] = key;
 	leaf->pointers[insertion_point] = pointer->actualAddr;
 	leaf->num_keys++;
+	//printf("num_keys %d\n", leaf->num_keys);
 	writeNode(structureId, leaf);
 	return leaf;
 }
@@ -296,6 +321,7 @@ node * insert_into_leaf_after_splitting(int structureId, node * root, node * lea
 	int temp_pointers[MAX_ORDER] = {-1};
 	int insertion_index, split, new_key, i, j;
 
+	//printf("new leaf: ");
 	new_leaf = make_node(structureId, 1);
 
 	insertion_index = 0;
@@ -410,6 +436,7 @@ node * insert_into_node_after_splitting(int structureId, node * root, node * old
 	 * old and half to the new.
 	 */
 	split = cut(order);
+	//printf("new internal node: ");
 	new_node = make_node(structureId, 0);
 	old_node->num_keys = 0;
 	for (i = 0; i < split - 1; i++) {
@@ -455,15 +482,13 @@ node * insert_into_parent(int structureId, node * root, node * left, int key, no
 
 	int left_index;
 
-
+	/* Case: new root. */
 	if (left->parentAddr == -1)
 		return insert_into_new_root(structureId, left, key, right);
 
 	node * parent = (node*)malloc(sizeof(node));
 	followNodePointer(structureId, parent, left->parentAddr);
 	//parent = left->parent;
-
-	/* Case: new root. */
 
 
 
@@ -481,12 +506,16 @@ node * insert_into_parent(int structureId, node * root, node * left, int key, no
 	/* Simple case: the new key fits into the node.
 	 */
 
-	if (parent->num_keys < order - 1)
+	if (parent->num_keys < order - 1){
+		//printf("insert into parent branch 1\n");
 		return insert_into_node(structureId, root, parent, left_index, key, right);
+	}
 
 	/* Harder case:  split a node in order
 	 * to preserve the B+ tree properties.
 	 */
+	//printf("insert into parent branch 2\n");
+
 	free(left);
 	return insert_into_node_after_splitting(structureId, root, parent, left_index, key, right);
 }
@@ -496,7 +525,7 @@ node * insert_into_parent(int structureId, node * root, node * left, int key, no
  * the new root.
  */
 node * insert_into_new_root(int structureId, node * left, int key, node * right) {
-
+	//printf("new root: ");
 	node * root = make_node(structureId, 0);
 	root->keys[0] = key;
 	root->pointers[0] = left->actualAddr;
@@ -506,6 +535,8 @@ node * insert_into_new_root(int structureId, node * left, int key, node * right)
 	left->parentAddr = root->actualAddr;
 	right->parentAddr = root->actualAddr;
 	writeNode(structureId, root);
+	writeNode(structureId, left);
+	writeNode(structureId, right);
 	free(right);
 	free(left);
 	return root;
@@ -537,7 +568,7 @@ node * start_new_tree(int structureId, int key, record * pointer) {
  * properties.
  */
 node * insert(int structureId,  node * root, int key, record *pointer) {
-
+//printf("inserting...\n");
 	node * leaf;
 
 	/* The current implementation ignores
@@ -553,31 +584,38 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
 	/* Case: the tree does not exist yet.
 	 * Start a new tree.
 	 */
+	//if(root == NULL) printf("root is null\n");
 
 	if (root == NULL)
 		return start_new_tree(structureId, key, pointer);
 
 
+	//printf("address of root: %d\n", root->actualAddr);
 	/* Case: the tree already exists.
 	 * (Rest of function body.)
 	 */
-
 	leaf = find_leaf(structureId, root, key);
+	//printf("leaf actualAddr: %d, num_keys: %d\n", leaf->actualAddr, leaf->num_keys);
+	//printf("address of root now: %d\n", root->actualAddr);
 
 	/* Case: leaf has room for key and pointer.
 	 */
 
 	if (leaf->num_keys < order - 1) {
-		insert_into_leaf(structureId, leaf, key, pointer);
+		//printf("branch 1 %d %d\n", leaf->num_keys, order-1);
+		leaf = insert_into_leaf(structureId, leaf, key, pointer);
 		free(leaf);
+		//update root
+		opOramBlock(structureId, root->actualAddr, (Oram_Block*)root, 0);
 		return root;
 	}
 
 
 	/* Case:  leaf must be split.
 	 */
+	//printf("branch 2\n");
 	root = insert_into_leaf_after_splitting(structureId, root, leaf, key, pointer);
-	free(leaf);
+	//free(leaf); leaf is freed in other functions already
 	return root;
 }
 
@@ -594,7 +632,7 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
 int get_neighbor_index(int structureId,  node * n ) {
 
 	int i;
-
+	if(n->parentAddr == -1){printf("something has gone wrong.\n");};
 	node *nParent = (node*)malloc(sizeof(node));
 	followNodePointer(structureId, nParent, n->parentAddr);
 	/* Return the index of the key to the left
@@ -620,7 +658,10 @@ int get_neighbor_index(int structureId,  node * n ) {
 
 node * remove_entry_from_node(int structureId, node * n, int key, node * pointer) {
 
+	//printf("removing entry from node at address %d\n", n->actualAddr);
+
 	int i, num_pointers;
+	node * temp = (node*)malloc(sizeof(node));
 
 	// Remove the key and shift other keys accordingly.
 	i = 0;
@@ -635,21 +676,28 @@ node * remove_entry_from_node(int structureId, node * n, int key, node * pointer
 	i = 0;
 	while (n->pointers[i] != pointer->actualAddr)
 		i++;
+	followNodePointer(structureId, temp, n->pointers[i]);
+	freeBlock(structureId, temp->actualAddr);//printf("ok\n");
+	free(temp);
 	for (++i; i < num_pointers; i++)
 		n->pointers[i - 1] = n->pointers[i];
-
 
 	// One key fewer.
 	n->num_keys--;
 
 	// Set the other pointers to NULL for tidiness.
 	// A leaf uses the last pointer to point to the next leaf.
-	if (n->is_leaf)
+	//printf("q\n");
+	if (n->is_leaf){
+		//printf("q1 %d %d %d\n", n->num_keys, order-1, n->actualAddr);
 		for (i = n->num_keys; i < order - 1; i++)
 			n->pointers[i] = -1;
-	else
+	}
+	else{//printf("q2\n");
 		for (i = n->num_keys + 1; i < order; i++)
 			n->pointers[i] = -1;
+	}
+	//printf("almost\n");
 	writeNode(structureId, n);
 	return n;
 }
@@ -664,8 +712,10 @@ node * adjust_root(int structureId, node * root) {
 	 * so nothing to be done.
 	 */
 
-	if (root->num_keys > 0)
+	if (root->num_keys > 0){
+		//printf("nothing to see here\n");
 		return root;
+	}
 
 	/* Case: empty root.
 	 */
@@ -675,6 +725,7 @@ node * adjust_root(int structureId, node * root) {
 	// as the new root.
 
 	if (!root->is_leaf) {
+		//printf("root is not leaf\n");
 		//new_root = (node*)root->pointers[0];
 		new_root = (node*)malloc(sizeof(node));
 		followNodePointer(structureId, new_root, root->pointers[0]);
@@ -685,11 +736,13 @@ node * adjust_root(int structureId, node * root) {
 	// If it is a leaf (has no children),
 	// then the whole tree is empty.
 
-	else
+	else{
 		new_root = NULL;
-
+		printf("tree empty\n");
+	}
 	freeBlock(structureId, root->actualAddr);
 	free(root);
+	root = NULL;
 
 	return new_root;
 }
@@ -703,17 +756,23 @@ node * adjust_root(int structureId, node * root) {
 node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, int neighbor_index, int k_prime) {
 
 	int i, j, neighbor_insertion_index, n_end;
-	node * tmp; //= (node*)malloc(sizeof(node));
+	node * tmp;//= (node*)malloc(sizeof(node));
 
 	/* Swap neighbor with node if node is on the
 	 * extreme left and neighbor is to its right.
 	 */
 
 	if (neighbor_index == -1) {
+		//printf("swap\n");
 		tmp = n;
 		n = neighbor;
 		neighbor = tmp;
 	}
+	/*if (neighbor_index == -1) {
+		memcpy(tmp, n, sizeof(node));
+		memcpy(n, neighbor, sizeof(node));
+		memcpy(neighbor, tmp, sizeof(node));
+	}*/
 	tmp = (node*)malloc(sizeof(node));
 
 	/* Starting point in the neighbor for copying
@@ -787,9 +846,11 @@ node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, i
 
 	freeBlock(structureId, n->actualAddr);
 	free(n);
+	n = NULL;
 	free(neighbor);
 	if(tmp != NULL){
 		free(tmp);
+		tmp = NULL;
 	}
 	return root;
 }
@@ -815,6 +876,7 @@ node * redistribute_nodes(int structureId, node * root, node * n, node * neighbo
 	 */
 
 	if (neighbor_index != -1) {
+		//printf("redistribute: branch 1\n");
 		if (!n->is_leaf)
 			n->pointers[n->num_keys + 1] = n->pointers[n->num_keys];
 		for (i = n->num_keys; i > 0; i--) {
@@ -829,6 +891,7 @@ node * redistribute_nodes(int structureId, node * root, node * n, node * neighbo
 			neighbor->pointers[neighbor->num_keys] = -1;
 			n->keys[0] = k_prime;
 			nParent->keys[k_prime_index] = neighbor->keys[neighbor->num_keys - 1];
+			writeNode(structureId, tmp);
 		}
 		else {
 			n->pointers[0] = neighbor->pointers[neighbor->num_keys - 1];
@@ -844,6 +907,7 @@ node * redistribute_nodes(int structureId, node * root, node * n, node * neighbo
 	 */
 
 	else {
+		//printf("redistribute: branch 2\n");
 		if (n->is_leaf) {
 			n->keys[n->num_keys] = neighbor->keys[0];
 			n->pointers[n->num_keys] = neighbor->pointers[0];
@@ -856,6 +920,7 @@ node * redistribute_nodes(int structureId, node * root, node * n, node * neighbo
 			//tmp = (node *)n->pointers[n->num_keys + 1];
 			tmp->parentAddr = n->actualAddr;
 			nParent->keys[k_prime_index] = neighbor->keys[0];
+			writeNode(structureId, tmp);
 		}
 		for (i = 0; i < neighbor->num_keys - 1; i++) {
 			neighbor->keys[i] = neighbor->keys[i + 1];
@@ -869,12 +934,11 @@ node * redistribute_nodes(int structureId, node * root, node * n, node * neighbo
 	 * the neighbor has one fewer of each.
 	 */
 
+
 	n->num_keys++;
 	neighbor->num_keys--;
-
 	writeNode(structureId, n);
 	writeNode(structureId, nParent);
-	writeNode(structureId, tmp);
 	writeNode(structureId, neighbor);
 
 	free(tmp);
@@ -899,15 +963,20 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	int k_prime_index, k_prime;
 	int capacity;
 
+	//printf("delete_entry called on node at address %d\n", n->actualAddr);
+	//printf("pre-begin %d\n", key);
 	// Remove key and pointer from node.
 
 	n = remove_entry_from_node(structureId, n, key, (node*)pointer);
+	//printf("begin\n");
 
 	/* Case:  deletion from the root.
 	 */
 
-	if (n->actualAddr == root->actualAddr)
+	if (n->actualAddr == root->actualAddr){
+		//printf("branch 1\n");
 		return adjust_root(structureId, root);
+	}
 
 
 	/* Case:  deletion from a node below the root.
@@ -924,8 +993,10 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	 * (The simple case.)
 	 */
 
-	if (n->num_keys >= min_keys)
+	if (n->num_keys >= min_keys){
+		//printf("branch 2\n");
 		return root;
+	}
 
 	/* Case:  node falls below minimum.
 	 * Either coalescence or redistribution
@@ -938,13 +1009,16 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	 * between the pointer to node n and the pointer
 	 * to the neighbor.
 	 */
+	//printf("finding neighbor\n");
 
 	neighbor = (node*)malloc(sizeof(node));
 	nParent = (node*)malloc(sizeof(node));
+	followNodePointer(structureId, nParent, n->parentAddr);
 
 	neighbor_index = get_neighbor_index(structureId,  n );
 	k_prime_index = neighbor_index == -1 ? 0 : neighbor_index;
 	k_prime = nParent->keys[k_prime_index];
+
 	if(neighbor_index == -1){
 		followNodePointer(structureId, neighbor, nParent->pointers[1]);
 		//neighbor = (node*)n->parent->pointers[1];
@@ -956,19 +1030,25 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 
 	//neighbor = neighbor_index == -1 ? (node*)n->parent->pointers[1] :
 	//	(node*)n->parent->pointers[neighbor_index];
-
 	capacity = n->is_leaf ? order : order - 1;
 	free(nParent);
 
+	//printf("found neighbor\n");
+
+
 	/* Coalescence. */
 
-	if (neighbor->num_keys + n->num_keys < capacity)
+	if (neighbor->num_keys + n->num_keys < capacity){
+		//printf("coalesce\n");
 		return coalesce_nodes(structureId, root, n, neighbor, neighbor_index, k_prime);
+	}
 
 	/* Redistribution. */
 
-	else
+	else{
+		//printf("redistribute");
 		return redistribute_nodes(structureId, root, n, neighbor, neighbor_index, k_prime_index, k_prime);
+	}
 }
 
 

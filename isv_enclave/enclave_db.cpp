@@ -75,9 +75,11 @@ int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, i
 		return 4;
 	}
 
+	numberOfRows = nextPowerOfTwo(numberOfRows+1) - 1;
+	numberOfRows += (numberOfRows == 0);
 	int initialSize = numberOfRows;
 	if(type == TYPE_TREE_ORAM){
-		initialSize *= 3; //need a larger memory, to store all the tree
+		initialSize = initialSize *2 -1; //need a larger memory, to store all the tree
 	}
 	retVal = init_structure(initialSize, type, structureId);
 	if(retVal != SGX_SUCCESS) return 5;
@@ -120,7 +122,7 @@ Schema getTableSchema(char *tableName) {
 	return schemas[structureId];
 }
 
-int insertRow(char* tableName, uint8_t* row) {//trust that the row is good and insert it
+int insertRow(char* tableName, uint8_t* row, int key) {//trust that the row is good and insert it
 	int structureId = getTableId(tableName);
 	int done = 0;
 	int dummyDone = 0;
@@ -144,13 +146,17 @@ int insertRow(char* tableName, uint8_t* row) {//trust that the row is good and i
 		}
 		break;
 	case TYPE_TREE_ORAM:
+		record *temp = make_record(structureId, row);
+		bPlusRoots[structureId] = insert(structureId, bPlusRoots[structureId], key, temp);
+		if(bPlusRoots[structureId] == NULL) printf("bad news...\n");
+		free(temp);
 		break;
 	}
 	numRows[structureId]++;
 	free(tempRow);
 }
 
-int deleteRows(char* tableName, Condition c) {
+int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
 	int structureId = getTableId(tableName);
 	int dummyVar = 0;
 	uint8_t* tempRow = (uint8_t*)malloc(BLOCK_DATA_SIZE);
@@ -171,15 +177,56 @@ int deleteRows(char* tableName, Condition c) {
 				dummyVar--;
 			}
 		}
+		free(tempRow);
 		break;
 	case TYPE_TREE_ORAM:
+		free(tempRow);
+		int imgivingupanddontcareflag = 0;
+		node *root = bPlusRoots[structureId];
+		Oram_Block* b = (Oram_Block*)malloc(sizeof(Oram_Block));
+		int i, num_found;
+		num_found = 0;
+		node * n = find_leaf(structureId, root, startKey);
+		if (n == NULL) return 0;
+		for (i = 0; i < n->num_keys && n->keys[i] < startKey; i++) ;
+		if (i == n->num_keys) return 0;
+		while (n != NULL) {//printf("outer loop\n");
+			for ( ; n != NULL && i < n->num_keys && n->keys[i] <= endKey; i++) {//printf("inner loop %d", n->pointers[i]);
+				opOramBlock(structureId, n->pointers[i], b, 0);
+				tempRow = b->data;
+				//printf("here %d\n", b->actualAddr);
+
+				if(rowMatchesCondition(c, tempRow, schemas[structureId]) && tempRow[0] != '\0'){
+					//printf("before...");
+					bPlusRoots[structureId] = delete_entry(structureId, root, n, n->keys[i], b);
+					imgivingupanddontcareflag = 1;
+					break;
+					//printf("after\n");
+					numRows[structureId]--;
+				}
+				else{//not sure what to put in dummy branch to match pattern of deletion. Maybe pick a random number and do that many ops?
+					//opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
+					dummyVar--;
+				}
+			}
+			if(imgivingupanddontcareflag) break;
+			//printf("after inner loop %d\n", n->pointers[MAX_ORDER - 1]);
+			if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > endKey){i = 0; break;}
+			followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+			//n = (node*)n->pointers[order - 1];
+			i = 0;
+		}
+		//printf("here\n");
+		free(b);
+		//if(n != NULL){
+		//	free(n);
+		//}
 		break;
 	}
-	free(tempRow);
 	free(dummyRow);
 }
 
-int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal){
+int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int startKey, int endKey){
 	int structureId = getTableId(tableName);
 	uint8_t* tempRow = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	uint8_t* dummyRow = (uint8_t*)malloc(BLOCK_DATA_SIZE);
@@ -200,24 +247,57 @@ int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal){
 				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
 			}
 		}
+		free(tempRow);
 		break;
 	case TYPE_TREE_ORAM:
+		free(tempRow);
+		node *root = bPlusRoots[structureId];
+		Oram_Block* b = (Oram_Block*)malloc(sizeof(Oram_Block));
+		int i, num_found;
+		num_found = 0;
+		node * n = find_leaf(structureId, root, startKey);
+		if (n == NULL) return 0;
+		for (i = 0; i < n->num_keys && n->keys[i] < startKey; i++) ;
+		if (i == n->num_keys) return 0;
+
+		while (n != NULL) {//printf("outer loop\n");
+			for ( ; i < n->num_keys && n->keys[i] <= endKey; i++) {//printf("inner loop");
+				opOramBlock(structureId, n->pointers[i], b, 0);
+				tempRow = b->data;
+
+				if(rowMatchesCondition(c, tempRow, schemas[structureId]) && tempRow[0] != '\0'){
+					memcpy(&tempRow[schemas[structureId].fieldOffsets[colChoice]], colVal, schemas[structureId].fieldSizes[colChoice]);
+					opOramBlock(structureId, n->pointers[i], b, 1);
+				}
+				else{
+					memcpy(&dummyRow[schemas[structureId].fieldOffsets[colChoice]], colVal, schemas[structureId].fieldSizes[colChoice]);
+					opOramBlock(structureId, n->pointers[i], b, 1);
+				}
+
+			}
+
+			if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > endKey){i = 0; break;}
+			followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+			//n = (node*)n->pointers[order - 1];
+			i = 0;
+		}
+		free(b);
+		free(n);
 		break;
 	}
-	free(tempRow);
 	free(dummyRow);
 }
 
-int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2) {//put the smaller table first for
+int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 	//create an oram, do block nested loop join in it, and manually convert it to a linear scan table
 	int structureId1 = getTableId(tableName1);
 	int structureId2 = getTableId(tableName2);
 	Obliv_Type type1 = oblivStructureTypes[structureId1];
 	Obliv_Type type2 = oblivStructureTypes[structureId2];
-	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
-	uint8_t* row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
-	uint8_t* row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
-	Oram_Block *block = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+	uint8_t* row; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	uint8_t* row1; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	uint8_t* row2; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	Oram_Block *block;// = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
 	char* retTableName = "JoinTable";
 	char* realRetTableName = "JoinReturn";
 	int retStructId = -1;
@@ -248,6 +328,10 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2) {
 	}
 
 	if(type1 == TYPE_LINEAR_SCAN && type2 == TYPE_LINEAR_SCAN){
+		row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+		row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+		row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+		block = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
 		//allocate hash table
 		uint8_t* hashTable = (uint8_t*)malloc(ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
 		uint8_t* hashIn = (uint8_t*)malloc(1+s.fieldSizes[joinCol1]);
@@ -350,8 +434,10 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2) {
 				if(match) {
 					//printf("here? %d\n", numRows[retStructId]);
 					numRows[retStructId]++;
+					numRows[realRetStructId]++;
 				}
 				else {
+					dummyVal++;
 					dummyVal++;
 				}
 
@@ -368,14 +454,736 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2) {
 		free(hashTable);
 		free(hashIn);
 		free(hashOut);
+
+		free(row);
+		free(row1);
+		free(row2);
+		free(block);
+	}
+	else if(type1 == TYPE_TREE_ORAM && type2 == TYPE_TREE_ORAM){
+		printf("join on indexes\n");
+		//assuming that the join column is the same one as the index
+		//assuming that each row in the first table only matches one row in the second table
+		createTable(&s, retTableName, strlen(retTableName), TYPE_ORAM, size, &retStructId);
+		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
+		Oram_Block* b1 = (Oram_Block*)malloc(sizeof(Oram_Block));
+		Oram_Block* b2 = (Oram_Block*)malloc(sizeof(Oram_Block));
+		block = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+		row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+
+
+		int i1, i2;
+		node *root1 = (node*)malloc(sizeof(node));
+		node *root2 = (node*)malloc(sizeof(node));
+		if(bPlusRoots[structureId1] != NULL && bPlusRoots[structureId2] != NULL){
+			memcpy(root1, bPlusRoots[structureId1], sizeof(node));
+			memcpy(root2, bPlusRoots[structureId2], sizeof(node));
+		}
+		else{
+			printf("no root!\n");
+			return 1;
+		}
+
+		int n1Ended = 0, n2Ended = 0;
+		int n1Advance = 0, n2Advance = 0;
+		node * n1 = find_leaf(structureId1, root1, startKey);
+		node * n2 = find_leaf(structureId2, root2, startKey);
+		if(n1 == NULL) return 0;
+		if(n2 == NULL) return 0;
+		for (i1 = 0; i1 < n1->num_keys && n1->keys[i1] < startKey; i1++);// printf("i1 %d\n", i1);
+		if (i1 == n1->num_keys) return 0;
+		for (i2 = 0; i2 < n2->num_keys && n2->keys[i2] < startKey; i2++);// printf("i2 %d\n", i2);
+		if (i2 == n2->num_keys) return 0;
+
+		if(!(i1 < n1->num_keys && n1->keys[i1] <= endKey) || !(i2 < n2->num_keys && n2->keys[i2] <= endKey)){
+			printf("fail\n");
+			n1Ended = 1; n2Ended = 1;	//one of the tables has 0 applicable rows
+		}
+
+		while (!n1Ended && !n2Ended) {//printf("in loop\n");
+				opOramBlock(structureId1, n1->pointers[i1], b1, 0);
+				row1 = b1->data;
+				opOramBlock(structureId2, n2->pointers[i2], b2, 0);
+				row2 = b2->data;
+				int match = 0;
+				//see if there is a match; if so, add to output and advance both pointers
+				if(memcmp(&row1[schemas[structureId1].fieldOffsets[joinCol1]], &row2[schemas[structureId2].fieldOffsets[joinCol2]], s.fieldSizes[joinCol1]) == 0
+						&& n1->keys[i1] <= endKey && n2->keys[i2] <= endKey && row1[0]!='\0' && row2[0]!='\0'){//match
+					//printf("match!\n");
+					//assemble new row
+					memcpy(&row[0], &row1[0], BLOCK_DATA_SIZE);
+					shift = getRowSize(&schemas[structureId1]);
+					for(int k = 1; k < schemas[structureId2].numFields; k++){
+						if(k == joinCol2) continue;
+						memcpy(&row[shift], &row2[schemas[structureId2].fieldOffsets[k]], schemas[structureId2].fieldSizes[k]);
+						shift+= schemas[structureId2].fieldSizes[k];
+					}
+					n1Advance++;
+					n2Advance++;
+					match = 1;
+					//put in some dummy stuff to match the other branch
+					if(n1->keys[i1] < n2->keys[i2]) dummyVal++;
+					else dummyVal--;
+				}
+				else{//else advance the lesser pointer
+					//printf("no match\n");
+					//put in dummy stuff to look like other branch
+					memcpy(&row[0], &row1[0], BLOCK_DATA_SIZE);
+					shift = getRowSize(&schemas[structureId1]);
+					for(int k = 1; k < schemas[structureId2].numFields; k++){
+						if(k == joinCol2) continue;
+						memcpy(&row[shift], &row2[schemas[structureId2].fieldOffsets[k]], schemas[structureId2].fieldSizes[k]);
+						shift+= schemas[structureId2].fieldSizes[k];
+					}
+					dummyVal++;
+					dummyVal++;
+					match = 0;
+					//actual operation
+					if(n1->keys[i1] < n2->keys[i2]) n1Advance++;
+					else n2Advance++;
+				}
+
+				block->actualAddr = numRows[retStructId];
+				memcpy(&block->data[0], &row[0], BLOCK_DATA_SIZE);
+				//printf("match %d", match);
+				//do oram op, write if there's a match
+				//printf("here? %d %d", retStructId, numRows[retStructId]);
+				opOramBlock(retStructId, numRows[retStructId], block, match);
+				if(match) {
+					numRows[retStructId]++;
+					numRows[realRetStructId]++;
+				}
+				else {
+					dummyVal++;
+					dummyVal++;
+				}
+
+			if(n1Advance){//printf("n1Advance");
+				i1++;
+				n1Advance = 0;
+			}
+			if(n2Advance){//printf("n2Advance");
+				i2++;
+				n2Advance = 0;
+			}
+			if(!(i1 < n1->num_keys && n1->keys[i1] <= endKey)){
+				if(n1->pointers[MAX_ORDER-1] == -1 || n1->keys[i1-1] > endKey)
+				{
+					n1Ended = 1;
+				}
+				else{
+					followNodePointer(structureId1, n1, n1->pointers[MAX_ORDER - 1]);
+					i1 = 0;
+				}
+			}
+			if(!(i2 < n2->num_keys && n2->keys[i2] <= endKey)){
+				if(n2->pointers[MAX_ORDER-1] == -1 || n2->keys[i2-1] > endKey)
+				{
+					n2Ended = 1;
+				}
+				else{
+					followNodePointer(structureId2, n2, n2->pointers[MAX_ORDER - 1]);
+					i2 = 0;
+				}
+			}
+		}
+		memset(row, '\0', BLOCK_DATA_SIZE);
+		for(int i = 0; i < size; i++){
+			//printf("size: %d\n", size);
+			opOramBlock(retStructId, i, block, 0);
+			if(i < numRows[realRetStructId]){
+				opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)&block->data[0], 1);
+			}
+			else{
+				opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)&row[0], 1);
+			}
+		}
+
+		deleteTable("JoinTable");
+
+		free(b1);
+		free(b2);
+		free(row);
 	}
 	else{
-		return 1;//TODO
+		return 1; //TODO
 	}
-	free(row);
-	free(row1);
-	free(row2);
-	free(block);
+	return 0;
+}
+
+extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end){
+	int structureId = getTableId(tableName);
+	node *root = (node*)malloc(sizeof(node));
+	if(bPlusRoots[structureId] != NULL){
+		memcpy(root, bPlusRoots[structureId], sizeof(node));
+	}
+	else{
+		printf("no root! %d\n", structureId);
+		return 1;
+	}
+	Obliv_Type type = oblivStructureTypes[structureId];
+	int colChoiceSize = BLOCK_DATA_SIZE;
+	DB_Type colChoiceType = INTEGER;
+	int colChoiceOffset = 0;
+	uint8_t* dummy = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	dummy[0]='\0';
+	if(colChoice != -1){
+		colChoiceSize = schemas[structureId].fieldSizes[colChoice];
+		colChoiceType = schemas[structureId].fieldTypes[colChoice];
+		colChoiceOffset = schemas[structureId].fieldOffsets[colChoice];
+		free(dummy);
+		dummy = (uint8_t*)malloc(colChoiceSize+1);
+		dummy[0]='\0';
+	}
+	int count = 0, rangeCount = 0, num_found = 0;
+	int stat = 0;
+	uint8_t* row; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	uint8_t* row2; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
+
+	char *retName = "ReturnTable";
+	int retNameLen = strlen(retName);
+	int retStructId = -1;
+	Obliv_Type retType = TYPE_LINEAR_SCAN;
+	Schema retSchema; //set later
+	int retNumRows = 0; //set later
+
+	Oram_Block* b = (Oram_Block*)malloc(sizeof(Oram_Block));
+	Oram_Block* b2 = (Oram_Block*)malloc(sizeof(Oram_Block));
+
+	Oram_Block* saveStart = (Oram_Block*)malloc(sizeof(Oram_Block));
+
+	int i;
+
+	node * n = find_leaf(structureId, root, key_start);
+	//printf("something about n %d", n->is_leaf);
+	if (n == NULL) return 0;
+	//printf("starting select for index\n");//return 1;
+
+	for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++);// printf("i %d\n", i);
+	if (i == n->num_keys) return 0;
+	memcpy(&saveStart[0], &n[0], sizeof(Oram_Block));
+	//find size of output and whether it is continuous
+	if(groupCol == -1){
+		if(aggregate == -1){ //actual select
+			//printf("SELECT\n");
+			int almostAll = 0;
+			int continuous = 0;
+			int small = 0;
+			int contTemp = 0;
+			int dummyVar = 0;
+			while (n != NULL) {//printf("outer loop %d %d %d\n", n->num_keys, n->keys[i], key_end);
+				for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
+					//printf("inner loop");
+						opOramBlock(structureId, n->pointers[i], b, 0);
+						row = b->data;
+						/*
+						//temp
+
+						for(int j = 1; j < schemas[structureId].numFields; j++){
+							switch(schemas[structureId].fieldTypes[j]){
+							case INTEGER:
+								int temp;
+								memcpy(&temp, &row[schemas[structureId].fieldOffsets[j]], 4);
+								printf("%d", temp);
+								break;
+							case CHAR:
+								printf("%c", row[schemas[structureId].fieldOffsets[j]]);
+								break;
+							case TINYTEXT:
+								printf("%s", &row[schemas[structureId].fieldOffsets[j]]);
+								break;
+							}
+							printf("  |  ");
+						}
+						printf("\n");
+
+						//end temp
+						 */
+						if(row[0] != '\0') rangeCount++;
+						if(rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0'){
+							count++;
+							if(!continuous && !contTemp){//first hit
+								continuous = 1;
+							}
+							else if(continuous && contTemp){//a noncontinuous hit
+								continuous = 0;
+							}
+						}
+						else{
+							dummyVar++;
+							if(continuous && !contTemp){//end of continuous chunk
+								contTemp = 1;
+							}
+						}
+				}
+				if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
+				followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+				//n = (node*)n->pointers[order - 1];
+				i = 0;
+			}
+			num_found = count;
+
+			if(count < 20*ROWS_IN_ENCLAVE){
+				small = 1;
+			}
+			//printf("%d %f\n",count,  oblivStructureSizes[structureId]*.01*PERCENT_ALMOST_ALL); //count and count needed for almost all
+
+			//create table to return
+			if(small || continuous){
+				retNumRows = count; //printf("count %d %d\n", count, rangeCount);
+			}
+			else{//hash
+				retNumRows = 5*count;
+			}
+			if(colChoice != -1){ //include selected col only
+				retSchema.numFields = 2;
+				retSchema.fieldOffsets[0] = 0;
+				retSchema.fieldOffsets[1] = 1;
+				retSchema.fieldSizes[0] = 1;
+				retSchema.fieldSizes[1] = colChoiceSize;
+				retSchema.fieldTypes[0] = CHAR;
+				retSchema.fieldTypes[1] = colChoiceType;
+			}
+			else{ //include whole selected row
+				retSchema = schemas[structureId];
+			}
+
+			//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
+			int out = createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
+			//printf("%d |\n", out);
+
+			if(continuous){
+				printf("CONTINUOUS\n");
+				int rowi = -1, dummyVar = 0;//NOTE: rowi left in for historical reasons; it should be replaced by i
+
+				memcpy(&n[0], &saveStart[0], sizeof(Oram_Block));
+				for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;//printf("i %d\n", i);
+				if (i == n->num_keys) return 0;
+				while (n != NULL) {//printf("outer loop\n");
+					for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {//printf("inner loop");
+						opOramBlock(structureId, n->pointers[i], b, 0);
+						row = b->data;
+						rowi++;
+						opOneLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)b2, 0);
+						row2 = b2->data;
+
+						int match = rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0';
+						if(colChoice != -1){
+							memset(&row[0], 'a', 1);
+							memmove(&row[1], &row[colChoiceOffset], colChoiceSize);//row[0] will already be not '\0'
+						}
+						if(match){
+							opOneLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row, 1);
+							numRows[retStructId]++;//printf("HEER %d %d %d %d\n", retStructId, numRows[retStructId], i, rowi);
+						}
+						else{
+							opOneLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row2, 1);
+							dummyVar++;
+						}
+					}
+					if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
+					followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+					//n = (node*)n->pointers[order - 1];
+					i = 0;
+				}
+
+			}
+			else if(small){
+				printf("SMALL\n");
+				int storageCounter = 0;
+				int dummyCounter = 0;
+				int pauseCounter = 0;
+				int isNotPaused = 1;
+				int roundNum = 0;
+				uint8_t* storage = (uint8_t*)malloc(ROWS_IN_ENCLAVE*colChoiceSize);
+				do{//printf("outer loop %d %d\n", pauseCounter, rangeCount);
+					int rowi = -1;
+
+
+					memcpy(&n[0], &saveStart[0], sizeof(Oram_Block));
+					for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;
+					if (i == n->num_keys) return 0;
+					while (n != NULL) {
+						for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
+							opOramBlock(structureId, n->pointers[i], b, 0);
+							row = b->data;
+
+							if(row[0] != '\0') rowi++;
+							else dummyCounter++;
+
+							isNotPaused = storageCounter < ROWS_IN_ENCLAVE && rowi >= pauseCounter && row[0] != '\0';
+							if(isNotPaused){
+								pauseCounter++;
+							}
+							else{
+								dummyCounter++;
+							}
+							if(rowMatchesCondition(c, row, schemas[structureId]) && isNotPaused ){
+								//printf("row[0] %c\n", row[0]);
+								memcpy(&storage[storageCounter*colChoiceSize], &row[colChoiceOffset], colChoiceSize);
+								storageCounter++;
+							}
+							else{
+								memcpy(dummy, dummy, colChoiceSize);
+								dummyCounter++;
+							}
+						}
+						if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
+						followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+						//n = (node*)n->pointers[order - 1];
+						i = 0;
+					}
+
+					//copy to response
+					int twiddle = 0;
+					if(colChoice != -1){
+						memset(row, 'a', BLOCK_DATA_SIZE);//clear out row, set row[0] to not '\0'
+						twiddle = 1;
+					}
+					for(int j = 0; j < ROWS_IN_ENCLAVE; j++){
+						//printf("%d %d %d\n", i, storageCounter, storage[i*colChoiceSize]);
+						if(j == storageCounter)break;
+						memcpy(&row[twiddle], &storage[j*colChoiceSize], colChoiceSize);
+						opOneLinearScanBlock(retStructId, roundNum*ROWS_IN_ENCLAVE+j, (Linear_Scan_Block*)row, 1);
+						numRows[retStructId]++;
+					}
+					storageCounter = 0;
+					roundNum++;
+				}
+				while(pauseCounter < rangeCount);
+				free(storage);
+			}
+			else{//hash
+				printf("HASH\n");
+				//data structure is of size 5*output and use it as a hash table. each row is written to one of two hash values
+				//hash should be first several bits of output of sha256. input will be the input row number concatenated with 0 and 1 for the two hashes
+				int rowi = -1, dummyVar = 0;
+				row2 = (uint8_t*)malloc(sizeof(Linear_Scan_Block));
+				uint8_t* hashIn1 = (uint8_t*)malloc(5);
+				uint8_t* hashIn2 = (uint8_t*)malloc(5);
+				sgx_sha256_hash_t* hashOut1 = (sgx_sha256_hash_t*)malloc(256);
+				sgx_sha256_hash_t* hashOut2 = (sgx_sha256_hash_t*)malloc(256);
+				hashIn1[0] = '0';
+				hashIn2[0] = '1';//doesn't really matter what these are as long as they're different
+				unsigned int index1 = 0, index2 = 0;
+
+				numRows[retStructId] = count;
+
+
+				memcpy(&n[0], &saveStart[0], sizeof(Oram_Block));
+				for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;
+				if (i == n->num_keys) return 0;
+				while (n != NULL) {
+					for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
+						opOramBlock(structureId, n->pointers[i], b, 0);
+						row = b->data;
+						if(row[0] != '\0') rowi++;
+						else dummyVar++;
+
+						int match = rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0';
+						if(colChoice != -1){
+							memset(&row[0], 'a', 1);
+							memmove(&row[1], &row[colChoiceOffset], colChoiceSize);//row[0] will already be not '\0'
+						}
+						//take two hashes of rowi
+						memcpy(&hashIn1[1], &rowi, 4);
+						memcpy(&hashIn2[1], &rowi, 4);
+						sgx_sha256_msg(hashIn1, 5, hashOut1);
+						sgx_sha256_msg(hashIn2, 5, hashOut2);
+						memcpy(&index1, hashOut1, 4);
+						memcpy(&index2, hashOut2, 4);
+						index1 %= count;
+						index2 %= count;
+						//printf("here %d %d %d %d\n", index1, index2, match, count);
+
+						//walk through the 5 entries for each hash and write in the first place that has room, dummy write the rest
+						int written = 0;
+						if(match && row[0]!='\0') written = 0;
+						else written = 1;
+						for(int j = 0; j < 5; j++){//printf("heer");
+							opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 0);
+							//printf("%d ", j*count+index1);
+							if(match && !written && row2[0]=='\0'){//printf("write1\n");
+								opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row, 1);
+								written++;								}
+							else{
+								opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 1);
+								dummyVar++;
+							}//printf("heer2\n");
+							opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 0);
+							if(match && !written && row2[0]=='\0'){//printf("write2\n");
+								opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row, 1);
+								written++;
+							}
+							else{
+								opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 1);
+								dummyVar++;
+							}
+						}
+						if(!written) {
+							printf("ohhhh");
+							return 1; //panic
+						}
+					}
+					if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
+					followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+					//n = (node*)n->pointers[order - 1];
+					i = 0;
+				}
+				free(row2);
+			}
+
+		}
+		else{//aggregate without group
+			if(colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER){
+				return 1;
+			}
+			//printf("here %d", structureId);
+
+			retNumRows = 1;
+			retSchema.numFields = 2;
+			retSchema.fieldOffsets[0] = 0;
+			retSchema.fieldOffsets[1] = 1;
+			retSchema.fieldSizes[0] = 1;
+			retSchema.fieldSizes[1] = 4;
+			retSchema.fieldTypes[0] = CHAR;
+			retSchema.fieldTypes[1] = INTEGER;
+			createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
+			int first = 0, dummyCount = 0;
+
+
+			memcpy(&n[0], &saveStart[0], sizeof(Oram_Block));
+			for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;
+			if (i == n->num_keys) return 0;
+		while (n != NULL) {
+			for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
+				opOramBlock(structureId, n->pointers[i], b, 0);
+				row = b->data;
+				if(rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0'){
+					count++;
+					int val = (int)row[schemas[structureId].fieldOffsets[colChoice]];
+					switch(aggregate){
+					case 1:
+							stat+=val;
+						break;
+					case 2:
+						if(val < stat || first == 0)
+							stat = val;
+						break;
+					case 3:
+						if(val > stat || first == 0)
+							stat = val;
+						break;
+					case 4:
+							stat+=val;
+						break;
+					}
+					first = 1;
+				}
+				else{//dummy branch
+					dummyCount++;
+					int val = (int)row[schemas[structureId].fieldOffsets[colChoice]];
+					switch(aggregate){
+					case 1:
+							dummyCount+=val;
+						break;
+					case 2:
+						if(val < stat || first == 0)
+							dummyCount = val;
+						break;
+					case 3:
+						if(val > stat || first == 0)
+							dummyCount = val;
+						break;
+					case 4:
+						dummyCount+=val;
+						break;
+					}
+					dummyCount = 1;
+				}//end dummy branch
+			}
+			if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
+			followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+			//n = (node*)n->pointers[order - 1];
+			i = 0;
+		}
+
+			if(aggregate == 0) {
+				stat = count;
+			}
+			else if(aggregate == 4){
+				stat /= count;// to the nearest int
+			}
+			memset(row, 'a', BLOCK_DATA_SIZE);
+			memcpy(&row[1], &stat, 4);
+			//printf("stat is %d", stat);
+			opOneLinearScanBlock(retStructId, 0, (Linear_Scan_Block*)row, 1);
+			numRows[retStructId]++;
+		}
+	}
+	else{//group by
+		if(aggregate == -1 || colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER) {
+			return 1;
+		}
+		printf("GROUP BY");
+		//we will do this for small numbers of groups. the doc has an algorithm that can be used for larger numbers of groups
+		//that uses the hyperloglog algorithm
+
+		//first pass, count number of groups
+		int numGroups = 0, dummyCounter = 0;
+		uint8_t* groupVal = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
+		int aggrVal = 0;
+		uint8_t* groups[MAX_GROUPS];
+		uint8_t* dummyData;
+		int groupStat[MAX_GROUPS] = {0};
+		int groupCount[MAX_GROUPS] = {0};
+
+
+		memcpy(&n[0], &saveStart[0], sizeof(Oram_Block));
+		for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;
+		if (i == n->num_keys) return 0;
+		while (n != NULL) {
+			for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
+				opOramBlock(structureId, n->pointers[i], b, 0);
+				row = b->data;
+				memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
+				memcpy(&aggrVal, &row[schemas[structureId].fieldOffsets[colChoice]], 4);
+				if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy brach
+					//continue;
+					int foundAGroup = 0;
+					for(int j = 0; j < numGroups; j++){
+						if(memcmp(groupVal, groups[j], schemas[structureId].fieldSizes[groupCol]) == 0){
+							foundAGroup = 1;
+							//groupCount[j]++;
+							dummyCounter++;
+							switch(aggregate){
+							case 1:
+									dummyCounter+=aggrVal;
+								break;
+							case 2:
+								if(aggrVal < groupStat[j])
+									dummyCounter = aggrVal;
+								break;
+							case 3:
+								if(aggrVal > groupStat[j])
+									dummyCounter = aggrVal;
+								break;
+							case 4:
+									dummyCounter+=aggrVal;
+								break;
+							}
+						}
+					}
+					if(!foundAGroup){
+						//groupCount[numGroups]++;
+						dummyCounter++;
+						//groups[numGroups] = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);//TODO
+						//memcpy(groups[numGroups], &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);//TODO
+						dummyData = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
+						memcpy(dummyData, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
+						switch(aggregate){
+						case 1:
+								dummyCounter+=aggrVal;
+							break;
+						case 2:
+							dummyCounter = aggrVal;
+							break;
+						case 3:
+							dummyCounter = aggrVal;
+							break;
+						case 4:
+							dummyCounter+=aggrVal;
+							break;
+						}
+						dummyCounter++;
+					}//end dummy branch
+				}
+				else{
+					int foundAGroup = 0;
+					for(int j = 0; j < numGroups; j++){
+						if(memcmp(groupVal, groups[j], schemas[structureId].fieldSizes[groupCol]) == 0){
+							foundAGroup = 1;
+							groupCount[j]++;printf("count %d", groupCount[j]);
+							switch(aggregate){
+							case 1:
+									groupStat[j]+=aggrVal;
+								break;
+							case 2:
+								if(aggrVal < groupStat[j])
+									groupStat[j] = aggrVal;
+								break;
+							case 3:
+								if(aggrVal > groupStat[j])
+									groupStat[j] = aggrVal;
+								break;
+							case 4:
+									groupStat[j]+=aggrVal;
+								break;
+							}
+						}
+					}
+					if(!foundAGroup){
+						groupCount[numGroups]++;
+						groups[numGroups] = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
+						memcpy(groups[numGroups], &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
+						switch(aggregate){
+						case 1:
+								groupStat[numGroups]+=aggrVal;
+							break;
+						case 2:
+								groupStat[numGroups] = aggrVal;
+							break;
+						case 3:
+								groupStat[numGroups] = aggrVal;
+							break;
+						case 4:
+								groupStat[numGroups]+=aggrVal;
+							break;
+						}
+						numGroups++;
+					}
+				}
+			}
+			if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
+			followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+			//n = (node*)n->pointers[order - 1];
+			i = 0;
+		}
+
+		for(int j = 0; j < numGroups; j++){
+			if(aggregate == 0) groupStat[j] = groupCount[j];
+			else if(aggregate == 4) groupStat[j] /= groupCount[j];
+		}
+
+		//create table and fill it with results
+		retSchema.numFields = 3;
+		retSchema.fieldOffsets[0] = 0;
+		retSchema.fieldOffsets[1] = 1;
+		retSchema.fieldOffsets[2] = 5;
+		retSchema.fieldTypes[0] = CHAR;
+		retSchema.fieldTypes[1] = INTEGER;
+		retSchema.fieldTypes[2] = schemas[structureId].fieldTypes[groupCol];
+		retSchema.fieldSizes[0] = 1;
+		retSchema.fieldSizes[1] = 4;
+		retSchema.fieldSizes[2] = schemas[structureId].fieldSizes[groupCol];
+		createTable(&retSchema, retName, retNameLen, retType, numGroups, &retStructId);
+		for(int j = 0; j < numGroups; j++){
+			row[0] = 'a';
+			memcpy(&row[1], &groupStat[j], 4);
+			memcpy(&row[5], groups[j], schemas[structureId].fieldSizes[groupCol]);
+			opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+			numRows[retStructId]++;
+			free(groups[j]);
+		}
+	}
+	free(b);
+	free(b2);
+	free(n);
+	free(saveStart);
+	free(root);
+	//free(row);
+	//free(row2);
+	return num_found;
 }
 
 //groupCol = -1 means not to order or group by, aggregate = -1 means no aggregate, aggregate = 0 count, 1 sum, 2 min, 3 max, 4 mean
@@ -747,8 +1555,8 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			int aggrVal = 0;
 			uint8_t* groups[MAX_GROUPS];
 			uint8_t* dummyData;
-			int groupStat[MAX_GROUPS];
-			int groupCount[MAX_GROUPS];
+			int groupStat[MAX_GROUPS] = {0};
+			int groupCount[MAX_GROUPS] = {0};
 			for(int i = 0; i < oblivStructureSizes[structureId]; i++){
 				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 				memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
@@ -963,7 +1771,7 @@ int printTable(char* tableName){//only for linear scan tables
 				dummyCounter++;
 			}
 			if(isNotPaused ){
-				//printf("row[0] %c\n", row[0]);
+				//printf("row[1] %d\n", row[1]);
 				memcpy(&storage[storageCounter*BLOCK_DATA_SIZE], &row[0], BLOCK_DATA_SIZE);
 				storageCounter++;
 			}
@@ -998,6 +1806,7 @@ int printTable(char* tableName){//only for linear scan tables
 		}
 		storageCounter = 0;
 		roundNum++;
+		//printf("PauseCounter %d\n", pauseCounter);
 	}
 	while(pauseCounter < numRows[structureId]);
 	free(storage);
@@ -1042,6 +1851,51 @@ int createTestTable(char* tableName, int numberOfRows){
 		memcpy(&row[10], text, strlen(text));
 		//put this row into the table manually to get a big table fast
 		opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 1);
+		rowi++;
+	}
+	free(row);
+}
+
+int createTestTableIndex(char* tableName, int numberOfRows){
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	const char* text = "You would measure time the measureless and the immeasurable.";
+	int structureId = -1;
+	Schema testSchema;
+	testSchema.numFields = 5;
+	testSchema.fieldOffsets[0] = 0;
+	testSchema.fieldOffsets[1] = 1;
+	testSchema.fieldOffsets[2] = 5;
+	testSchema.fieldOffsets[3] = 9;
+	testSchema.fieldOffsets[4] = 10;
+	testSchema.fieldSizes[0] = 1;
+	testSchema.fieldSizes[1] = 4;
+	testSchema.fieldSizes[2] = 4;
+	testSchema.fieldSizes[3] = 1;
+	testSchema.fieldSizes[4] = 255;
+	testSchema.fieldTypes[0] = CHAR;
+	testSchema.fieldTypes[1] = INTEGER;
+	testSchema.fieldTypes[2] = INTEGER;
+	testSchema.fieldTypes[3] = CHAR;
+	testSchema.fieldTypes[4] = TINYTEXT;
+	//create the table
+	createTable(&testSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, numberOfRows+10, &structureId);
+	int rowi = 0;
+	for(int i = 0; i < numberOfRows; i++){
+		//put in a missed row to test handling of dummies
+		if(i == 5) continue;
+		//numRows[structureId]++; insertRow takes care of this
+		row[0] = 'a';
+		memcpy(&row[1], &rowi, 4);
+		int temp = rowi/100;
+		memcpy(&row[5], &temp, 4);
+		if(rowi%2 == 0) row[9] = 'a';
+		else if(rowi%3 == 0) row[9] = 'b';
+		else row[9]= 'c';
+		memcpy(&row[10], text, strlen(text));
+		insertRow(tableName, row, rowi);
+		//debug
+		//printf("root node actualAddr: %d\n", bPlusRoots[structureId]->actualAddr);
+		//opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 1);
 		rowi++;
 	}
 	free(row);
