@@ -43,6 +43,7 @@ enclave {
         //void ocall_read_block(int structureId, int index, int blockSize, [user_check] void *buffer); //read in to buffer, maybe this will perform better?
         void ocall_write_block(int structureId, int index, int blockSize, [in, size=blockSize] void *buffer); //write out from buffer
         void ocall_newStructure(int newId, Obliv_Type type, int size); //enclave asks app to allocate new structure
+        void ocall_deleteStructure(int structureId);
     };
 
     trusted {

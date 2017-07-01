@@ -268,6 +268,7 @@ node * make_node(int structureId, int isLeaf) {
 	new_node->num_keys = 0;
 	new_node->parentAddr = -1;
 	writeNode(structureId, new_node);
+	//printf("allocated node: %d", new_node->actualAddr);
 	return new_node;
 }
 
@@ -315,7 +316,7 @@ node* insert_into_leaf(int structureId,  node * leaf, int key, record * pointer 
  * in half.
  */
 node * insert_into_leaf_after_splitting(int structureId, node * root, node * leaf, int key, record * pointer) {
-
+	//printf("insertintoleafaftersplitting");
 	node * new_leaf;
 	int temp_keys[MAX_ORDER] = {0};
 	int temp_pointers[MAX_ORDER] = {-1};
@@ -367,7 +368,9 @@ node * insert_into_leaf_after_splitting(int structureId, node * root, node * lea
 	writeNode(structureId, leaf);//do this here because these may not be edited again
 	writeNode(structureId, new_leaf);
 
-	return insert_into_parent(structureId, root, leaf, new_key, new_leaf);
+	node* ret = insert_into_parent(structureId, root, leaf, new_key, new_leaf);
+	//printf("here at end of insert into leaf after splitting\n");
+	return ret;
 }
 
 
@@ -398,11 +401,13 @@ node * insert_into_node(int structureId, node * root, node * n,
  */
 node * insert_into_node_after_splitting(int structureId, node * root, node * old_node, int left_index,
 		int key, node * right) {
-
+//printf("insertintonodeaftersplitting");
 	int i, j, split, k_prime;
 	node * new_node, * child;
 	int temp_keys[MAX_ORDER] = {0};
-	int temp_pointers[MAX_ORDER] = {-1};
+	int temp_pointers[MAX_ORDER+1] = {-1};
+
+
 
 	/* First create a temporary set of keys and pointers
 	 * to hold everything in order, including
@@ -430,12 +435,14 @@ node * insert_into_node_after_splitting(int structureId, node * root, node * old
 
 	temp_pointers[left_index + 1] = right->actualAddr;
 	temp_keys[left_index] = key;
-
+	//printf("heeer %d %d %d", right->actualAddr, key, left_index);
+	//node *r;return r;//test
 	/* Create the new node and copy
 	 * half the keys and pointers to the
 	 * old and half to the new.
 	 */
 	split = cut(order);
+
 	//printf("new internal node: ");
 	new_node = make_node(structureId, 0);
 	old_node->num_keys = 0;
@@ -470,7 +477,12 @@ node * insert_into_node_after_splitting(int structureId, node * root, node * old
 	 * the old node to the left and the new to the right.
 	 */
 	free(right);
-	return insert_into_parent(structureId, root, old_node, k_prime, new_node);
+	//printf("num %d", new_node->actualAddr);
+
+
+	node *ret = insert_into_parent(structureId, root, old_node, k_prime, new_node);
+	//printf("here at end of insert into node after splitting %d %d\n", new_node->actualAddr, ret->actualAddr);
+	return ret;
 }
 
 
@@ -479,18 +491,18 @@ node * insert_into_node_after_splitting(int structureId, node * root, node * old
  * Returns the root of the tree after insertion.
  */
 node * insert_into_parent(int structureId, node * root, node * left, int key, node * right) {
-
+//printf("insert into parent %d", right->actualAddr);
 	int left_index;
 
 	/* Case: new root. */
-	if (left->parentAddr == -1)
+	if (left->parentAddr == -1){
 		return insert_into_new_root(structureId, left, key, right);
+
+	}
 
 	node * parent = (node*)malloc(sizeof(node));
 	followNodePointer(structureId, parent, left->parentAddr);
 	//parent = left->parent;
-
-
 
 	/* Case: leaf or node. (Remainder of
 	 * function body.)
@@ -517,7 +529,9 @@ node * insert_into_parent(int structureId, node * root, node * left, int key, no
 	//printf("insert into parent branch 2\n");
 
 	free(left);
-	return insert_into_node_after_splitting(structureId, root, parent, left_index, key, right);
+	node *ret = insert_into_node_after_splitting(structureId, root, parent, left_index, key, right);
+	//printf("here at end of insert into parent\n");
+	return ret;
 }
 
 /* Creates a new root for two subtrees
@@ -525,8 +539,8 @@ node * insert_into_parent(int structureId, node * root, node * left, int key, no
  * the new root.
  */
 node * insert_into_new_root(int structureId, node * left, int key, node * right) {
-	//printf("new root: ");
 	node * root = make_node(structureId, 0);
+	//printf("new root: %d\n", root->actualAddr);
 	root->keys[0] = key;
 	root->pointers[0] = left->actualAddr;
 	root->pointers[1] = right->actualAddr;
@@ -539,6 +553,7 @@ node * insert_into_new_root(int structureId, node * left, int key, node * right)
 	writeNode(structureId, right);
 	free(right);
 	free(left);
+	//printf("done inserting into new root");
 	return root;
 }
 
@@ -615,6 +630,7 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
 	 */
 	//printf("branch 2\n");
 	root = insert_into_leaf_after_splitting(structureId, root, leaf, key, pointer);
+	//printf("woo!\n");
 	//free(leaf); leaf is freed in other functions already
 	return root;
 }

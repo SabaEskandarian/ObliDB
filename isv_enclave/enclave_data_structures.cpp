@@ -50,13 +50,14 @@ int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, i
 	Encrypted_Linear_Scan_Block* dummyEnc = (Encrypted_Linear_Scan_Block*)malloc(encBlockSize);
 	Encrypted_Linear_Scan_Block* realEnc = (Encrypted_Linear_Scan_Block*)malloc(encBlockSize);
 
-	ocall_read_block(structureId, i, encBlockSize, realEnc);//printf("here\n");
-	//printf("beginning of mac(op)? %d\n", realEnc->macTag[0]);
-	if(decryptBlock(realEnc, real, obliv_key, TYPE_LINEAR_SCAN) != 0) return 1;
 	if(write){//we leak whether an op is a read or a write; we could hide it, but it may not be necessary?
 		if(encryptBlock(realEnc, block, obliv_key, TYPE_LINEAR_SCAN)!=0) return 1; //replace encryption of real with encryption of block
-		ocall_write_block(structureId, i, encBlockSize, realEnc);
-	}//printf("end real\n");
+		ocall_write_block(structureId, i, encBlockSize, realEnc);//printf("here 3\n");
+	}else{//printf("here0");
+		ocall_read_block(structureId, i, encBlockSize, realEnc);//printf("here\n");
+		//printf("beginning of mac(op)? %d\n", realEnc->macTag[0]);
+		if(decryptBlock(realEnc, real, obliv_key, TYPE_LINEAR_SCAN) != 0) return 1;//printf("here 2\n");
+	}
 
 	//clean up
 	if(!write) memcpy(block, real, blockSize); //keep the value we extracted from real if we're reading
@@ -84,23 +85,27 @@ int opLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int 
 
 	for(int i = 0; i < size; i++){
 		if(i == index){//printf("begin real\n");
-			ocall_read_block(structureId, i, encBlockSize, realEnc);//printf("here\n");
-			//printf("beginning of mac(op)? %d\n", realEnc->macTag[0]);
-			if(decryptBlock(realEnc, real, obliv_key, TYPE_LINEAR_SCAN) != 0) return 1;
 			if(write){//we leak whether an op is a read or a write; we could hide it, but it may not be necessary?
 				if(encryptBlock(realEnc, block, obliv_key, TYPE_LINEAR_SCAN)!=0) return 1; //replace encryption of real with encryption of block
 				ocall_write_block(structureId, i, encBlockSize, realEnc);
 			}//printf("end real\n");
+			else{
+				ocall_read_block(structureId, i, encBlockSize, realEnc);//printf("here\n");
+				//printf("beginning of mac(op)? %d\n", realEnc->macTag[0]);
+				if(decryptBlock(realEnc, real, obliv_key, TYPE_LINEAR_SCAN) != 0) return 1;
+			}
 
 		}
 		else{//printf("begin dummy\n");
-			ocall_read_block(structureId, i, encBlockSize, dummyEnc);
-			//printf("beginning of mac(op)? %d\n", dummyEnc->macTag[0]);
-			if(decryptBlock(dummyEnc, dummy, obliv_key, TYPE_LINEAR_SCAN)!=0) return 1;
 			if(write){
 				if(encryptBlock(dummyEnc, dummy, obliv_key, TYPE_LINEAR_SCAN)!=0) return 1;
 				ocall_write_block(structureId, i, encBlockSize, dummyEnc);
 			}//printf("end dummy\n");
+			else{
+				ocall_read_block(structureId, i, encBlockSize, dummyEnc);
+				//printf("beginning of mac(op)? %d\n", dummyEnc->macTag[0]);
+				if(decryptBlock(dummyEnc, dummy, obliv_key, TYPE_LINEAR_SCAN)!=0) return 1;
+			}
 		}
 	}
 
@@ -169,7 +174,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	Oram_Block* block = (Oram_Block*)malloc(sizeof(Oram_Block));
 	Oram_Bucket* bucket = (Oram_Bucket*)malloc(sizeof(Oram_Bucket));
 	Encrypted_Oram_Bucket* encBucket = (Encrypted_Oram_Bucket*)malloc(sizeof(Encrypted_Oram_Bucket));
-	int oldLeaf = positionMaps[structureId][index];
+	int oldLeaf = positionMaps[structureId][index];//printf("old leaf: %d", oldLeaf);
 	int treeSize = logicalSizes[structureId];
 	//pick a leaf between 0 and logicalSizes[structureId]/2
 	if(sgx_read_rand((uint8_t*)&positionMaps[structureId][index], sizeof(unsigned int)) != SGX_SUCCESS) return 1;//Error comes from here
@@ -194,7 +199,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 
 	//printf("begin stash size: %d %d\n", stashOccs[structureId], stashes[structureId]->size());
 
-	//printf("check2\n");
+	//printf("check2 %d %d\n", treeSize, oldLeaf);
 
 	//read in a path
 	int nodeNumber = treeSize/2+oldLeaf;
@@ -583,7 +588,7 @@ int encryptBlock(void *ct, void *pt, sgx_aes_gcm_128bit_key_t *key, Obliv_Type t
 	}
 
 	switch(type){
-	case TYPE_LINEAR_SCAN:
+	case TYPE_LINEAR_SCAN://printf("here I am\n");
 		//get random IV
 		ret = sgx_read_rand(((Encrypted_Linear_Scan_Block*)ct)->iv, 12);
 		if(ret != SGX_SUCCESS) retVal = 1;
@@ -753,7 +758,7 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
 			ocall_write_block(newId, i, encBlockSize, encJunk);
 			//printf("written\n");
 	}
-	printf("enclave: done initializing structure\n");
+	//printf("enclave: done initializing structure\n");
 	*structureId = newId;
 	return ret;
 
@@ -766,6 +771,10 @@ sgx_status_t free_oram(int structureId){
 	free(positionMaps[structureId]);
 	//free(stashes[structureId]);
 	delete(stashes[structureId]);
+	if(bPlusRoots[structureId] != NULL){
+		free(bPlusRoots[structureId]);
+		bPlusRoots[structureId] = NULL;
+	}
 	return ret;
 }
 
@@ -778,5 +787,6 @@ sgx_status_t free_structure(int structureId) {
 	stashOccs[structureId] = 0;
 	logicalSizes[structureId] = 0;
 	oblivStructureSizes[structureId] = 0; //most important since this is what we use to check if a slot is open
+	ocall_deleteStructure(structureId);
 	return ret;
 }
