@@ -314,7 +314,7 @@ int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int
 int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 	//create an oram, do block nested loop join in it, and manually convert it to a linear scan table
 	int structureId1 = getTableId(tableName1);
-	int structureId2 = getTableId(tableName2);
+	int structureId2 = getTableId(tableName2);printf("table ids %d %d\n", structureId1, structureId2);
 	Obliv_Type type1 = oblivStructureTypes[structureId1];
 	Obliv_Type type2 = oblivStructureTypes[structureId2];
 	uint8_t* row; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
@@ -334,8 +334,8 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 	//figure out joined table schema
 	Schema s;
 	s.numFields = schemas[structureId1].numFields+schemas[structureId2].numFields - 2; //duplicate first field, duplicate join col
-	int shift = 0;
-	for(int i = 0; i < schemas[structureId1].numFields; i++){
+	int shift = 0;//printf("at the start\n");
+	for(int i = 0; i < schemas[structureId1].numFields; i++){//printf("in loop %d %d\n", i, schemas[structureId1].numFields);
 		s.fieldOffsets[i] = schemas[structureId1].fieldOffsets[i];
 		s.fieldSizes[i] = schemas[structureId1].fieldSizes[i];
 		s.fieldTypes[i] = schemas[structureId1].fieldTypes[i];
@@ -396,7 +396,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				}
 				while(insertCounter != -1);
 			}
-//printf("out\n");
+
 			for(int j = 0; j<oblivStructureSizes[structureId2]; j++){
 				//get row
 				opOneLinearScanBlock(structureId2, j, (Linear_Scan_Block*)row, 0);
@@ -411,7 +411,6 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					//compare hash against hash table
 					if(hashTable[BLOCK_DATA_SIZE*index] == '\0' || row[0] == '\0'){
 						checkCounter = -1;
-						//printf("here");
 					}
 					else if(memcmp(&row[schemas[structureId2].fieldOffsets[joinCol2]], &hashTable[index*BLOCK_DATA_SIZE+s.fieldOffsets[joinCol1]], s.fieldSizes[joinCol1]) == 0){//match
 						//printf("valid byte: %d %d\n", hashTable[BLOCK_DATA_SIZE*index], hashTable[BLOCK_DATA_SIZE*index+1]);
@@ -425,7 +424,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					}
 
 				}while(checkCounter != -1);
-//printf("check1\n");
+
 				if(match != -1){
 					//assemble new row
 					memcpy(&row1[0], &hashTable[match*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
@@ -447,7 +446,6 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					}
 					match = 0;
 				}
-				//printf("check2\n");
 
 				block->actualAddr = numRows[retStructId];
 				memcpy(&block->data[0], &row1[0], BLOCK_DATA_SIZE);
@@ -465,7 +463,6 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				//printf("\n%d %d %d leaves %d %d %d %d", opAddr, match, size, positionMaps[retStructId][5], positionMaps[retStructId][6], positionMaps[retStructId][7], positionMaps[retStructId][8]);
 
 				opOramBlock(retStructId, opAddr, block, match);
-				//printf("check3\n");
 				if(match) {
 					//printf("here? %d\n", numRows[retStructId]);
 					numRows[retStructId]++;
@@ -535,7 +532,10 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			n1Ended = 1; n2Ended = 1;	//one of the tables has 0 applicable rows
 		}
 
-		while (!n1Ended || !n2Ended) {//printf("in loop\n");
+		while (!n1Ended || !n2Ended) {//printf("in loop %d %d %d %d %d %d\n", i1, i2, n1->num_keys, n2->num_keys, n1Ended, n2Ended);
+				if(n1Ended) i1 = n1->num_keys-1;
+				if(n2Ended) i2 = n2->num_keys-1;
+
 				opOramBlock(structureId1, n1->pointers[i1], b1, 0);
 				row1 = b1->data;
 				opOramBlock(structureId2, n2->pointers[i2], b2, 0);
@@ -1930,10 +1930,7 @@ int createTestTable(char* tableName, int numberOfRows){
 	testSchema2.fieldTypes[1] = INTEGER;
 	testSchema2.fieldTypes[2] = INTEGER;
 	testSchema2.fieldTypes[3] = CHAR;
-	if(strcmp(tableName, "jTable") == 0){
-		//printf("jTable\n");
-		testSchema = testSchema2;
-	}
+	if(strcmp(tableName, "jTable") == 0 || strcmp(tableName, "jIndex") == 0) testSchema = testSchema2;
 	//create the table
 	createTable(&testSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, numberOfRows+10, &structureId);
 	int rowi = 0;

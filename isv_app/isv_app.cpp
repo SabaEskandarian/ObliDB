@@ -901,11 +901,9 @@ int main(int argc, char* argv[])
 
     	//int testSizes[] = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
     	//int numTests = 7;
-    	//int testSizes[] = {10, 50, 100, 500};//for testing
-    	//int numTests = 4;
-    	int testSizes[] = {500000};//for testing
-    	int numTests = 1;
- /*       createTestTableIndex(enclave_id, (int*)&status, "jIndex", high);
+    	int testSizes[] = {10, 50, 100, 500};//for testing
+    	int numTests = 4;
+        createTestTableIndex(enclave_id, (int*)&status, "jIndex", high);
         deleteRows(enclave_id, (int*)&status, "jIndex", condition1, low, high);
         createTestTable(enclave_id, (int*)&status, "jTable", high);
         deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
@@ -996,11 +994,11 @@ int main(int argc, char* argv[])
 				//endTime = clock();
 				//lincontTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 		        //deleteTable(enclave_id, (int*)&status, "ReturnTable");
-				//startTime = clock();
-				//selectRows(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, 2);
-				//endTime = clock();
-				//linsmallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-		        //deleteTable(enclave_id, (int*)&status, "ReturnTable");
+				startTime = clock();
+				selectRows(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, 2);
+				endTime = clock();
+				linsmallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 				startTime = clock();
 				selectRows(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, 3);
 				endTime = clock();
@@ -1108,8 +1106,6 @@ int main(int argc, char* argv[])
     	        deleteTable(enclave_id, (int*)&status, "testTable");//delete the table used for testing
 
     		}
-	        deleteTable(enclave_id, (int*)&status, "jIndex");
-	        deleteTable(enclave_id, (int*)&status, "jTable");
     		free(row);
     		for(int j = 0; j < 5; j++){
             	insertTimes[5] += insertTimes[j];
@@ -1178,7 +1174,9 @@ int main(int argc, char* argv[])
     		printf("linjoinTimes | %.4f %.4f %.4f %.4f %.4f : %.4f\n", linjoinTimes[0], linjoinTimes[1], linjoinTimes[2], linjoinTimes[3], linjoinTimes[4], linjoinTimes[5]);
 
     	}
-*/
+        deleteTable(enclave_id, (int*)&status, "jIndex");
+        deleteTable(enclave_id, (int*)&status, "jTable");
+
     	/*createTestTableIndex(enclave_id, (int*)&status, "testTable500", 500);
     	saveIndexTable(enclave_id, (int*)&status, "testTable500");
     	deleteTable(enclave_id, (int*)&status, "testTable500");
@@ -1367,7 +1365,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
         */
         //test join
 
-        createTestTableIndex(enclave_id, (int*)&status, "jointestTable", 50);
+        /*createTestTableIndex(enclave_id, (int*)&status, "jointestTable", 50);
         createTestTableIndex(enclave_id, (int*)&status, "jIndex", 50);
         deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
         deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
@@ -1378,7 +1376,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
         selectRows(enclave_id, (int*)&status, "JoinReturn", 1, condition3, 0, 3, -1);
         printTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
-        deleteTable(enclave_id, (int*)&status, "JoinReturn");
+        deleteTable(enclave_id, (int*)&status, "JoinReturn");*/
 
         //ret = newStructure(enclave_id, TYPE_TREE_ORAM, (*oramCapacity*2-1)*BUCKET_SIZE); //real size of oram is bigger than logical size
         //JK, ignore all this, I'm going to call the testing ecall. TODO: clean this and the service_provider up later
