@@ -1179,14 +1179,35 @@ int main(int argc, char* argv[])
 
     	}
 */
-    	//createTestTableIndex(enclave_id, (int*)&status, "testTable", 10000);
-    	//saveIndexTable(enclave_id, (int*)&status, "testTable");
-    	//deleteTable(enclave_id, (int*)&status, "testTable");
-    	loadIndexTable(enclave_id, (int*)&status, "testTable");
-    	printf("loaded!\n");fflush(stdout);
-        indexSelect(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, -1, low, high);
-    	printf("selected!\n");
-    	printTable(enclave_id, (int*)&status, "ReturnTable");
+    	createTestTableIndex(enclave_id, (int*)&status, "testTable500", 500);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable500");
+    	deleteTable(enclave_id, (int*)&status, "testTable500");
+    	createTestTableIndex(enclave_id, (int*)&status, "testTable1000", 1000);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable1000");
+    	deleteTable(enclave_id, (int*)&status, "testTable1000");
+    	createTestTableIndex(enclave_id, (int*)&status, "testTable5000", 5000);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable5000");
+    	deleteTable(enclave_id, (int*)&status, "testTable5000");
+    	createTestTableIndex(enclave_id, (int*)&status, "testTable10000", 10000);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable10000");
+    	deleteTable(enclave_id, (int*)&status, "testTable10000");
+    	createTestTableIndex(enclave_id, (int*)&status, "testTable50000", 50000);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable50000");
+    	deleteTable(enclave_id, (int*)&status, "testTable50000");
+    	createTestTableIndex(enclave_id, (int*)&status, "testTable100000", 100000);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable100000");
+    	deleteTable(enclave_id, (int*)&status, "testTable100000");
+    	createTestTableIndex(enclave_id, (int*)&status, "testTable500000", 500000);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable500000");
+    	deleteTable(enclave_id, (int*)&status, "testTable500000");
+    	createTestTableIndex(enclave_id, (int*)&status, "testTable1000000", 1000000);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable1000000");
+    	deleteTable(enclave_id, (int*)&status, "testTable1000000");
+    	//loadIndexTable(enclave_id, (int*)&status, "testTable");
+    	//printf("loaded!\n");fflush(stdout);
+        //indexSelect(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, -1, low, high);
+    	//printf("selected!\n");
+    	//printTable(enclave_id, (int*)&status, "ReturnTable");
     	/*
         //test to create table and print it
         createTestTable(enclave_id, (int*)&status, "testTable", 100000);
