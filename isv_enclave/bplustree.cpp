@@ -187,7 +187,7 @@ node * find_leaf(int structureId, node * root, int key) {
 	//c = root;
 	int tempCount = 0;
 	//printf("here in find_leaf %d\n", c->is_leaf);
-	while (!c->is_leaf) {
+	while (!c->is_leaf) {//printf("find_leaf c: %d %d %d %d %d\n", c->actualAddr, c->num_keys, c->is_leaf, c->keys[0], c->pointers[0]);
 		//printf("here in find_leaf2\n");
 		i = 0;
 		while (i < c->num_keys) {	//printf("here in find_leaf3\n");
@@ -196,6 +196,7 @@ node * find_leaf(int structureId, node * root, int key) {
 		}
 		tempCount++;
 		//printf("following link from block %d to block %d\n", c->actualAddr, c->pointers[i]);
+		//printf("i %d %d %d\n", i, positionMaps[structureId][c->pointers[i]], usedBlocks[structureId][c->pointers[i]]);
 		followNodePointer(structureId, c, c->pointers[i]);
 		//printf("now in node %d, tempCount=%d \n", c->actualAddr, tempCount);
 		//c = (node *)c->pointers[i];

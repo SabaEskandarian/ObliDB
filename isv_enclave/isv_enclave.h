@@ -23,10 +23,12 @@ extern int rowsPerBlock[NUM_STRUCTURES];
 extern int numRows[NUM_STRUCTURES];
 //specific to oram structures
 extern unsigned int* positionMaps[NUM_STRUCTURES];
+extern uint8_t* usedBlocks[NUM_STRUCTURES];
 extern std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 extern int stashOccs[NUM_STRUCTURES];//stash occupancy, number of elements in stash
 extern int logicalSizes[NUM_STRUCTURES];
 extern node *bPlusRoots[NUM_STRUCTURES];
+
 
 //isv_enclave.cpp
 extern void printf(const char *fmt, ...);
@@ -71,6 +73,8 @@ extern int deleteTable(char *tableName);
 extern int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey);
 extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end);
 extern int createTestTableIndex(char* tableName, int numberOfRows);
+extern int saveIndexTable(char* tableName);
+extern int loadIndexTable(char* tableName);
 
 //enclave_tests.cpp
 extern sgx_status_t run_tests();

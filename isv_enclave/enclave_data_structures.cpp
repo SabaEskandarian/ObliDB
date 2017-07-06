@@ -166,7 +166,7 @@ int opLinearScanUnencryptedBlock(int structureId, int index, Linear_Scan_Block* 
 
 int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	//not making a real effort to protect against timing differences for this part
-	//printf("check1 %d\n", structureId);
+	//printf("check1 %d %d %d %d\n", structureId, stashOccs[structureId], stashes[structureId]->size(), stashes[structureId]->begin()->actualAddr);
 
 	int blockSize = sizeof(Oram_Block);
 	int bucketSize = sizeof(Oram_Bucket);
@@ -214,6 +214,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 		for(int j = 0; j < BUCKET_SIZE;j++){
 			//printf("saw block %d  ", bucket->blocks[j].actualAddr);
 			if(bucket->blocks[j].actualAddr != -1){
+				//printf("pushing actualAddr block %d\n", bucket->blocks[j].actualAddr);
 				stashes[structureId]->push_front(bucket->blocks[j]);
 				stashOccs[structureId]++;
 			}
@@ -268,19 +269,19 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 
 	nodeNumber = treeSize/2+oldLeaf;
 	for(int i = (int)log2(treeSize+1.1)-1; i>=0; i--){
-		//printf("nodeNumber: %d\n", nodeNumber);
 		int div = pow((double)2, ((int)log2(treeSize+1.1)-1)-i);
+		//printf("nodeNumber: %d\n", nodeNumber);
 		//read contents of bucket
-		ocall_read_block(structureId, nodeNumber, encBucketSize, encBucket);//printf("here\n");
+		ocall_read_block(structureId, nodeNumber, encBucketSize, encBucket);
 		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) return 1;
 
 		//for each dummy entry in bucket, fill with candidates from stash
 		int stashCounter = stashOccs[structureId];
 		std::list<Oram_Block>::iterator p = stashes[structureId]->begin();
 		for(int j = 0; j < BUCKET_SIZE; j++){
-			//printf("bucket entry %d, actualAddr %d\n", j, bucket->blocks[j].actualAddr);
-			if(bucket->blocks[j].actualAddr == -1){
-				while(stashCounter > 0){
+			//printf("bucket entry %d, actualAddr %d %d\n", j, bucket->blocks[j].actualAddr, stashCounter);
+			if(bucket->blocks[j].actualAddr == -1){//printf("herein %d\n", stashCounter);
+				while(stashCounter > 0){//printf("hereinner %d\n", p->actualAddr);
 					int destinationLeaf = positionMaps[structureId][p->actualAddr];
 					int conditionMet = 0;
 					//div is 2 raised to the number of levels from the leaf to the current depth
@@ -299,7 +300,7 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 					}
 					p++;
 					stashCounter--;
-				}
+				}//printf("here\n");
 			}
 
 		}

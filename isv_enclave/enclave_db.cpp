@@ -656,6 +656,9 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 		printf("no root! %d\n", structureId);
 		return 1;
 	}
+	//printf("here %d %d %d\n", root->num_keys, root->keys[0], root->actualAddr);
+
+
 	Obliv_Type type = oblivStructureTypes[structureId];
 	int colChoiceSize = BLOCK_DATA_SIZE;
 	DB_Type colChoiceType = INTEGER;
@@ -674,7 +677,6 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 	int stat = 0;
 	uint8_t* row; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	uint8_t* row2; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
-
 	char *retName = "ReturnTable";
 	int retNameLen = strlen(retName);
 	int retStructId = -1;
@@ -688,8 +690,8 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 	Oram_Block* saveStart = (Oram_Block*)malloc(sizeof(Oram_Block));
 
 	int i;
-
 	node * n = find_leaf(structureId, root, key_start);
+
 	//printf("something about n %d", n->is_leaf);
 	if (n == NULL) return 0;
 	//printf("starting select for index\n");//return 1;
@@ -706,7 +708,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 			int small = 0;
 			int contTemp = 0;
 			int dummyVar = 0;
-			while (n != NULL) {//printf("outer loop %d %d %d\n", n->num_keys, n->keys[i], key_end);
+			while (n != NULL) {//printf("here %d %d\n", n->num_keys, n->keys[i]);//printf("outer loop %d %d %d\n", n->num_keys, n->keys[i], key_end);
 				for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
 					//printf("inner loop");
 						opOramBlock(structureId, n->pointers[i], b, 0);
@@ -758,7 +760,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 			}
 			num_found = count;
 
-			if(count < 20*ROWS_IN_ENCLAVE){
+			if(count < ROWS_IN_ENCLAVE){
 				small = 1;
 			}
 
@@ -1301,7 +1303,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				if(count > oblivStructureSizes[structureId]*.01*PERCENT_ALMOST_ALL && colChoice == -1){ //return almost all only if the whole row is selected (to make my life easier)
 					almostAll = 1;
 				}
-				if(count < 20*ROWS_IN_ENCLAVE){
+				if(count < 5*ROWS_IN_ENCLAVE){
 					small = 1;
 				}
 				//printf("%d %f\n",count,  oblivStructureSizes[structureId]*.01*PERCENT_ALMOST_ALL); //count and count needed for almost all
@@ -1999,6 +2001,9 @@ int createTestTableIndex(char* tableName, int numberOfRows){
 
 	int rowi = 0;
 	for(int i = 0; i < numberOfRows; i++){//printf("in loop %d\n", i);
+		if(i % 500 == 0){
+			printf("500 checkpoint: i = %d\n", i);
+		}
 		//put in a missed row to test handling of dummies
 		if(i == 5) continue;
 		//numRows[structureId]++; insertRow takes care of this
@@ -2019,4 +2024,76 @@ int createTestTableIndex(char* tableName, int numberOfRows){
 		rowi++;
 	}
 	free(row);
+}
+
+int saveIndexTable(char* tableName){
+	int structureId = getTableId(tableName);
+	Oram_Bucket* bucket = (Oram_Bucket*)malloc(sizeof(Oram_Bucket));
+	Encrypted_Oram_Bucket* encBucket = (Encrypted_Oram_Bucket*)malloc(sizeof(Encrypted_Oram_Bucket));
+
+//things I need to save
+	ocall_write_file(&oblivStructureSizes[structureId], 4, tableName); //printf("here %d\n", oblivStructureSizes[structureId]);
+	ocall_write_file(&oblivStructureTypes[structureId], 4, tableName);
+	ocall_write_file(&schemas[structureId], sizeof(Schema), tableName);
+	ocall_write_file(&rowsPerBlock[structureId], 4, tableName);
+	ocall_write_file(&numRows[structureId], 4, tableName);
+	ocall_write_file(&stashOccs[structureId], 4, tableName);
+	ocall_write_file(&logicalSizes[structureId], 4, tableName);
+	ocall_write_file(bPlusRoots[structureId], sizeof(node), tableName);
+	ocall_write_file(usedBlocks[structureId], sizeof(uint8_t)*logicalSizes[structureId], tableName);
+	ocall_write_file(positionMaps[structureId], sizeof(unsigned int)*logicalSizes[structureId], tableName);
+	std::list<Oram_Block>::iterator stashScan = stashes[structureId]->begin();
+	for(int i = 0; i < stashOccs[structureId]; i++){
+		ocall_write_file(&(*stashScan), sizeof(Oram_Block), tableName);
+		stashScan++;
+	}
+	for(int i = 0; i < logicalSizes[structureId]; i++){
+		ocall_read_block(structureId, i, sizeof(Encrypted_Oram_Bucket), encBucket);
+		if(decryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) return 1;
+		ocall_write_file(&bucket[0], sizeof(Oram_Bucket), tableName);
+	}
+	return 0;
+}
+
+int loadIndexTable(char* tableName){
+	ocall_open_read(tableName);
+	//printf("here\n");
+	int structureId = getNextId();
+	Oram_Block* block = (Oram_Block*)malloc(sizeof(Oram_Block));
+	Oram_Bucket* bucket = (Oram_Bucket*)malloc(sizeof(Oram_Bucket));
+	Encrypted_Oram_Bucket* encBucket = (Encrypted_Oram_Bucket*)malloc(sizeof(Encrypted_Oram_Bucket));
+	tableNames[structureId] = (char*)malloc(strlen(tableName)+1);
+	memcpy(tableNames[structureId], tableName, strlen(tableName)+1);
+	//printf("here %s\n", tableNames[structureId]);
+	ocall_read_file(&oblivStructureSizes[structureId], 4);
+	ocall_read_file(&oblivStructureTypes[structureId], 4);
+	ocall_read_file(&schemas[structureId], sizeof(Schema));
+	ocall_read_file(&rowsPerBlock[structureId], 4);
+	ocall_read_file(&numRows[structureId], 4);
+	ocall_read_file(&stashOccs[structureId], 4);
+	ocall_read_file(&logicalSizes[structureId], 4);
+	bPlusRoots[structureId] = (node*)malloc(sizeof(node));
+	usedBlocks[structureId] = (uint8_t*)malloc(sizeof(uint8_t)*logicalSizes[structureId]);
+	positionMaps[structureId] = (unsigned int*)malloc(sizeof(unsigned int)*logicalSizes[structureId]);
+	stashes[structureId] = new std::list<Oram_Block>();
+	ocall_read_file(bPlusRoots[structureId], sizeof(node));
+	ocall_read_file(usedBlocks[structureId], sizeof(uint8_t)*logicalSizes[structureId]);
+	ocall_read_file(positionMaps[structureId], sizeof(unsigned int)*logicalSizes[structureId]);
+	for(int i = 0; i < stashOccs[structureId]; i++){
+		ocall_read_file(&block[0], sizeof(Oram_Block));
+		stashes[structureId]->push_front(*block);
+	}
+	//ocall_read_file(&stashes[structureId][0], sizeof(Oram_Block)*stashOccs[structureId]);
+	//printf("here %d %d %d %d %d\n", oblivStructureSizes[structureId], rowsPerBlock[structureId], logicalSizes[structureId], numRows[structureId], stashOccs[structureId]);
+	ocall_newStructure(structureId, TYPE_TREE_ORAM, oblivStructureSizes[structureId]);
+	for(int i = 0; i < logicalSizes[structureId]; i++){
+		//printf("here1 %d %d %d", i, sizeof(Oram_Bucket), sizeof(Encrypted_Oram_Bucket));
+		ocall_read_file(&bucket[0], sizeof(Oram_Bucket));
+		//printf("here2 %d %d %d", i, bucket->blocks[0].actualAddr, bucket->blocks[0].data[0]);
+		if(encryptBlock(encBucket, bucket, obliv_key, TYPE_ORAM) != 0) return 1;
+		//printf("here3 %d", i);
+		ocall_write_block(structureId, i, sizeof(Encrypted_Oram_Bucket), encBucket);
+		//printf("here4 %d\n", i);
+	}
+	return 0;
 }
