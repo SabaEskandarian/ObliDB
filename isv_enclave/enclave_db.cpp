@@ -535,7 +535,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			n1Ended = 1; n2Ended = 1;	//one of the tables has 0 applicable rows
 		}
 
-		while (!n1Ended && !n2Ended) {//printf("in loop\n");
+		while (!n1Ended || !n2Ended) {//printf("in loop\n");
 				opOramBlock(structureId1, n1->pointers[i1], b1, 0);
 				row1 = b1->data;
 				opOramBlock(structureId2, n2->pointers[i2], b2, 0);
@@ -543,7 +543,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				int match = 0;
 				//see if there is a match; if so, add to output and advance both pointers
 				if(memcmp(&row1[schemas[structureId1].fieldOffsets[joinCol1]], &row2[schemas[structureId2].fieldOffsets[joinCol2]], s.fieldSizes[joinCol1]) == 0
-						&& n1->keys[i1] <= endKey && n2->keys[i2] <= endKey && row1[0]!='\0' && row2[0]!='\0'){//match
+						&& n1->keys[i1] <= endKey && n2->keys[i2] <= endKey && row1[0]!='\0' && row2[0]!='\0' && (!n1Ended && !n2Ended)){//match
 					//printf("match!\n");
 					//assemble new row
 					memcpy(&row[0], &row1[0], BLOCK_DATA_SIZE);
@@ -557,7 +557,9 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					n2Advance++;
 					match = 1;
 					//put in some dummy stuff to match the other branch
-					if(n1->keys[i1] < n2->keys[i2]) dummyVal++;
+					if(n1Ended) dummyVal++;
+					else if(n2Ended) dummyVal--;
+					else if(n1->keys[i1] < n2->keys[i2]) dummyVal++;
 					else dummyVal--;
 				}
 				else{//else advance the lesser pointer
@@ -574,7 +576,9 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					dummyVal++;
 					match = 0;
 					//actual operation
-					if(n1->keys[i1] < n2->keys[i2]) n1Advance++;
+					if(n1Ended) n2Advance++;
+					else if(n2Ended) n1Advance++;
+					else if(n1->keys[i1] < n2->keys[i2]) n1Advance++;
 					else n2Advance++;
 				}
 

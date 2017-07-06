@@ -1179,7 +1179,7 @@ int main(int argc, char* argv[])
 
     	}
 */
-    	createTestTableIndex(enclave_id, (int*)&status, "testTable500", 500);
+    	/*createTestTableIndex(enclave_id, (int*)&status, "testTable500", 500);
     	saveIndexTable(enclave_id, (int*)&status, "testTable500");
     	deleteTable(enclave_id, (int*)&status, "testTable500");
     	createTestTableIndex(enclave_id, (int*)&status, "testTable1000", 1000);
@@ -1202,7 +1202,7 @@ int main(int argc, char* argv[])
     	deleteTable(enclave_id, (int*)&status, "testTable500000");
     	createTestTableIndex(enclave_id, (int*)&status, "testTable1000000", 1000000);
     	saveIndexTable(enclave_id, (int*)&status, "testTable1000000");
-    	deleteTable(enclave_id, (int*)&status, "testTable1000000");
+    	deleteTable(enclave_id, (int*)&status, "testTable1000000");*/
     	//loadIndexTable(enclave_id, (int*)&status, "testTable");
     	//printf("loaded!\n");fflush(stdout);
         //indexSelect(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, -1, low, high);
@@ -1340,7 +1340,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
         //Start Index tests
        // printf("start index tests\n");
 
-        //createTestTableIndex(enclave_id, (int*)&status, "myTestIndex", 15);
+        createTestTableIndex(enclave_id, (int*)&status, "myTestIndex", 15);
         //printTable(enclave_id, (int*)&status, "myTestIndex");
         /*
         //indexSelect(enclave_id, (int*)&status, "myTestIndex", 1, condition1, 0, 3, -1, 2, 250);
@@ -1366,20 +1366,20 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
         */
         //test join
-/*
-        createTestTableIndex(enclave_id, (int*)&status, "join1", 50);
-        createTestTableIndex(enclave_id, (int*)&status, "join2", 50);
-        deleteRows(enclave_id, (int*)&status, "join2", condition1, 2, 37);
-        deleteRows(enclave_id, (int*)&status, "join2", condition1, 2, 37);
-        deleteRows(enclave_id, (int*)&status, "join2", condition1, 2, 37);
-        deleteRows(enclave_id, (int*)&status, "join2", condition1, 2, 37);
-        joinTables(enclave_id, (int*)&status, "join1", "join2", 1, 1, 2, 21);
+
+        createTestTableIndex(enclave_id, (int*)&status, "jointestTable", 50);
+        createTestTableIndex(enclave_id, (int*)&status, "jIndex", 50);
+        deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
+        deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
+        deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
+        deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
+        joinTables(enclave_id, (int*)&status, "jointestTable", "jIndex", 1, 1, 2, 21);
         printTable(enclave_id, (int*)&status, "JoinReturn");
         selectRows(enclave_id, (int*)&status, "JoinReturn", 1, condition3, 0, 3, -1);
         printTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "JoinReturn");
-*/
+
         //ret = newStructure(enclave_id, TYPE_TREE_ORAM, (*oramCapacity*2-1)*BUCKET_SIZE); //real size of oram is bigger than logical size
         //JK, ignore all this, I'm going to call the testing ecall. TODO: clean this and the service_provider up later
         //ret = newStructure(enclave_id, TYPE_LINEAR_SCAN, 7);//as per the requirements of the hard-coded test
