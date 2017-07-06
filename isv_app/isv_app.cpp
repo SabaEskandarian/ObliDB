@@ -1321,7 +1321,7 @@ int main(int argc, char* argv[])
     	saveIndexTable(enclave_id, (int*)&status, "testTable", 5000);
     	deleteTable(enclave_id, (int*)&status, "testTable");
     	createTestTableIndex(enclave_id, (int*)&status, "testTable", 10000);
-    	saveIndexTable(enclave_id, (int*)&status, "testTable", 1000);
+    	saveIndexTable(enclave_id, (int*)&status, "testTable", 10000);
     	deleteTable(enclave_id, (int*)&status, "testTable");
     	createTestTableIndex(enclave_id, (int*)&status, "testTable", 50000);
     	saveIndexTable(enclave_id, (int*)&status, "testTable", 50000);
