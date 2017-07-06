@@ -314,7 +314,7 @@ int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int
 int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 	//create an oram, do block nested loop join in it, and manually convert it to a linear scan table
 	int structureId1 = getTableId(tableName1);
-	int structureId2 = getTableId(tableName2);printf("table ids %d %d\n", structureId1, structureId2);
+	int structureId2 = getTableId(tableName2);//printf("table ids %d %d\n", structureId1, structureId2);
 	Obliv_Type type1 = oblivStructureTypes[structureId1];
 	Obliv_Type type2 = oblivStructureTypes[structureId2];
 	uint8_t* row; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
@@ -365,7 +365,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		//create oram "table"
 		createTable(&s, retTableName, strlen(retTableName), TYPE_ORAM, size, &retStructId);
 		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
-		//printf("table creation returned %d %d %d %d\n", out, retStructId, size, strlen(retTableName));
+		//printf("table creation returned %d %d %d\n", retStructId, size, strlen(retTableName));
 
 		for(int i = 0; i < oblivStructureSizes[structureId1]; i+=(ROWS_IN_ENCLAVE/2)){
 			//initialize hash table
@@ -807,7 +807,14 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 			//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
 			int out = createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
 			//printf("%d |\n", out);
-
+			if(count == 0) {
+				free(b);
+				free(b2);
+				free(n);
+				free(saveStart);
+				free(root);
+				return 0;
+			}
 			if(continuous){
 				printf("CONTINUOUS\n");
 				int rowi = -1, dummyVar = 0;//NOTE: rowi left in for historical reasons; it should be replaced by i
@@ -816,7 +823,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 				for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;//printf("i %d\n", i);
 				if (i == n->num_keys) return 0;
 				while (n != NULL) {//printf("outer loop\n");
-					for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {//printf("inner loop");
+					for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {//printf("inner loop %d %d", n->keys[i], key_end);
 						opOramBlock(structureId, n->pointers[i], b, 0);
 						row = b->data;
 						rowi++;
@@ -991,6 +998,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 
 		}
 		else{//aggregate without group
+			printf("AGGREGATE\n");
 			if(colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER){
 				return 1;
 			}
@@ -1011,7 +1019,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 			memcpy(&n[0], &saveStart[0], sizeof(Oram_Block));
 			for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;
 			if (i == n->num_keys) return 0;
-		while (n != NULL) {
+		while (n != NULL) {//printf("hi %d %d %d %d\n", i, n->num_keys, n->keys[i], key_end);
 			for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
 				opOramBlock(structureId, n->pointers[i], b, 0);
 				row = b->data;
@@ -1364,13 +1372,19 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
 				//printf("%s\n", tableNames[retStructId]);
 				//printTable("ReturnTable");
-
+				if(count == 0) {
+					free(dummy);
+					free(row);
+					free(row2);
+					return 0;
+				}
 				//printf("Made it to algorithm slection\n");
 				//pick algorithm
 				if(continuous){//use continuous chunk algorithm
 					printf("CONTINUOUS\n");
 					int rowi = -1, dummyVar = 0;//NOTE: rowi left in for historical reasons; it should be replaced by i
-					for(int i = 0; i < oblivStructureSizes[structureId]; i++){//printf("here\n");
+					for(int i = 0; i < oblivStructureSizes[structureId]; i++){
+						if(count == 0) break;
 						opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 
 						row = ((Linear_Scan_Block*)row)->data;
@@ -1431,6 +1445,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						int roundNum = 0;
 						uint8_t* storage = (uint8_t*)malloc(ROWS_IN_ENCLAVE*colChoiceSize);
 						do{
+							if(count == 0) break;
 							int rowi = -1;
 							for(int i = 0; i < oblivStructureSizes[structureId]; i++){
 								opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
@@ -1491,6 +1506,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						numRows[retStructId] = count;
 
 						for(int i = 0; i < oblivStructureSizes[structureId]; i++){
+							if(count == 0) break;
 							opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 							row = ((Linear_Scan_Block*)row)->data;
 							//if(row[0] == '\0') continue;
