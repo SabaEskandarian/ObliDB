@@ -36,6 +36,7 @@ enclave {
     include "sgx_trts.h"
     include "definitions.h"
     include "stdio.h"
+    include "string.h"
     
     untrusted {
         void ocall_print([in, string] const char *str);
@@ -45,9 +46,10 @@ enclave {
         void ocall_write_block(int structureId, int index, int blockSize, [in, size=blockSize] void *buffer); //write out from buffer
         void ocall_newStructure(int newId, Obliv_Type type, int size); //enclave asks app to allocate new structure
         void ocall_deleteStructure(int structureId);
-		void ocall_write_file([user_check]const void *src, size_t size, [user_check]char* tableName);
-		void ocall_open_read([user_check]char* tableName);
-		void ocall_read_file([user_check]void *dest, size_t size);
+		void ocall_write_file([in, size=dsize] const void *src, int dsize, int tableSize);
+		void ocall_open_read(int tableSize);
+		void ocall_read_file([out, size=dsize] void *dest, int dsize);
+		void ocall_make_name([out, size=20]void *name, int tableSize);
     };
 
     trusted {
@@ -95,8 +97,8 @@ enclave {
 		public int joinTables([user_check]char* tableName1, [user_check]char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey);
 		public int createTestTableIndex([user_check]char* tableName, int numberOfRows);
 		public int indexSelect([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end);	
-		public int saveIndexTable([user_check]char* tableName);
-		public int loadIndexTable([user_check]char* tableName);	
+		public int saveIndexTable([user_check]char* tableName, int tableSize);
+		public int loadIndexTable(int tableSize);	
     };
 
 };

@@ -4,10 +4,12 @@
 #include <assert.h>
 #include <math.h>
 #include <list>
+#include <cstring>
 #include "isv_enclave_t.h"
 #include "sgx_tkey_exchange.h"
 #include "sgx_tcrypto.h"
 #include "string.h"
+#include "stdio.h"
 
 #include "definitions.h"
 
@@ -73,8 +75,8 @@ extern int deleteTable(char *tableName);
 extern int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey);
 extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end);
 extern int createTestTableIndex(char* tableName, int numberOfRows);
-extern int saveIndexTable(char* tableName);
-extern int loadIndexTable(char* tableName);
+extern int saveIndexTable(char* tableName, int tableSize);
+extern int loadIndexTable(int tableSize);
 
 //enclave_tests.cpp
 extern sgx_status_t run_tests();
