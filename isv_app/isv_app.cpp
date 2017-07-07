@@ -928,9 +928,9 @@ int main(int argc, char* argv[])
 
     	//int testSizes[] = {1000, 5000, 10000, 50000, 100000, 500000, 1000000};
     	//int numTests = 7;
-    	int testSizes[] = {50, 100};//for testing
-    	int numTests = 2;
-       /* createTestTableIndex(enclave_id, (int*)&status, "jIndex", high);
+    	int testSizes[] = {500};//for testing
+    	int numTests = 1;
+        createTestTableIndex(enclave_id, (int*)&status, "jIndex", high);
         deleteRows(enclave_id, (int*)&status, "jIndex", condition1, low, high);
         createTestTable(enclave_id, (int*)&status, "jTable", high);
         deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
@@ -941,6 +941,7 @@ int main(int argc, char* argv[])
     		//first we'll do the read-only tests
     		int numInnerTests = 10;//how many points do we want along the line
     		for(int testRound = 0; testRound <= numInnerTests; testRound++){
+    			//testRound = numInnerTests; //temp for testing
     			printf("test round %d: ", testRound);
     			if(testRound < numInnerTests){
     				printf("querying %d%% of table\n", (int)((double)1/numInnerTests*100*(testRound+1)));
@@ -976,7 +977,7 @@ int main(int argc, char* argv[])
         			char tableName[20];
         			sprintf(tableName, "testTable%d", testSize);
         	        createTestTable(enclave_id, (int*)&status, "testTable", testSize);
-        	        loadIndexTable(enclave_id, (int*)&status, tableName);
+        	        loadIndexTable(enclave_id, (int*)&status, testSize);
         	        printf("created tables\n");
         			if(testRound < numInnerTests){
         				high = testSize/20*(testRound+1);
@@ -1196,7 +1197,7 @@ int main(int argc, char* argv[])
             				endTime = clock();
             				joinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
                 	        deleteTable(enclave_id, (int*)&status, "JoinReturn");
-
+                	        printf("inserting\n");
                 			//do an insertion
             				startTime = clock();
             				for(int q = 0; q < 10; q++){
@@ -1205,15 +1206,16 @@ int main(int argc, char* argv[])
             				endTime = clock();
             				insertTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
             				insertTimes[j]/=10;
-
+                	        printf("deleting\n");
                 	        //delete rows
             				startTime = clock();
-            				for(int q = 0; q < 10; q++){
+            				for(int q = 0; q < 10; q++){//printf("del %d\n", q);
                 		        deleteRows(enclave_id, (int*)&status, tableName, condition1, low, high);
             				}
             				endTime = clock();
             				deleteTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
             				insertTimes[j]/=10;
+            				printf("end\n");
         			}
 
         			deleteTable(enclave_id, (int*)&status, "testTable");
@@ -1290,7 +1292,34 @@ int main(int argc, char* argv[])
     		}
     	}
         deleteTable(enclave_id, (int*)&status, "jIndex");
-        deleteTable(enclave_id, (int*)&status, "jTable");*/
+        deleteTable(enclave_id, (int*)&status, "jTable");
+
+/*
+    	//printf("starting");fflush(stdout);
+    	char delTestName[20];
+		sprintf(delTestName, "testTable%d", 500);
+        //loadIndexTable(enclave_id, (int*)&status, 500);
+    	createTestTableIndex(enclave_id, (int*)&status, delTestName, 1000);printf("del0");fflush(stdout);
+        //indexSelect(enclave_id, (int*)&status, delTestName, -1, noCondition, -1, -1, -1, low, high);
+    	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    	//deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del1\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del2\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del3\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del4\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del5\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del6\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del1\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del2\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del3\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del4\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del5\n");fflush(stdout);
+        deleteRows(enclave_id, (int*)&status, delTestName, condition1, low, high);printf("del6\n");fflush(stdout);
+        indexSelect(enclave_id, (int*)&status, delTestName, -1, noCondition, -1, -1, -1, low, high);
+    	//printf("selected! %d %d\n", low, high);
+    	//printTable(enclave_id, (int*)&status, "ReturnTable");
+*/
 
     	/*createTestTableIndex(enclave_id, (int*)&status, "testTable", 10);
     	saveIndexTable(enclave_id, (int*)&status, "testTable", 10);
@@ -1310,7 +1339,7 @@ int main(int argc, char* argv[])
         indexSelect(enclave_id, (int*)&status, "testTable50", -1, condition1, -1, -1, -1, low, high);
     	printf("selected!\n");
     	printTable(enclave_id, (int*)&status, "ReturnTable");*/
-
+/*
     	createTestTableIndex(enclave_id, (int*)&status, "testTable", 500);
     	saveIndexTable(enclave_id, (int*)&status, "testTable", 500);
     	deleteTable(enclave_id, (int*)&status, "testTable");
@@ -1334,7 +1363,7 @@ int main(int argc, char* argv[])
     	deleteTable(enclave_id, (int*)&status, "testTable");
     	createTestTableIndex(enclave_id, (int*)&status, "testTable", 1000000);
     	saveIndexTable(enclave_id, (int*)&status, "testTable", 1000000);
-    	deleteTable(enclave_id, (int*)&status, "testTable");
+    	deleteTable(enclave_id, (int*)&status, "testTable");*/
     	//loadIndexTable(enclave_id, (int*)&status, "testTable");
     	//printf("loaded!\n");fflush(stdout);
         //indexSelect(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, -1, low, high);

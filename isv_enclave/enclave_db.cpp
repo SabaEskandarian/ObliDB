@@ -220,13 +220,14 @@ int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
 				tempRow = b->data;
 				//printf("here %d\n", b->actualAddr);
 
-				if(rowMatchesCondition(c, tempRow, schemas[structureId]) && tempRow[0] != '\0'){
+				if(rowMatchesCondition(c, tempRow, schemas[structureId]) && tempRow[0] != '\0' && !imgivingupanddontcareflag){
 					//printf("before...");
 					bPlusRoots[structureId] = delete_entry(structureId, root, n, n->keys[i], b);
 					imgivingupanddontcareflag = 1;
-					break;
-					//printf("after\n");
 					numRows[structureId]--;
+					//printf("after\n");
+
+					break;
 				}
 				else{//not sure what to put in dummy branch to match pattern of deletion. Maybe pick a random number and do that many ops?
 					//opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)tempRow, 1);
@@ -240,7 +241,6 @@ int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
 			//n = (node*)n->pointers[order - 1];
 			i = 0;
 		}
-		//printf("here\n");
 		free(b);
 		//if(n != NULL){
 		//	free(n);

@@ -696,6 +696,7 @@ node * remove_entry_from_node(int structureId, node * n, int key, node * pointer
 	followNodePointer(structureId, temp, n->pointers[i]);
 	freeBlock(structureId, temp->actualAddr);//printf("ok\n");
 	free(temp);
+	temp=NULL;
 	for (++i; i < num_pointers; i++)
 		n->pointers[i - 1] = n->pointers[i];
 
@@ -721,7 +722,7 @@ node * remove_entry_from_node(int structureId, node * n, int key, node * pointer
 
 
 node * adjust_root(int structureId, node * root) {
-
+//printf("adjust root\n");
 	node * new_root;
 
 	/* Case: nonempty root.
@@ -755,7 +756,7 @@ node * adjust_root(int structureId, node * root) {
 
 	else{
 		new_root = NULL;
-		printf("tree empty\n");
+		//printf("tree empty\n");
 	}
 	freeBlock(structureId, root->actualAddr);
 	free(root);
@@ -771,7 +772,7 @@ node * adjust_root(int structureId, node * root) {
  * without exceeding the maximum.
  */
 node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, int neighbor_index, int k_prime) {
-
+//printf("coalesce\n");
 	int i, j, neighbor_insertion_index, n_end;
 	node * tmp;//= (node*)malloc(sizeof(node));
 
@@ -859,16 +860,22 @@ node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, i
 	}
 
 	followNodePointer(structureId, tmp, n->parentAddr);
-	root = delete_entry(structureId, root, tmp, k_prime, n);
+	root = delete_entry(structureId, root, tmp, k_prime, n);//printf("past deletion\n");
 
 	freeBlock(structureId, n->actualAddr);
-	free(n);
-	n = NULL;
-	free(neighbor);
+	if(n != NULL){
+		free(n);
+		n = NULL;
+	}//printf("c1");
+	if(neighbor != NULL){
+		free(neighbor);
+		neighbor = NULL;
+	}//printf("c2");
 	if(tmp != NULL){
-		free(tmp);
+		//free(tmp); removed to stop a segfault, probably introduces a leak somewhere
 		tmp = NULL;
 	}
+	//printf("at end\n");
 	return root;
 }
 
@@ -881,7 +888,7 @@ node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, i
  */
 node * redistribute_nodes(int structureId, node * root, node * n, node * neighbor, int neighbor_index,
 		int k_prime_index, int k_prime) {
-
+//printf("redistribute\n");
 	int i;
 	node * tmp = (node*)malloc(sizeof(node));
 	node *nParent = (node*)malloc(sizeof(node));
@@ -994,7 +1001,6 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 		//printf("branch 1\n");
 		return adjust_root(structureId, root);
 	}
-
 
 	/* Case:  deletion from a node below the root.
 	 * (Rest of function body.)
