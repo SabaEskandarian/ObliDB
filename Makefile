@@ -38,7 +38,7 @@
 SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= HW
 SGX_ARCH ?= x64
-SGX_DEBUG ?= 1
+SGX_DEBUG ?= 0
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -134,7 +134,7 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_Headers := isv_enclave/isv_enclave.h
-Enclave_Cpp_Files := isv_enclave/isv_enclave.cpp isv_enclave/definitions.cpp isv_enclave/enclave_db.cpp isv_enclave/enclave_tests.cpp isv_enclave/enclave_data_structures.cpp isv_enclave/badbplustree.cpp
+Enclave_Cpp_Files := isv_enclave/isv_enclave.cpp isv_enclave/definitions.cpp isv_enclave/enclave_db.cpp isv_enclave/enclave_tests.cpp isv_enclave/enclave_data_structures.cpp isv_enclave/bplustree.cpp
 Enclave_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport 
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) #$(My_Flags)
