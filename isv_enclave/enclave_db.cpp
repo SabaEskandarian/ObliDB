@@ -11,6 +11,10 @@ char* tableNames[NUM_STRUCTURES] = {0};
 int rowsPerBlock[NUM_STRUCTURES] = {0}; //let's make this always 1; helpful for security and convenience; set block size appropriately for testing
 int numRows[NUM_STRUCTURES] = {0};
 
+int incrementNumRows(int structureId){
+	numRows[structureId]++;
+}
+
 int rowMatchesCondition(Condition c, uint8_t* row, Schema s){
 
 	/*for(int j = 0; j < schemas[0].numFields; j++){
@@ -663,7 +667,6 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 	}
 	//printf("here %d %d %d\n", root->num_keys, root->keys[0], root->actualAddr);
 
-
 	Obliv_Type type = oblivStructureTypes[structureId];
 	int colChoiceSize = BLOCK_DATA_SIZE;
 	DB_Type colChoiceType = INTEGER;
@@ -698,11 +701,17 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 	node * n = find_leaf(structureId, root, key_start);
 
 	//printf("something about n %d", n->is_leaf);
-	if (n == NULL) return 0;
+	if (n == NULL) {
+		printf("returning here, n is NULL\n");
+		return 0;
+	}
 	//printf("starting select for index\n");//return 1;
 
-	for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++);// printf("i %d\n", i);
-	if (i == n->num_keys) return 0;
+	for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++);// printf("n->keys[i] %d\n", n->keys[i]);
+	if (i == n->num_keys) {
+		printf("now returning zero %d %d\n", n->keys[i-1], key_start);
+		return 0;
+	}
 	memcpy(&saveStart[0], &n[0], sizeof(Oram_Block));
 	//find size of output and whether it is continuous
 	if(groupCol == -1){
@@ -1113,7 +1122,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 				row = b->data;
 				memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
 				memcpy(&aggrVal, &row[schemas[structureId].fieldOffsets[colChoice]], 4);
-				if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy brach
+				if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy branch
 					//continue;
 					int foundAGroup = 0;
 					for(int j = 0; j < numGroups; j++){
@@ -1281,10 +1290,9 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 	Obliv_Type retType = TYPE_LINEAR_SCAN;
 	Schema retSchema; //set later
 	int retNumRows = 0; //set later
-
 	switch(type){
 	case TYPE_LINEAR_SCAN:
-		if(groupCol == -1) {
+		if(groupCol == -1) {//printf("no groupby %d\n", aggregate);
 			if(aggregate == -1) {//actually doing a select
 				int almostAll = 0;
 				int continuous = 0;
@@ -1567,10 +1575,10 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			}
 			else{//doing an aggregate with no group byprintf("here %d", structureId);
 				if(colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER){
+					printf("aborting %d %d", colChoice, schemas[structureId].fieldTypes[colChoice]);
 					return 1;
 				}
 				//printf("here %d", structureId);
-
 				retNumRows = 1;
 				retSchema.numFields = 2;
 				retSchema.fieldOffsets[0] = 0;
@@ -1642,6 +1650,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 		}
 		else{ //group by
 			if(aggregate == -1 || colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER) {
+				//printf("aborting %d %d\n", aggregate == -1, colChoice == -1, schemas[structureId].fieldTypes[colChoice] != INTEGER);
 				return 1;
 			}
 			printf("GROUP BY\n");
@@ -1656,6 +1665,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			uint8_t* dummyData;
 			int groupStat[MAX_GROUPS] = {0};
 			int groupCount[MAX_GROUPS] = {0};
+			//printf("oblivStructureSizes %d %d\n", structureId, oblivStructureSizes[structureId]);
 			for(int i = 0; i < oblivStructureSizes[structureId]; i++){
 				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 				memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
@@ -1713,7 +1723,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				}
 				else{
 					int foundAGroup = 0;
-					for(int j = 0; j < numGroups; j++){
+					for(int j = 0; j < numGroups; j++){//printf("here2\n");
 						if(memcmp(groupVal, groups[j], schemas[structureId].fieldSizes[groupCol]) == 0){
 							foundAGroup = 1;
 							groupCount[j]++;
@@ -1909,7 +1919,11 @@ int printTable(char* tableName){//only for linear scan tables
 	}
 	while(pauseCounter < numRows[structureId]);
 	free(storage);
+	printf("\nTable %s, %d rows, capacity for %d rows, stored in structure %d\n", tableNames[structureId], numRows[structureId], oblivStructureSizes[structureId], structureId);
+}
 
+int getNumRows(int structureId){
+	return numRows[structureId];
 }
 
 int createTestTable(char* tableName, int numberOfRows){

@@ -11,7 +11,7 @@
 #include "string.h"
 
 
-#define BLOCK_DATA_SIZE 512 //as big as possible, I got it working up to 8000000; seems to exhaust heap memory faster than expected; try on supported ubuntu box
+#define BLOCK_DATA_SIZE 2048
 #define NUM_BLOCKS_POW 10
 #define TEST_TYPE 1
 
@@ -23,7 +23,7 @@
 #define MAX_CONDITIONS 5
 #define ROWS_IN_ENCLAVE 5000
 #define PERCENT_ALMOST_ALL 90
-#define MAX_GROUPS 5
+#define MAX_GROUPS 20
 //NUM_BLOCKS_ORAM is larger than the logical size of the oram;
 //within the oram, there will be a B+-tree in whose leaves we will store the actual data
 //so to match a linear scan structure with 16 blocks, we need 16 blocks of leaves in the B+-tree, meaning 31 nodes in the B+-tree

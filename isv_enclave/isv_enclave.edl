@@ -99,6 +99,11 @@ enclave {
 		public int indexSelect([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end);	
 		public int saveIndexTable([user_check]char* tableName, int tableSize);
 		public int loadIndexTable(int tableSize);	
+		
+		//exposing these just for building the tables with real world data
+		public int opOneLinearScanBlock(int structureId, int index, [user_check]Linear_Scan_Block* block, int write);
+		public int incrementNumRows(int structureId);
+		public int getNumRows(int structureId);
     };
 
 };

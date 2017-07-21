@@ -59,6 +59,8 @@ extern int newBlock(int structureId);
 extern int freeBlock(int structureId, int blockNum);
 
 //enclave_db.cpp
+extern int incrementNumRows(int structureId);
+extern int getNumRows(int structureId);
 extern int rowMatchesCondition(Condition c, uint8_t* row, Schema s);
 extern int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, int numberOfRows, int* structureId);
 extern int growStructure(int structureId);
