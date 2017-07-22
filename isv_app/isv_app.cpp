@@ -333,10 +333,10 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
 	char* tableNameIndex = "flightTableIndex";
 	char* tableNameLinear = "flightTableLinear";
 
-	createTable(enclave_id, (int*)&status, &flightSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 1010, &structureIdIndex);
-	createTable(enclave_id, (int*)&status, &flightSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 1010, &structureIdLinear);
-	//createTable(enclave_id, (int*)&status, &flightSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 250000, &structureIdIndex);
-	//createTable(enclave_id, (int*)&status, &flightSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 250000, &structureIdLinear);
+//	createTable(enclave_id, (int*)&status, &flightSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 1010, &structureIdIndex);
+//	createTable(enclave_id, (int*)&status, &flightSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 1010, &structureIdLinear);
+	createTable(enclave_id, (int*)&status, &flightSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 250010, &structureIdIndex);
+	createTable(enclave_id, (int*)&status, &flightSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 250010, &structureIdLinear);
 
 	std::ifstream file("flight_data_small.csv"); //eclipse doesn't like this line, but it compiles fine
 
@@ -344,8 +344,8 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
 	char data[BLOCK_DATA_SIZE];
 	file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	//for(int i = 0; i < 250000; i++){
-	for(int i = 0; i < 1000; i++){
+	for(int i = 0; i < 250000; i++){
+	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file.getline(line, BLOCK_DATA_SIZE);//get the field
 
@@ -391,6 +391,47 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
 	printf("query 1 index running time hash: %.5f\n", elapsedTime);
 	printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "flightTableLinear", 6, cond0, -1, -1, 2);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 2 linear running time small: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "flightTableLinear", 6, cond0, -1, -1, 3);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 2 linear running time hash: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "flightTableLinear", 6, cond0, -1, -1, 4);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 2 linear running time almost all: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "flightTableIndex", 6, cond0, -1, -1, 2, val-1, val);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 2 index running time small: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	getNumRows(enclave_id, (int*)&status, 2);
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "flightTableIndex", 6, cond0, -1, -1, 3, val-1, val);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 2 index running time hash: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	getNumRows(enclave_id, (int*)&status, 2);
+	printf("number of rows selected: %d", (int)status);fflush(stdout);//this is a hack, ReturnTable should be in position 2
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
 
     deleteTable(enclave_id, (int*)&status, "flightTableLinear");
     deleteTable(enclave_id, (int*)&status, "flightTableIndex");
@@ -448,6 +489,7 @@ void complaintTables(sgx_enclave_id_t enclave_id, int status){
 	compSchema.fieldTypes[13] = INTEGER;
 
 
+printf("here\n");fflush(stdout);
 	Condition cond0, cond1, cond2, cond3, cond4, condNone;
 	char* negative = "No";
 	char* ccc = "Credit Card";
@@ -467,7 +509,7 @@ void complaintTables(sgx_enclave_id_t enclave_id, int status){
 	cond1.values[0] = (uint8_t*)malloc(strlen(ccc)+1);
 	cond1.values[1] = (uint8_t*)malloc(strlen(mmm)+1);
 	strcpy((char*)cond1.values[0], ccc);
-	strcpy((char*)cond1.values[0], mmm);
+	strcpy((char*)cond1.values[1], mmm);
 	cond1.nextCondition = &cond4;
 	cond2.numClauses = 1;
 	cond2.fieldNums[0] = 7;
@@ -485,17 +527,19 @@ void complaintTables(sgx_enclave_id_t enclave_id, int status){
 	cond4.numClauses = 1;
 	cond4.fieldNums[0] = 9;
 	cond4.conditionType[0] = 0;
-	cond4.values[0] = (uint8_t*)malloc(strlen(bank));
+	cond4.values[0] = (uint8_t*)malloc(strlen(bank)+1);
 	strcpy((char*)cond4.values[0], bank);
 	cond4.nextCondition = &cond2;
 
 	char* tableNameIndex = "compTableIndex";
 	char* tableNameLinear = "compTableLinear";
 
-	//createTable(enclave_id, (int*)&status, &compSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 107000, &structureIdIndex);
-	//createTable(enclave_id, (int*)&status, &compSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 107000, &structureIdLinear);
-	createTable(enclave_id, (int*)&status, &compSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 1010, &structureIdIndex);
-	createTable(enclave_id, (int*)&status, &compSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 1010, &structureIdLinear);
+printf("here\n");fflush(stdout);
+	createTable(enclave_id, (int*)&status, &compSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 107000, &structureIdIndex);
+	createTable(enclave_id, (int*)&status, &compSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 107000, &structureIdLinear);
+	//createTable(enclave_id, (int*)&status, &compSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 1010, &structureIdIndex);
+printf("here\n");fflush(stdout);
+	//createTable(enclave_id, (int*)&status, &compSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 1010, &structureIdLinear);
 
 	std::ifstream file("cfpb_consumer_complaints.csv");
 
@@ -503,8 +547,9 @@ void complaintTables(sgx_enclave_id_t enclave_id, int status){
 	char data[BLOCK_DATA_SIZE];
 	file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	//for(int i = 0; i < 106427; i++){
-	for(int i = 0; i < 1000; i++){
+printf("here\n");fflush(stdout);
+	for(int i = 0; i < 106427; i++){
+	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file.getline(line, BLOCK_DATA_SIZE);//get the field
 
@@ -1388,9 +1433,9 @@ int main(int argc, char* argv[])
 
         //real world query tests
 
-        nasdaqTables(enclave_id, status); //2048
+        //nasdaqTables(enclave_id, status); //2048
         //complaintTables(enclave_id, status); //4096
-        //flightTables(enclave_id, status); //256
+        flightTables(enclave_id, status); //256
 
         //Tests for database functionalities here
 /*
