@@ -288,6 +288,365 @@ void ocall_read_file(void *dest, int dsize){
 
 }
 
+void BDB1(sgx_enclave_id_t enclave_id, int status){
+	//block size needs to be 512
+
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	int structureIdIndex = -1;
+	int structureIdLinear = -1;
+	Schema rankingsSchema;
+	rankingsSchema.numFields = 4;
+	rankingsSchema.fieldOffsets[0] = 0;
+	rankingsSchema.fieldSizes[0] = 1;
+	rankingsSchema.fieldTypes[0] = CHAR;
+	rankingsSchema.fieldOffsets[1] = 1;
+	rankingsSchema.fieldSizes[1] = 255;
+	rankingsSchema.fieldTypes[1] = TINYTEXT;
+	rankingsSchema.fieldOffsets[2] = 256;
+	rankingsSchema.fieldSizes[2] = 4;
+	rankingsSchema.fieldTypes[2] = INTEGER;
+	rankingsSchema.fieldOffsets[3] = 260;
+	rankingsSchema.fieldSizes[3] = 4;
+	rankingsSchema.fieldTypes[3] = INTEGER;
+
+	Condition cond;
+	int val = 1000;
+	cond.numClauses = 1;
+	cond.fieldNums[0] = 1;
+	cond.conditionType[0] = 1;
+	cond.values[0] = (uint8_t*)malloc(4);
+	memcpy(cond.values[0], &val, 4);
+	cond.nextCondition = NULL;
+
+	char* tableName = "rankings";
+	createTable(enclave_id, (int*)&status, &rankingsSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, 360010, &structureIdIndex);
+
+	std::ifstream file("rankings.csv");
+
+	char line[BLOCK_DATA_SIZE];//make this big just in case
+	char data[BLOCK_DATA_SIZE];
+	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
+	row[0] = 'a';
+	for(int i = 0; i < 360000; i++){
+	//for(int i = 0; i < 1000; i++){
+		memset(row, 'a', BLOCK_DATA_SIZE);
+		file.getline(line, BLOCK_DATA_SIZE);//get the field
+
+		std::istringstream ss(line);
+		for(int j = 0; j < 3; j++){
+			if(!ss.getline(data, BLOCK_DATA_SIZE, ',')){
+				break;
+			}
+			//printf("data: %s\n", data);
+			if(j == 1 || j == 2){//integer
+				int d = 0;
+				d = atoi(data);
+				//printf("data: %s\n", data);
+				//printf("d %d\n", d);
+				memcpy(&row[rankingsSchema.fieldOffsets[j+1]], &d, 4);
+			}
+			else{//tinytext
+				strncpy((char*)&row[rankingsSchema.fieldOffsets[j+1]], data, strlen(data)+1);
+			}
+		}
+		//insert the row into the database - index by last sale price
+		int indexval = 0;
+		memcpy(&indexval, &row[rankingsSchema.fieldOffsets[1]], 4);
+		insertRow(enclave_id, (int*)&status, "rankings", row, indexval);
+	}
+
+	printf("created BDB1 table\n");
+	time_t startTime, endTime;
+	double elapsedTime;
+
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 1, 1000, INT_MAX);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB1 running time (alg1): %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 2, 1000, INT_MAX);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB1 running time (alg2): %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 3, 1000, INT_MAX);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB1 running time (alg3): %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 4, 1000, INT_MAX);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB1 running time (alg4): %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+    deleteTable(enclave_id, (int*)&status, "rankings");
+}
+
+void BDB2(sgx_enclave_id_t enclave_id, int status){
+//block size 2048
+
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	int structureIdIndex = -1;
+	int structureIdLinear = -1;
+	Schema userdataSchema;
+	userdataSchema.numFields = 10;
+	userdataSchema.fieldOffsets[0] = 0;
+	userdataSchema.fieldSizes[0] = 1;
+	userdataSchema.fieldTypes[0] = CHAR;
+	userdataSchema.fieldOffsets[1] = 1;
+	userdataSchema.fieldSizes[1] = 255;
+	userdataSchema.fieldTypes[1] = TINYTEXT;
+	userdataSchema.fieldOffsets[2] = 256;
+	userdataSchema.fieldSizes[2] = 255;
+	userdataSchema.fieldTypes[2] = TINYTEXT;
+	userdataSchema.fieldOffsets[3] = 511;
+	userdataSchema.fieldSizes[3] = 4;
+	userdataSchema.fieldTypes[3] = INTEGER;
+	userdataSchema.fieldOffsets[4] = 515;
+	userdataSchema.fieldSizes[4] = 4;
+	userdataSchema.fieldTypes[4] = INTEGER;
+	userdataSchema.fieldOffsets[5] = 519;
+	userdataSchema.fieldSizes[5] = 255;
+	userdataSchema.fieldTypes[5] = TINYTEXT;
+	userdataSchema.fieldOffsets[6] = 774;
+	userdataSchema.fieldSizes[6] = 255;
+	userdataSchema.fieldTypes[6] = TINYTEXT;
+	userdataSchema.fieldOffsets[7] = 1029;
+	userdataSchema.fieldSizes[7] = 255;
+	userdataSchema.fieldTypes[7] = TINYTEXT;
+	userdataSchema.fieldOffsets[8] = 1284;
+	userdataSchema.fieldSizes[8] = 255;
+	userdataSchema.fieldTypes[8] = TINYTEXT;
+	userdataSchema.fieldOffsets[9] = 1539;
+	userdataSchema.fieldSizes[9] = 4;
+	userdataSchema.fieldTypes[9] = INTEGER;
+
+	Condition cond;
+	int val = 1000;
+	cond.numClauses = 0;
+	cond.nextCondition = NULL;
+
+	char* tableName = "uservisits";
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 350010, &structureIdLinear);
+
+	std::ifstream file("uservisits.csv");
+
+	char line[BLOCK_DATA_SIZE];//make this big just in case
+	char data[BLOCK_DATA_SIZE];
+	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
+	row[0] = 'a';
+	for(int i = 0; i < 350000; i++){
+	//for(int i = 0; i < 1000; i++){
+		memset(row, 'a', BLOCK_DATA_SIZE);
+		file.getline(line, BLOCK_DATA_SIZE);//get the field
+
+		std::istringstream ss(line);
+		for(int j = 0; j < 9; j++){
+			if(!ss.getline(data, BLOCK_DATA_SIZE, ',')){
+				break;
+			}
+			//printf("data: %s\n", data);
+			if(j == 2 || j == 3 || j == 8){//integer
+				int d = 0;
+				d = atoi(data);
+				//printf("data: %s\n", data);
+				//printf("d %d\n", d);
+				memcpy(&row[userdataSchema.fieldOffsets[j+1]], &d, 4);
+			}
+			else{//tinytext
+				strncpy((char*)&row[userdataSchema.fieldOffsets[j+1]], data, strlen(data)+1);
+			}
+		}
+		//manually insert into the linear scan structure for speed purposes
+		opOneLinearScanBlock(enclave_id, (int*)&status, structureIdLinear, i, (Linear_Scan_Block*)row, 1);
+		incrementNumRows(enclave_id, (int*)&status, structureIdLinear);
+	}
+
+	printf("created BDB2 table\n");
+	time_t startTime, endTime;
+	double elapsedTime;
+
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 4, 1, 100);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB2 running time: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+    deleteTable(enclave_id, (int*)&status, "uservisits");
+}
+
+void BDB3(sgx_enclave_id_t enclave_id, int status){
+//block size 2048
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	int structureIdIndex1 = -1;
+	int structureIdIndex2 = -1;
+	Schema rankingsSchema;
+	rankingsSchema.numFields = 4;
+	rankingsSchema.fieldOffsets[0] = 0;
+	rankingsSchema.fieldSizes[0] = 1;
+	rankingsSchema.fieldTypes[0] = CHAR;
+	rankingsSchema.fieldOffsets[1] = 1;
+	rankingsSchema.fieldSizes[1] = 255;
+	rankingsSchema.fieldTypes[1] = TINYTEXT;
+	rankingsSchema.fieldOffsets[2] = 256;
+	rankingsSchema.fieldSizes[2] = 4;
+	rankingsSchema.fieldTypes[2] = INTEGER;
+	rankingsSchema.fieldOffsets[3] = 260;
+	rankingsSchema.fieldSizes[3] = 4;
+	rankingsSchema.fieldTypes[3] = INTEGER;
+
+	char* tableName = "rankings";
+	createTable(enclave_id, (int*)&status, &rankingsSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, 360010, &structureIdIndex1);
+
+	std::ifstream file("rankings.csv");
+
+	char line[BLOCK_DATA_SIZE];//make this big just in case
+	char data[BLOCK_DATA_SIZE];
+	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
+	row[0] = 'a';
+	for(int i = 0; i < 360000; i++){
+	//for(int i = 0; i < 1000; i++){
+		memset(row, 'a', BLOCK_DATA_SIZE);
+		file.getline(line, BLOCK_DATA_SIZE);//get the field
+
+		std::istringstream ss(line);
+		for(int j = 0; j < 3; j++){
+			if(!ss.getline(data, BLOCK_DATA_SIZE, ',')){
+				break;
+			}
+			//printf("data: %s\n", data);
+			if(j == 1 || j == 2){//integer
+				int d = 0;
+				d = atoi(data);
+				//printf("data: %s\n", data);
+				//printf("d %d\n", d);
+				memcpy(&row[rankingsSchema.fieldOffsets[j+1]], &d, 4);
+			}
+			else{//tinytext
+				strncpy((char*)&row[rankingsSchema.fieldOffsets[j+1]], data, strlen(data)+1);
+			}
+		}
+		//insert the row into the database
+		int indexval = 0;
+		memcpy(&indexval, &row[rankingsSchema.fieldOffsets[1]], 4);
+		insertRow(enclave_id, (int*)&status, "rankings", row, indexval);
+	}
+	printf("created rankings table\n");
+
+	Schema userdataSchema;
+	userdataSchema.numFields = 10;
+	userdataSchema.fieldOffsets[0] = 0;
+	userdataSchema.fieldSizes[0] = 1;
+	userdataSchema.fieldTypes[0] = CHAR;
+	userdataSchema.fieldOffsets[1] = 1;
+	userdataSchema.fieldSizes[1] = 255;
+	userdataSchema.fieldTypes[1] = TINYTEXT;
+	userdataSchema.fieldOffsets[2] = 256;
+	userdataSchema.fieldSizes[2] = 255;
+	userdataSchema.fieldTypes[2] = TINYTEXT;
+	userdataSchema.fieldOffsets[3] = 511;
+	userdataSchema.fieldSizes[3] = 4;
+	userdataSchema.fieldTypes[3] = INTEGER;
+	userdataSchema.fieldOffsets[4] = 515;
+	userdataSchema.fieldSizes[4] = 4;
+	userdataSchema.fieldTypes[4] = INTEGER;
+	userdataSchema.fieldOffsets[5] = 519;
+	userdataSchema.fieldSizes[5] = 255;
+	userdataSchema.fieldTypes[5] = TINYTEXT;
+	userdataSchema.fieldOffsets[6] = 774;
+	userdataSchema.fieldSizes[6] = 255;
+	userdataSchema.fieldTypes[6] = TINYTEXT;
+	userdataSchema.fieldOffsets[7] = 1029;
+	userdataSchema.fieldSizes[7] = 255;
+	userdataSchema.fieldTypes[7] = TINYTEXT;
+	userdataSchema.fieldOffsets[8] = 1284;
+	userdataSchema.fieldSizes[8] = 255;
+	userdataSchema.fieldTypes[8] = TINYTEXT;
+	userdataSchema.fieldOffsets[9] = 1539;
+	userdataSchema.fieldSizes[9] = 4;
+	userdataSchema.fieldTypes[9] = INTEGER;
+
+	Condition cond;
+	int val = 1000;
+	cond.numClauses = 0;
+	cond.nextCondition = NULL;
+
+	char* tableName = "uservisits";
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, 350010, &structureIdIndex2);
+
+	std::ifstream file("uservisits.csv");
+
+	char line[BLOCK_DATA_SIZE];//make this big just in case
+	char data[BLOCK_DATA_SIZE];
+	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
+	row[0] = 'a';
+	for(int i = 0; i < 350000; i++){
+	//for(int i = 0; i < 1000; i++){
+		memset(row, 'a', BLOCK_DATA_SIZE);
+		file.getline(line, BLOCK_DATA_SIZE);//get the field
+
+		std::istringstream ss(line);
+		for(int j = 0; j < 9; j++){
+			if(!ss.getline(data, BLOCK_DATA_SIZE, ',')){
+				break;
+			}
+			//printf("data: %s\n", data);
+			if(j == 2 || j == 3 || j == 8){//integer
+				int d = 0;
+				d = atoi(data);
+				//printf("data: %s\n", data);
+				//printf("d %d\n", d);
+				memcpy(&row[userdataSchema.fieldOffsets[j+1]], &d, 4);
+			}
+			else{//tinytext
+				strncpy((char*)&row[userdataSchema.fieldOffsets[j+1]], data, strlen(data)+1);
+			}
+		}
+		//insert the row into the database - index by visit date
+		int indexval = 0;
+		memcpy(&indexval, &row[rankingsSchema.fieldOffsets[3]], 4);
+		insertRow(enclave_id, (int*)&status, "uservisits", row, indexval);
+	}
+
+	printf("created uservisits table\n");
+	time_t startTime, endTime;
+	double elapsedTime;
+
+
+	startTime = clock();
+	//fancy join
+	//fancy group by
+	//select max
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB3 running time: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+    deleteTable(enclave_id, (int*)&status, "uservisits");
+    deleteTable(enclave_id, (int*)&status, "rankings");
+
+}
+
+
+
 void flightTables(sgx_enclave_id_t enclave_id, int status){
 	//block data size can be shrunk as low as 32 for this test
 //create a linear scan table and an index for the flight test data. Index the data by price
@@ -1435,7 +1794,10 @@ int main(int argc, char* argv[])
 
         //nasdaqTables(enclave_id, status); //2048
         //complaintTables(enclave_id, status); //4096
-        flightTables(enclave_id, status); //256
+        //flightTables(enclave_id, status); //256
+        BDB1(enclave_id, status);//512
+        BDB2(enclave_id, status);//2048
+
 
         //Tests for database functionalities here
 /*
