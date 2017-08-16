@@ -312,14 +312,15 @@ void BDB1(sgx_enclave_id_t enclave_id, int status){
 	Condition cond;
 	int val = 1000;
 	cond.numClauses = 1;
-	cond.fieldNums[0] = 1;
+	cond.fieldNums[0] = 2;
 	cond.conditionType[0] = 1;
 	cond.values[0] = (uint8_t*)malloc(4);
 	memcpy(cond.values[0], &val, 4);
 	cond.nextCondition = NULL;
 
 	char* tableName = "rankings";
-	createTable(enclave_id, (int*)&status, &rankingsSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, 360010, &structureIdIndex);
+	createTable(enclave_id, (int*)&status, &rankingsSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, 360010, &structureIdIndex);//TODO temp really 360010
+	//printTable(enclave_id, (int*)&status, "rankings");
 
 	std::ifstream file("rankings.csv");
 
@@ -327,7 +328,7 @@ void BDB1(sgx_enclave_id_t enclave_id, int status){
 	char data[BLOCK_DATA_SIZE];
 	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	for(int i = 0; i < 360000; i++){
+	for(int i = 0; i < 360000; i++){//TODO temp really 360000
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file.getline(line, BLOCK_DATA_SIZE);//get the field
@@ -351,28 +352,23 @@ void BDB1(sgx_enclave_id_t enclave_id, int status){
 		}
 		//insert the row into the database - index by last sale price
 		int indexval = 0;
-		memcpy(&indexval, &row[rankingsSchema.fieldOffsets[1]], 4);
+		memcpy(&indexval, &row[rankingsSchema.fieldOffsets[2]], 4);
 		insertRow(enclave_id, (int*)&status, "rankings", row, indexval);
+		//if (indexval > 1000) printf("indexval %d \n", indexval);
+		//printTable(enclave_id, (int*)&status, "rankings");
 	}
 
 	printf("created BDB1 table\n");
 	time_t startTime, endTime;
 	double elapsedTime;
+	//printTable(enclave_id, (int*)&status, "rankings");
 
-	startTime = clock();
-	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 1, 1000, INT_MAX);
-	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
-	endTime = clock();
-	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-	printf("BDB1 running time (alg1): %.5f\n", elapsedTime);
-	//printTable(enclave_id, (int*)&status, "ReturnTable");
-    deleteTable(enclave_id, (int*)&status, "ReturnTable");
 	startTime = clock();
 	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 2, 1000, INT_MAX);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-	printf("BDB1 running time (alg2): %.5f\n", elapsedTime);
+	printf("BDB1 running time (small): %.5f\n", elapsedTime);
 	//printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 	startTime = clock();
@@ -380,16 +376,8 @@ void BDB1(sgx_enclave_id_t enclave_id, int status){
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-	printf("BDB1 running time (alg3): %.5f\n", elapsedTime);
-	//printTable(enclave_id, (int*)&status, "ReturnTable");
-    deleteTable(enclave_id, (int*)&status, "ReturnTable");
-	startTime = clock();
-	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 4, 1000, INT_MAX);
-	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
-	endTime = clock();
-	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-	printf("BDB1 running time (alg4): %.5f\n", elapsedTime);
-	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	printf("BDB1 running time (hash): %.5f\n", elapsedTime);
+	printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     deleteTable(enclave_id, (int*)&status, "rankings");
@@ -440,7 +428,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	cond.nextCondition = NULL;
 
 	char* tableName = "uservisits";
-	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 350010, &structureIdLinear);
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 1010, &structureIdLinear);//TODO temp really 350010
 
 	std::ifstream file("uservisits.csv");
 
@@ -448,7 +436,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	char data[BLOCK_DATA_SIZE];
 	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	for(int i = 0; i < 350000; i++){
+	for(int i = 0; i < 1000; i++){//TODO temp really 350000
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file.getline(line, BLOCK_DATA_SIZE);//get the field
@@ -480,18 +468,19 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	double elapsedTime;
 
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 4, 1, 100);
+	selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 4, 1, -2);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("BDB2 running time: %.5f\n", elapsedTime);
-	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     deleteTable(enclave_id, (int*)&status, "uservisits");
 }
 
 void BDB3(sgx_enclave_id_t enclave_id, int status){
+	/*
 //block size 2048
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	int structureIdIndex1 = -1;
@@ -642,7 +631,7 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 
     deleteTable(enclave_id, (int*)&status, "uservisits");
     deleteTable(enclave_id, (int*)&status, "rankings");
-
+*/
 }
 
 
@@ -1796,7 +1785,7 @@ int main(int argc, char* argv[])
         //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //256
         BDB1(enclave_id, status);//512
-        BDB2(enclave_id, status);//2048
+        //BDB2(enclave_id, status);//2048
 
 
         //Tests for database functionalities here
