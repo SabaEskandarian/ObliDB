@@ -65,6 +65,7 @@ extern int rowMatchesCondition(Condition c, uint8_t* row, Schema s);
 extern int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, int numberOfRows, int* structureId);
 extern int growStructure(int structureId);
 extern int getTableId(char *tableName);
+extern int renameTable(char *oldTableName, char *newTableName);
 extern int insertRow(char* tableName, uint8_t* row, int key);
 extern int deleteRows(char* tableName, Condition c, int startKey, int endKey);
 extern int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int startKey, int endKey);

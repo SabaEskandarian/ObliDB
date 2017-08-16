@@ -85,6 +85,7 @@ enclave {
 		public int createTable([user_check]Schema *schema, [user_check]char* tableName, int nameLen, Obliv_Type type, int numberOfRows, [user_check]int* structureId);
 		public int growStructure(int structureId);
 		public int getTableId([user_check]char *tableName);
+		public int renameTable([user_check]char *oldTableName, [user_check]char *newTableName);
 		public int insertRow([user_check]char* tableName, [user_check]uint8_t* row, int key);
 		public int deleteRows([user_check]char* tableName, Condition c, int startKey, int endKey);
 		public int updateRows([user_check]char* tableName, Condition c, int colChoice, [user_check]uint8_t* colVal, int startKey, int endKey);

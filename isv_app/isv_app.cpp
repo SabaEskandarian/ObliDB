@@ -449,9 +449,11 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 			//printf("data: %s\n", data);
 			if(j == 2 || j == 3 || j == 8){//integer
 				int d = 0;
-				d = atoi(data);
+				if(j==3) d = atof(data)*100;
+				else d = atoi(data);
 				//printf("data: %s\n", data);
 				//printf("d %d\n", d);
+
 				memcpy(&row[userdataSchema.fieldOffsets[j+1]], &d, 4);
 			}
 			else{//tinytext
@@ -466,7 +468,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	printf("created BDB2 table\n");
 	time_t startTime, endTime;
 	double elapsedTime;
-
+	printTable(enclave_id, (int*)&status, "uservisits");
 	startTime = clock();
 	selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 4, 1, -2);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
@@ -480,10 +482,10 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 }
 
 void BDB3(sgx_enclave_id_t enclave_id, int status){
-	/*
+
 //block size 2048
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
-	int structureIdIndex1 = -1;
+	int structureId1 = -1;
 	int structureIdIndex2 = -1;
 	Schema rankingsSchema;
 	rankingsSchema.numFields = 4;
@@ -501,7 +503,7 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	rankingsSchema.fieldTypes[3] = INTEGER;
 
 	char* tableName = "rankings";
-	createTable(enclave_id, (int*)&status, &rankingsSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, 360010, &structureIdIndex1);
+	createTable(enclave_id, (int*)&status, &rankingsSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 360010, &structureId1); //TODO temp really 360010
 
 	std::ifstream file("rankings.csv");
 
@@ -509,7 +511,7 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	char data[BLOCK_DATA_SIZE];
 	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	for(int i = 0; i < 360000; i++){
+	for(int i = 0; i < 360000; i++){ //TODO temp really 360000
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file.getline(line, BLOCK_DATA_SIZE);//get the field
@@ -531,10 +533,9 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 				strncpy((char*)&row[rankingsSchema.fieldOffsets[j+1]], data, strlen(data)+1);
 			}
 		}
-		//insert the row into the database
-		int indexval = 0;
-		memcpy(&indexval, &row[rankingsSchema.fieldOffsets[1]], 4);
-		insertRow(enclave_id, (int*)&status, "rankings", row, indexval);
+		//manually insert into the linear scan structure for speed purposes
+		opOneLinearScanBlock(enclave_id, (int*)&status, structureId1, i, (Linear_Scan_Block*)row, 1);
+		incrementNumRows(enclave_id, (int*)&status, structureId1);
 	}
 	printf("created rankings table\n");
 
@@ -571,24 +572,17 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	userdataSchema.fieldSizes[9] = 4;
 	userdataSchema.fieldTypes[9] = INTEGER;
 
-	Condition cond;
-	int val = 1000;
-	cond.numClauses = 0;
-	cond.nextCondition = NULL;
+	char* tableName2 = "uservisits";
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName2, strlen(tableName2), TYPE_TREE_ORAM, 350010, &structureIdIndex2); //TODO temp really 350010
 
-	char* tableName = "uservisits";
-	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, 350010, &structureIdIndex2);
+	std::ifstream file2("uservisits.csv");
 
-	std::ifstream file("uservisits.csv");
-
-	char line[BLOCK_DATA_SIZE];//make this big just in case
-	char data[BLOCK_DATA_SIZE];
 	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	for(int i = 0; i < 350000; i++){
+	for(int i = 0; i < 350000; i++){//TODO temp really 350000
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
-		file.getline(line, BLOCK_DATA_SIZE);//get the field
+		file2.getline(line, BLOCK_DATA_SIZE);//get the field
 
 		std::istringstream ss(line);
 		for(int j = 0; j < 9; j++){
@@ -598,9 +592,10 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 			//printf("data: %s\n", data);
 			if(j == 2 || j == 3 || j == 8){//integer
 				int d = 0;
-				d = atoi(data);
+				if(j==3) d = atof(data)*100;
+				else d = atoi(data);
 				//printf("data: %s\n", data);
-				//printf("d %d\n", d);
+				//printf("d %d ", d);
 				memcpy(&row[userdataSchema.fieldOffsets[j+1]], &d, 4);
 			}
 			else{//tinytext
@@ -609,7 +604,8 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 		}
 		//insert the row into the database - index by visit date
 		int indexval = 0;
-		memcpy(&indexval, &row[rankingsSchema.fieldOffsets[3]], 4);
+		memcpy(&indexval, &row[userdataSchema.fieldOffsets[3]], 4);
+		//printf("indexval: %d\n", indexval);
 		insertRow(enclave_id, (int*)&status, "uservisits", row, indexval);
 	}
 
@@ -617,21 +613,49 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	time_t startTime, endTime;
 	double elapsedTime;
 
+	Condition cond1, cond2;
+	int l = 19800100, h = 19800402;
+	cond1.numClauses = 1;
+	cond1.fieldNums[0] = 3;
+	cond1.conditionType[0] = 1;
+	cond1.values[0] = (uint8_t*)malloc(4);
+	memcpy(cond1.values[0], &l, 4);
+	cond1.nextCondition = &cond2;
+	cond2.numClauses = 1;
+	cond2.fieldNums[0] = 3;
+	cond2.conditionType[0] = 2;
+	cond2.values[0] = (uint8_t*)malloc(4);
+	memcpy(cond2.values[0], &h, 4);
+	cond2.nextCondition = NULL;
+	Condition noCond;
+	noCond.numClauses = 0;
+	noCond.nextCondition = NULL;
 
 	startTime = clock();
-	//fancy join
+	indexSelect(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2, l, h);
+	renameTable(enclave_id, (int*)&status, "ReturnTable", "uvJ");
+	//printTable(enclave_id, (int*)&status, "uvJ");
+	joinTables(enclave_id, (int*)&status, "rankings", "uvJ", 1, 2, -1, -1);
+	//int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
+	renameTable(enclave_id, (int*)&status, "JoinReturn", "jr");
+	selectRows(enclave_id, (int*)&status, "jr", 2, noCond, 4, 4, 6);
+	renameTable(enclave_id, (int*)&status, "ReturnTable", "last");
+	//printTable(enclave_id, (int*)&status, "last");
+	selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, 0);
+	//select from index
+	//join
 	//fancy group by
 	//select max
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("BDB3 running time: %.5f\n", elapsedTime);
-	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     deleteTable(enclave_id, (int*)&status, "uservisits");
     deleteTable(enclave_id, (int*)&status, "rankings");
-*/
+
 }
 
 
@@ -1784,9 +1808,18 @@ int main(int argc, char* argv[])
         //nasdaqTables(enclave_id, status); //2048
         //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //256
-        BDB1(enclave_id, status);//512
+        //BDB1(enclave_id, status);//512
         //BDB2(enclave_id, status);//2048
+        BDB3(enclave_id, status);//2048
 
+        /*
+        //rename test
+        createTestTable(enclave_id, (int*)&status, "table1", 10);
+        printTable(enclave_id, (int*)&status, "table1");
+        char* newName = "t2";
+        renameTable(enclave_id, (int*)&status, "table1", newName);
+        printTable(enclave_id, (int*)&status, "t2");
+*/
 
         //Tests for database functionalities here
 /*
@@ -1812,6 +1845,7 @@ int main(int argc, char* argv[])
         condition3.values[0] = (uint8_t*)&high;
         condition3.nextCondition = NULL;
         noCondition.numClauses = 0;
+        noCondition.nextCondition = NULL;
         gapCond1.numClauses = 2;
         gapCond1.fieldNums[0] = 1;
         gapCond1.conditionType[0] = -1;
@@ -1852,7 +1886,8 @@ int main(int argc, char* argv[])
     	testSchema2.fieldTypes[1] = INTEGER;
     	testSchema2.fieldTypes[2] = INTEGER;
     	testSchema2.fieldTypes[3] = CHAR;
-
+    	*/
+/*
     	//time to test performance of everything
 
     	int testSizes[] = {100000};
@@ -2482,20 +2517,28 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
         */
         //test join
-
-        /*createTestTableIndex(enclave_id, (int*)&status, "jointestTable", 50);
+/*
+        createTestTableIndex(enclave_id, (int*)&status, "jointestTable", 50);
         createTestTableIndex(enclave_id, (int*)&status, "jIndex", 50);
         deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
         deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
         deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
         deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
-        joinTables(enclave_id, (int*)&status, "jointestTable", "jIndex", 1, 1, 2, 21);
-        printTable(enclave_id, (int*)&status, "JoinReturn");
-        selectRows(enclave_id, (int*)&status, "JoinReturn", 1, condition3, 0, 3, -1);
+
+        indexSelect(enclave_id, (int*)&status, "jointestTable", -1, noCondition, -1, -1, -1, 0, 100);
         printTable(enclave_id, (int*)&status, "ReturnTable");
         deleteTable(enclave_id, (int*)&status, "ReturnTable");
-        deleteTable(enclave_id, (int*)&status, "JoinReturn");*/
+        indexSelect(enclave_id, (int*)&status, "jIndex", -1, noCondition, -1, -1, -1, -1, 100);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
+        joinTables(enclave_id, (int*)&status, "jointestTable", "jIndex", 1, 1, 2, 21);
+        printTable(enclave_id, (int*)&status, "JoinReturn");
+        selectRows(enclave_id, (int*)&status, "JoinReturn", 1, noCondition, 0, 3, -1);
+        printTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+        deleteTable(enclave_id, (int*)&status, "JoinReturn");
+*/
         //ret = newStructure(enclave_id, TYPE_TREE_ORAM, (*oramCapacity*2-1)*BUCKET_SIZE); //real size of oram is bigger than logical size
         //JK, ignore all this, I'm going to call the testing ecall. TODO: clean this and the service_provider up later
         //ret = newStructure(enclave_id, TYPE_LINEAR_SCAN, 7);//as per the requirements of the hard-coded test
