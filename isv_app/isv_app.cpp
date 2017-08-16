@@ -573,13 +573,13 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	userdataSchema.fieldTypes[9] = INTEGER;
 
 	char* tableName2 = "uservisits";
-	createTable(enclave_id, (int*)&status, &userdataSchema, tableName2, strlen(tableName2), TYPE_TREE_ORAM, 350010, &structureIdIndex2); //TODO temp really 350010
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName2, strlen(tableName2), TYPE_TREE_ORAM, 15510, &structureIdIndex2); //TODO temp really 350010
 
 	std::ifstream file2("uservisits.csv");
 
 	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	for(int i = 0; i < 350000; i++){//TODO temp really 350000
+	for(int i = 0; i < 15500; i++){//TODO temp really 350000
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file2.getline(line, BLOCK_DATA_SIZE);//get the field

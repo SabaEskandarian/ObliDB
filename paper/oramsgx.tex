@@ -49,7 +49,7 @@
 \begin{document}
 \maketitle
   \begin{abstract}
-{We present \name/\footnote{Much like the data in our system, sloths, who are abundantly present in trees in some parts of the world, are difficult to spot as they are well-hidden amongst the trees where they spend most of their lives.}, a database built on Intel's SGX hardware that provides minimal leakage of cryptographically protected data. \name/ achieves comparable performance to prior work while leaking only the structure of queries and the protected data returned from them. In particular, access patterns to data are hidden. \name/ supports a broad range of SQL queries including groupings and joins and makes use of both ORAM and linear search-based data structures. It also provides a range of oblivious algorithms to execute \texttt{SELECT} operations with different result sizes. 
+{We present \name/\footnote{Much like the data in our system, sloths, who are abundantly present in trees in some parts of the world, are difficult to spot as they are well-hidden amongst the trees where they spend most of their lives.}, a database built on Intel's SGX hardware that provides minimal leakage of cryptographically protected data. \name/ achieves comparable performance to prior work while leaking only the structure of queries and the protected data returned from them. In particular, access patterns to data are hidden. \name/ supports a broad range of SQL queries including groupings and joins and makes use of both ORAM-based oblivious indexes and linear search-based data structures. It also provides a range of oblivious algorithms to execute \texttt{SELECT} operations with different result sizes. 
 }
 \end{abstract} 
 
@@ -59,7 +59,7 @@ The advent of cloud computing has ushered in hopes of a future where data owners
 
 We present \name/, an SGX-based system that specializes data structures and query execution for the database case and leaks only structural information about queries, results, and stored data -- the leakage that can be hidden only by padding. \name/ provides both indexed and unindexed tables and supports many SQL queries including the aggregates \texttt{COUNT}, \texttt{SUM}, \texttt{MIN}, \texttt{MAX}, and \texttt{AVG}, as well as \texttt{SELECT}, \texttt{INSERT}, \texttt{UPDATE}, \texttt{DELETE}, \texttt{GROUP BY} and \texttt{JOIN} queries, a broader set of queries than those supported by most systems offering search over encrypted data that hide data access patterns \cite{FVY+17}. \name/ also supplies a number of algorithms that optimize \texttt{SELECT} performance based on the size of data to be returned from a query, thereby providing better performance without any additional leakage. 
 
-We implement a prototype of \name/ and report on its performance, testing it on both fabricated data of up to 500,000 rows and three real-world data sets of various sizes: domestic US flight data \cite{FLIGHT}, consumer complaints to the consumer financial protection bureau \cite{CFPB}, and the NASDAQ stock exchange \cite{NASDAQ}. We compare \name/ to a baseline implementation where a database index is generically modified to provide data access obliviousness via ORAM and show that \name/ outperforms the baseline by approximately 70\% on insertions and deletions and by 60\% on \texttt{SELECT} operations. \name/ also performs comparably to prior work \cite{DPP+16, ZDB+17} with similar or weaker security properties. Moreover, we show that the choices of oblivious data structures and algorithms available in \name/ allow for meaningful optimizations in different data and query settings. 
+We implement a prototype of \name/ and report on its performance, testing it on both fabricated data of up to 500,000 rows and three real-world data sets of various sizes: domestic US flight data \cite{FLIGHT}, consumer complaints to the consumer financial protection bureau \cite{CFPB}, and the NASDAQ stock exchange \cite{NASDAQ}. We compare \name/ to a baseline implementation where a database index is generically modified to provide data access obliviousness via ORAM and show that \name/ outperforms the baseline by approximately 70\% on insertions and deletions and by 60\% on \texttt{SELECT} operations. We also compare \name/ to prior work and find that name/ performs comparably to the range search scheme of Demertzis et al \cite{DPP+16} which does not hide access patterns and ranges from 6.3x slower to 20x faster than Opaque's Oblivious mode, an SGX-based data analytics platform that does hide access patterns, suggesting that \name/ and Opaque are fundamentally well-suited to different use cases. Moreover, we show that the choices of oblivious data structures and algorithms available in \name/ allow for meaningful optimizations in different data and query settings. 
 
 The rest of this paper is organized as follows: section \ref{model} gives an overview of \name/ and the security model in which we operate. section \ref{background} gives background on relevant tools used in \name/, and sections \ref{oblivData} and \ref{oblivOps} detail \name/'s design. Sections \ref{imp} and \ref{eval} describe our implementation and evaluation respectively, and section \ref{related} discusses related work before concluding in section \ref{conclusion}. 
 
@@ -172,15 +172,15 @@ Computing aggregates can be done far faster than selection and only requires one
 Groupings are handled similarly to aggregates without groupings, except that an array is kept inside the enclave that keeps track of the aggregate for each group. \name/, as implemented, supports only a large fixed total number of groups (up to as many as can fit in an enclave), but appendix \ref{groupby} discusses potential solutions for unbounded numbers of groups. 
 
 \medskip \noindent \textbf{Join}\\
-The Join functionality for Linear tables is implemented as a variant of the standard hash join algorithm \cite{EN10}. Although we only implement inner joins, other forms of join can be implemented without any additional technical or security-related obstacles. We will refer to the two tables being joined as $T_1$ and $T_2$. The Join proceeds by making a hash table out of as many rows of $T_1$ as will fit in the enclave and then hashing the variable to be joined from each row of $T_2$ to check for matches. This process repeats until the end of $T_1$ is reached. When a match occurs between a row of $T_1$ and $T_2$, the joined row is written to an ORAM, and if a match does not occur, the ORAM receives a dummy write in order to conceal whether or not there has been a match. The ORAM is important for security in order to hide the rate at which rows are added to the returned table. Once the Join process is completed, the contents of the ORAM are copied to a Linear table. This final copy step reveals only the size of the returned table $O$, and because of the obliviousness property of the ORAM, the join itself also only reveals the sizes of $T_1$ and $T_2$. 
+The Join functionality for Linear tables is implemented as a variant of the standard hash join algorithm \cite{EN10}. Although we only implement inner joins for Linear tables, other forms of join can be implemented without any additional technical or security-related obstacles. We will refer to the two tables being joined as $T_1$ and $T_2$. The Join proceeds by making a hash table out of as many rows of $T_1$ as will fit in the enclave and then hashing the variable to be joined from each row of $T_2$ to check for matches. This process repeats until the end of $T_1$ is reached. When a match occurs between a row of $T_1$ and $T_2$, the joined row is written to an ORAM, and if a match does not occur, the ORAM receives a dummy write in order to conceal whether or not there has been a match. The ORAM is important for security in order to hide the rate at which rows are added to the returned table. Once the Join process is completed, the contents of the ORAM are copied to a Linear table. This final copy step reveals only the size of the returned table $O$, and because of the obliviousness property of the ORAM, the join itself also only reveals the sizes of $T_1$ and $T_2$. 
 
 \subsection{Indexed Tables}
 
 Operations for Indexed tables are largely similar to those for Linear tables, except all the operations are over the ORAM and B+ tree data structure described in section \ref{oblivData}. The important difference between the two lies in the fact that the index can be used to restrict a search to a particular relevant area of a table without having to scan every row to maintain obliviousness. The use of an index, however, comes with some security ramifications. In the case that the block of rows accessed by a query are a continuous set beginning and ending with a specified value of the index column, no additional information leaks because knowledge of the size of the portion of the table scanned is equivalent to knowledge of the size of the query output. On the other hand, if the rows returned by a query are not continuous, the leakage also includes the size of the segment of the database scanned in the index. For example, supposing that there is one student named Fred in a table of students and student IDs,  the query \texttt{SELECT * FROM students WHERE NAME = ``Fred'' AND ID > 50 and ID < 60} leaks not only that the size of the result set is 1 but also that 9 rows were scanned in the execution of the query. We consider this leakage to be structural, as a query plan that selects a noncontinuous segment from an Indexed table is equivalent to one which selects a continuous segment from an Indexed table and then selects a noncontinuous segment from the returned table. This leakage, like all structural leakage, can be hidden by padding, but \name/ does not do this. 
 
-There are a few other differences between the behavior of \name/ on Linear and Indexed tables that largely result from design and implementation decisions. Every query in \name/ results in the generation of a Linear scan table with the response, so responses to queries on Indexed tables still appear in Linear tables. Deletions in Indexed tables are designed to find one row matching the deletion criteria and delete that, whereas deletions for Linear tables delete all rows matching the deletion criteria since performance for deleting one row or deleting all matching rows does not differ in the Linear table regime. The Large strategy for selection is not implemented for Indexed tables because the strategy of copying the whole table is not as applicable where a query is aimed at a small fraction of the table and the data are not stored in consecutive blocks but across multiple nested tree-based data structures. Finally, Joins are implemented differently for Indexed tables. 
+There are a few other differences between the behavior of \name/ on Linear and Indexed tables that largely result from design and implementation decisions. Every query in \name/ results in the generation of a Linear scan table with the response, so responses to queries on Indexed tables still appear in Linear tables. Deletions in Indexed tables are designed to find one row matching the deletion criteria and delete that, whereas deletions for Linear tables delete all rows matching the deletion criteria since performance for deleting one row or deleting all matching rows does not differ in the Linear table regime. The Large strategy for selection is not implemented for Indexed tables because the strategy of copying the whole table is not as applicable where a query is aimed at a small fraction of the table and the data are not stored in consecutive blocks but across multiple nested tree-based data structures. Finally, Joins are implemented differently for Indexed tables. Whereas we implemented \texttt{INNER JOIN} functionality for Linear tables, Indexed tables only support \texttt{LEFT JOIN}. 
 
-Since the rows of an Indexed table are always sorted by the index column in the leaves of the B+ tree, it is possible to efficiently sort-merge join two tables with the same index \cite{EN10}. $T_1$ and $T_2$ are scanned at the same time, and any matching rows are placed in an output ORAM, just as for Linear tables. More specifically, at each step, the next row of each of $T_1$ and $T_2$ is read. If the rows match, pointers on both tables advance and there is a write to the ORAM, and if they do not match, a dummy write takes place and the pointer on the table with the lesser value advances. This process proceeds until pointers reach the end of both tables. Obliviousness holds because each step of the algorithm consists of exactly one read to each of $T_1$ and $T_2$ and one write to an ORAM, and the total number of steps is only a function of the sizes of the three data structures involved.  
+Since the rows of an Indexed table are always sorted by the index column in the leaves of the B+ tree, it is possible to efficiently sort-merge join two tables with the same index \cite{EN10}. $T_1$ and $T_2$ are scanned at the same time, and any matching rows are placed in an output ORAM, just as for Linear tables. More specifically, at each step, the next row of each of $T_1$ and $T_2$ is read. If the rows match, the pointer on the right table advances and there is a write to the ORAM, and if they do not match, a dummy write takes place and the pointer on the table with the lesser value advances. This process proceeds until pointers reach the end of both tables. Obliviousness holds because each step of the algorithm consists of exactly one read to each of $T_1$ and $T_2$ and one write to an ORAM, and the total number of steps is only a function of the sizes of the three data structures involved.  
 
 \section{Implementation}\label{imp}
 We implemented and evaluated \name/ on an Intel Nuc box with an 1.9 GHz Intel Core i5-6260U Dual-Core processor and 32GB of RAM running Ubuntu 16.04.2 and the SGX Linux SDK version 1.8 \cite{SGXRef}. Our implementation includes the linear scan and oblivious B+ index from section \ref{oblivData} as well as most of the oblivious operator algorithms described in section \ref{oblivOps}, with the exception of those stated there to be unimplemented. Our final implementation consists of 11,000 lines of code and builds upon the Remote Attestation sample code provided with the SDK and the B+ tree implementation of \cite{BPlus}, the latter of which was heavily edited in order to support duplicate labels and the dynamic memory abstraction we built on top of ORAM. 
@@ -298,38 +298,10 @@ FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 &
     \legend{Linear, Indexed}
 \end{axis}
 \end{tikzpicture}
-\\
-\begin{tikzpicture}
-\begin{axis}[
-    title={Linear vs Index Join},
-    xlabel={Percent of Table Retrieved},
-    ylabel={Time [seconds]},
-    xmin=5, xmax=20,
-    ymin=0, ymax=25,
-    xtick={5, 10, 15, 20},
-    ytick={0,5,10,15,20, 25},
-    legend pos=south east,
-    ymajorgrids=true,
-    grid style=dashed,
-    ]
-    \addplot[
-    color=red,
-    mark=square,
-    ]
-    coordinates {
-    (5,21.0733)(10,22.78638)(15,22.76745)(20,22.52756)
-    };
-    \addplot[
-    color=blue,
-    mark=square,
-    ]
-    coordinates {
-    (5,3.91814)(10,7.5947)(15,11.25464)(20,14.93086)
-    };
-    \legend{Linear, Indexed}
-\end{axis}
-\end{tikzpicture}
-&
+\end{tabular}
+
+\centering
+\begin{tabular}{@{}l@{}l}
 \begin{tikzpicture}
 \begin{axis}[
     title={Linear vs Index Group By},
@@ -504,24 +476,50 @@ FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 &
 \end{axis}
 \end{tikzpicture}
 \end{tabular}
-\caption{Comparison between \name/ and a baseline solution where a B+ tree is generically ported to use ORAM and naive oblivious algorithms are used. \name/ significantly outperforms the baseline with its Hash and Continuous algorithms as well as its \texttt{Insert}, \texttt{Delete}, and \texttt{Update} operations. }
+\caption{Comparison between \name/ and a baseline solution where a B+ tree is generically ported to use ORAM and naive oblivious algorithms are used. \name/ significantly outperforms the baseline with its Hash and Continuous algorithms as well as its \texttt{Insert}, \texttt{Delete}, and \texttt{Update} operations.}
 \label{figC2}
 \end{figure*}
 
-\name/ can handle real-world data sets with reasonable performance comparable to other solutions with more permissive leakage functions. We extensively evaluate \name/ on fabricated data with table sizes of up to 500,000 rows (results in the tables below are for tables of 100,000 rows) as well as three real data sets. NASDAQ \cite{NASDAQ} consists of the last sale price and other related information for all approximately 3200 stocks on the NASDAQ stock exchange. CFPB \cite{CFPB} contains individual complaints on financial products and services sent to the US consumer financial protection bureau and contains about 106,000 rows. Finally, FLIGHTS \cite{FLIGHT}, a subset of the flight dataset used to evaluate Splinter \cite{WYG+17}, contains data on arrival/departure points, flight numbers, ticket prices, and delays for 250,000 US domestic flights. A summary of queries executed on real-world data is shown in figure \ref{figQueries}.
+\begin{figure}
+\begin{tikzpicture}
+\begin{semilogyaxis}[
+	log origin = infty,
+	width=8cm,
+	ylabel={Time [seconds]},
+    title={\name/ vs Opaque Oblivious},
+	symbolic x coords={BDB Q1, BDB Q3, 4},
+	x tick label style={
+		/pgf/number format/1000 sep=},
+	%%ylabel=Time (seconds),
+	enlargelimits=0.05,
+	legend style={at={(0.5,-0.17)},
+	anchor=north,legend columns=-1},
+	ybar interval=0.7,
+    ]
+\addplot 
+	coordinates {(BDB Q1,2.2437) (BDB Q3,19.9664) (4, 1)};
+\addplot 
+	coordinates {(BDB Q1,.11178) (BDB Q3,125.59) (4,1)};
+    \legend{Opaque Oblivious, \name/}
+\end{semilogyaxis}
+\end{tikzpicture}
+\caption{Comparison of \name/ and Opaque Oblivious mode on the Big data benchmark queries 1 and 3. \name/ outperforms Opaque on query 1 where it can leverage that advantage of its oblivious Indexed tables, but Opaque's custom-made oblivious analytics algorithms outperform \name/ when it uses a Linear table to compute the \texttt{INNER JOIN} in query 3.} 
+\label{figOpaque}
+\end{figure}
+\name/ can handle real-world data sets with reasonable performance comparable to other solutions with more permissive leakage functions. We extensively evaluate \name/ on fabricated data with table sizes of up to 500,000 rows (results in the tables below are for tables of 100,000 rows) as well as three real data sets. NASDAQ \cite{NASDAQ} consists of the last sale price and other related information for all approximately 3200 stocks on the NASDAQ stock exchange. CFPB \cite{CFPB} contains individual complaints on financial products and services sent to the US consumer financial protection bureau and contains about 106,000 rows. Finally, FLIGHTS \cite{FLIGHT}, a subset of the flight dataset used to evaluate Splinter \cite{WYG+17}, contains data on arrival/departure points, flight numbers, ticket prices, and delays for 250,000 US domestic flights. A summary of queries executed on real-world data is shown in figure \ref{figQueries}. We also compare \name/ to prior work and show that it performs comparably or better. 
 
 We will through our evaluation prove the following two claims: 
 
 \begin{enumerate}
 \item Choices of data structures and algorithms offered by \name/ allow for meaningful optimizations in handling queries without increasing leakage. 
 
-\item \name/ performs better than a baseline solution that generically uses ORAM and comparably to prior work with similar or more permissive leakage.
+\item \name/ performs better than a baseline solution that generically uses ORAM and comparably or better than prior work with similar or more permissive leakage.
 \end{enumerate}
 
 %paragraph summarizing evaluation results like in the introduction?
 
 \subsection{Effectiveness of Low-Leakage Optimization}
-We wish to show that providing both Indexed and Linear tables and optimizing \texttt{SELECT} queries based only on information from structureal leakage allows \name/ to make meaningful performance improvements for diverse data sets and queries. To this end, figure \ref{figC1} compares the performance of Linear and Indexed tables on various \texttt{SELECT} algorithms as well \texttt{JOIN}, \texttt{GROUP BY}, \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. Observe, moreover, in figure \ref{figQueries}, that queries perform better on Linear tables when the tables are smaller or involves aggregates over a whole table, but Indexed tables perform better when table sizes become large. This is not a surprising conclusion to draw, but it contrasts with claims in prior work \cite{RLT15} that claims linear scans perform better than ORAM for oblivious memory access. In general, Indexed \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables.
+We wish to show that providing both Indexed and Linear tables and optimizing \texttt{SELECT} queries based only on information from structureal leakage allows \name/ to make meaningful performance improvements for diverse data sets and queries. To this end, figure \ref{figC1} compares the performance of Linear and Indexed tables on various \texttt{SELECT} algorithms as well as \texttt{GROUP BY}, \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. Observe, moreover, in figure \ref{figQueries}, that queries perform better on Linear tables when the tables are smaller or involves aggregates over a whole table, but Indexed tables perform better when table sizes become large. This is not a surprising conclusion to draw, but it contrasts with claims in prior work \cite{RLT15} that claims linear scans perform better than ORAM for oblivious memory access. In general, Indexed \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables.
 
 Figure \ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of a table. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small, large, or a continuous set of rows) suffices to pick an algorithm that will perform dramatically better in practice. 
 
@@ -533,9 +531,9 @@ The comparison of \texttt{SELECT} algorithms is complicated by the fact that a n
 
 \medskip \noindent \textbf{Comparison to Prior Work}\\
 
-We compare \name/ to two recent works: the range search scheme of Demertzis et al \cite{DPP+16} and Opaque \cite{ZDB+17}. The range search scheme does not hide access patterns to data and lacks functionality for \texttt{JOIN}s. As we were not able to compare it directly to \name/, the best we can do is to examine the graphs in the original paper and observe that \name/'s performance is comparable or slightly better than that reported by \cite{DPP+16} on a similarly-sized USPS data set with more powerful hardware. 
+We compare \name/ to two recent works: the range search scheme of Demertzis et al \cite{DPP+16} and Opaque's Oblivious mode \cite{ZDB+17}. The range search scheme does not hide access patterns to data and lacks functionality for \texttt{JOIN}s. As we were not able to compare it directly to \name/, the best we can do is to examine the graphs in the original paper and observe that \name/'s performance is comparable or slightly better than that reported by \cite{DPP+16} on a similarly-sized USPS data set with more powerful hardware. 
 
-Opaque, on the other hand, can be configured to provide the same security guarantees as \name/ in its OBLIV mode. The difference between Opaque and \name/ is that whereas Opaque is designed with the distributed setting in mind and relies heavily on oblivious sorts, \name/ is developed as a standalone database system and makes use of ORAM. Figure \ref{figQueries} compares the performance of \name/ and Opaque on queries over our real-world data sets. \textbf{TODO: some statements discussing the performance of Opaque vs \name/; need to get the data to do this.}
+Opaque, on the other hand, can be configured to provide the same security guarantees as \name/ in its OBLIV mode. The difference between Opaque and \name/ is that whereas Opaque is designed with data analytics in the distributed setting in mind and relies heavily on oblivious sorts, \name/ is developed as a standalone database system and makes use of ORAM to provide oblivious indexes. Figure \ref{figOpaque} compares the performance of \name/ and Opaque on queries 1 and 3 of the Big Data Benchmark \cite{BDB}. We were unable to compare \name/ and  Opaque on queries 2 and 4 of the benchmark because \name/'s high-cardinality aggregate algorithm is unimplemented (see Appendix \ref{groupby}) and neither system supports the external scripts needed for query 4. \name/ outperforms Opaque by 20x on query 1 and is 6.3x slower on query 3. The difference highlights the efficacy of \name/'s oblivious indexes, since query 1 is dramatically expedited by having an index that removes the requirement of examining all the data in order to fulfill the query. Query 3, on the other hand, involves an \texttt{INNER JOIN} that is executed over a Linear table in \name/, where Opaque's clever oblivious analytics algorithms give it the upper hand. We conclude from this that \name/ and Opaque are fundamentally well-suited to different kinds of problem domains, since \name/ excels when it can take advantages of its Indexed tables and Opaque performs well on queries that involve scanning over most or all of a table's contents. 
 
 
 \section{Related Work}\label{related}
@@ -569,7 +567,7 @@ We have presented \name/, a cryptographically-protected database system based on
 \appendix
 
 \section{Support for Unbounded Numbers of Groups}\label{groupby}
-As mentioned in section \ref{oblivOps}, our implementation of \name/ supports a large but fixed maximum number of groups. Here we mention ideas that could be implemented to increase this limit to support arbitrarily large numbers of groups. 
+As mentioned in section \ref{oblivOps}, our implementation of \name/ supports a large but fixed maximum number of groups. Here we mention ideas that could be implemented to increase this limit to support arbitrary high-cardinality aggregation. 
 
 First, if the number of groups is larger than can be kept in the enclave at once, it becomes important to be able to count the total number on a first pass. This can be accomplished with the HyperLogLog algorithm \cite{FFGM07}. Once this is done, it is possible to make multiple passes over the table being selected from, each time calculating the aggregate for as many groups as possible. In order to make sure each group is aggregated only once, each pass will cover successive groups in alphabetical order and the enclave will store the name of the last alphabetical group to have been aggregated. To make sure each pass only aggregates groups in alphabetical order, the algorithm will hae to check on each row whether the group to which the row belongs is alphabetically prior to any group permanently being aggregated. If so, that row is given a place in the enclave and the alphabetically last group under consideration is thrown out to be re-examined on a future pass. 
 
