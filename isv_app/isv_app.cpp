@@ -423,23 +423,22 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	userdataSchema.fieldTypes[9] = INTEGER;
 
 	Condition cond;
-	int val = 1000;
 	cond.numClauses = 0;
 	cond.nextCondition = NULL;
 
 	char* tableName = "uservisits";
-	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 1010, &structureIdLinear);//TODO temp really 350010
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 3510, &structureIdLinear);//TODO temp really 350010
 
-	std::ifstream file("uservisits.csv");
 
+	std::ifstream file2("uservisits.csv");
 	char line[BLOCK_DATA_SIZE];//make this big just in case
 	char data[BLOCK_DATA_SIZE];
 	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	for(int i = 0; i < 1000; i++){//TODO temp really 350000
+	for(int i = 0; i < 3500; i++){//TODO temp really 350000
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
-		file.getline(line, BLOCK_DATA_SIZE);//get the field
+		file2.getline(line, BLOCK_DATA_SIZE);//get the field
 
 		std::istringstream ss(line);
 		for(int j = 0; j < 9; j++){
@@ -452,8 +451,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 				if(j==3) d = atof(data)*100;
 				else d = atoi(data);
 				//printf("data: %s\n", data);
-				//printf("d %d\n", d);
-
+				//printf("d %d ", d);
 				memcpy(&row[userdataSchema.fieldOffsets[j+1]], &d, 4);
 			}
 			else{//tinytext
@@ -470,7 +468,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	double elapsedTime;
 	printTable(enclave_id, (int*)&status, "uservisits");
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 4, 1, -2);
+	selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
@@ -1809,8 +1807,8 @@ int main(int argc, char* argv[])
         //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //256
         //BDB1(enclave_id, status);//512
-        //BDB2(enclave_id, status);//2048
-        BDB3(enclave_id, status);//2048
+        BDB2(enclave_id, status);//2048
+        //BDB3(enclave_id, status);//2048
 
         /*
         //rename test
