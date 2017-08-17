@@ -1940,6 +1940,184 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 	free(row2);
 }
 
+int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice) {
+	int structureId = getTableId(tableName);
+	Obliv_Type type = oblivStructureTypes[structureId];
+	int colChoiceSize = BLOCK_DATA_SIZE;
+	DB_Type colChoiceType = INTEGER;
+	int colChoiceOffset = 0;
+	uint8_t* dummy = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	dummy[0]='\0';
+	if(colChoice != -1){
+		colChoiceSize = schemas[structureId].fieldSizes[colChoice];
+		colChoiceType = schemas[structureId].fieldTypes[colChoice];
+		colChoiceOffset = schemas[structureId].fieldOffsets[colChoice];
+		free(dummy);
+		dummy = (uint8_t*)malloc(colChoiceSize+1);
+		dummy[0]='\0';
+	}
+	int count = 0;
+	int stat = 0;
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+
+	char *retName = "ReturnTable";
+	int retNameLen = strlen(retName);
+	int retStructId = -1;
+	Obliv_Type retType = TYPE_LINEAR_SCAN;
+	Schema retSchema; //set later
+	int retNumRows = 0; //set later
+
+	int groupValSize = schemas[structureId].fieldSizes[groupCol];
+	if(algChoice == -2){
+		groupValSize = 8;
+	}
+
+	//allocate hash table
+	uint8_t* hashTable = (uint8_t*)malloc((groupValSize+4)*MAX_GROUPS*3/2);
+	uint8_t* hashIn = (uint8_t*)malloc(groupValSize);//this could be made to fit different sizes if we wanted
+	sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
+	unsigned int index = 0;
+	//clear hash table
+	memset(hashTable, '\0', (groupValSize+4)*MAX_GROUPS*3/2);
+
+	//group by
+	if(aggregate == -1 || colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER) {
+		printf("aborting %d %d %d\n", aggregate == -1, colChoice == -1, schemas[structureId].fieldTypes[colChoice] != INTEGER);
+		return 1;
+	}
+	printf("GROUP BY\n");
+
+	int colChoice2 = -1;
+	int bdb2 = (algChoice == -2); //need little tweaks for things like substr to handle bdb queries
+	if(!bdb2) colChoice2 = algChoice;
+	int substrX = schemas[structureId].fieldSizes[groupCol];
+	if(bdb2){
+		substrX = 8;
+	}
+	int numGroups = 0, dummyCounter = 0;
+	uint8_t* groupVal = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
+	int aggrVal = 0;
+	int aggrVal2 = 0;
+	uint8_t* groups[MAX_GROUPS];
+	uint8_t* dummyData;
+	int groupStat[MAX_GROUPS] = {0};
+	int groupCount[MAX_GROUPS] = {0};
+	int groupNum = -1;
+	//printf("oblivStructureSizes %d %d\n", structureId, oblivStructureSizes[structureId]);
+	for(int i = 0; i < oblivStructureSizes[structureId]; i++){
+		opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
+		memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
+		memcpy(&aggrVal, &row[schemas[structureId].fieldOffsets[colChoice]], 4);
+		row = ((Linear_Scan_Block*)row)->data;
+		if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy branch
+			continue; //dummy branch was here but we're not really worrying about this side channel too much
+					  //and it won't matter for the evaluations we do on this piece of code
+		}
+		else{
+			int foundAGroup = 0;
+			memcpy(&groupNum, &hashTable[(4+groupValSize)*index], 4);
+	  		if(hashTable[(4+groupValSize)*index] != '\0' && memcmp(&groupVal, &hashTable[(4+groupValSize)*index+4], substrX) == 0){
+				foundAGroup = 1;
+				groupCount[groupNum]++;
+				switch(aggregate){
+					case 1:
+					groupStat[groupNum]+=aggrVal;
+					break;
+					case 2:
+					if(aggrVal < groupStat[groupNum])
+						groupStat[groupNum] = aggrVal;
+					break;
+					case 3:
+					if(aggrVal > groupStat[groupNum])
+						groupStat[groupNum] = aggrVal;
+					break;
+					case 4:
+					groupStat[groupNum]+=aggrVal;
+					break;
+				}
+			}
+
+			if(!foundAGroup){
+				groupCount[numGroups]++;
+				groups[numGroups] = (uint8_t*)malloc(substrX);
+				memcpy(groups[numGroups], &row[schemas[structureId].fieldOffsets[groupCol]], substrX);
+				switch(aggregate){
+				case 1:
+						groupStat[numGroups]+=aggrVal;
+					break;
+				case 2:
+						groupStat[numGroups] = aggrVal;
+					break;
+				case 3:
+						groupStat[numGroups] = aggrVal;
+
+					break;
+				case 4:
+						groupStat[numGroups]+=aggrVal;
+					break;
+				}
+
+				//insert into hash table
+				int insertCounter = 0;//increment on failure to insert, set to -1 on successful insertion
+
+				do{
+					//compute hash
+					memset(hashIn, 0, 1+groupValSize);
+					hashIn[0] = insertCounter;
+					if(schemas[structureId].fieldTypes[groupCol] != TINYTEXT || algChoice == -2)
+						memcpy(&hashIn[1], groupVal, groupValSize);
+					else
+						strncpy((char*)&hashIn[1], (char*)groupVal, groupValSize);
+					sgx_sha256_msg(hashIn, 1+groupValSize, hashOut);
+					memcpy(&index, hashOut, 4);
+					index %= MAX_GROUPS*3/2;
+					//printf("hash input: %s\nhash output: %d\n", &hashIn[1], index);
+					//try inserting or increment counter
+					if(hashTable[(4+groupValSize)*index] == '\0'){//change (groupValSize+4)*MAX_GROUPS*3/2
+						memcpy(&hashTable[(groupValSize+4)*index], &numGroups, 4);
+						memcpy(&hashTable[(groupValSize+4)*index], groupVal, groupValSize);
+						insertCounter = -1;
+					}
+					else{
+						//printf("%d next\n", index);
+						insertCounter++;
+					}
+				}
+				while(insertCounter != -1);
+				numGroups++;
+			}
+		}
+	}
+	for(int j = 0; j < numGroups; j++){
+		if(aggregate == 0) groupStat[j] = groupCount[j];
+		else if(aggregate == 4) groupStat[j] /= groupCount[j];
+	}
+
+		//create table and fill it with results
+		retSchema.numFields = 3;
+		retSchema.fieldOffsets[0] = 0;
+		retSchema.fieldOffsets[1] = 1;
+		retSchema.fieldOffsets[2] = 5;
+		retSchema.fieldTypes[0] = CHAR;
+		retSchema.fieldTypes[1] = INTEGER;
+		retSchema.fieldTypes[2] = schemas[structureId].fieldTypes[groupCol];
+		retSchema.fieldSizes[0] = 1;
+		retSchema.fieldSizes[1] = 4;
+		retSchema.fieldSizes[2] = substrX;
+		createTable(&retSchema, retName, retNameLen, retType, numGroups, &retStructId);
+		for(int j = 0; j < numGroups; j++){
+			row[0] = 'a';
+			memcpy(&row[1], &groupStat[j], 4);
+			memcpy(&row[5], groups[j], substrX);
+			opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+			numRows[retStructId]++;
+			free(groups[j]);
+		}
+
+	free(dummy);
+	free(row);
+}
+
 int printTableCheating(char* tableName){//non-oblivious version that's good for debugging
 	int structureId = getTableId(tableName);
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);

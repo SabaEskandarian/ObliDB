@@ -70,6 +70,7 @@ extern int insertRow(char* tableName, uint8_t* row, int key);
 extern int deleteRows(char* tableName, Condition c, int startKey, int endKey);
 extern int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int startKey, int endKey);
 extern int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
+extern int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
 extern int printTable(char* tableName);
 extern int printTableCheating(char* tableName);
 extern int createTestTable(char* tableName, int numRows);
