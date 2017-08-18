@@ -469,11 +469,14 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	//printTable(enclave_id, (int*)&status, "uservisits");
 	startTime = clock();
 	highCardLinGroupBy(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2);
+	//selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-	printf("BDB2 running time: %.5f\n", elapsedTime);
+	//printf("BDB2 running time: %.5f\n", elapsedTime);
 	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	printf("BDB2 running time: %.5f\n", elapsedTime);
+
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     deleteTable(enclave_id, (int*)&status, "uservisits");

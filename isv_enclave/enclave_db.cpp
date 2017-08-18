@@ -1946,15 +1946,10 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 	int colChoiceSize = BLOCK_DATA_SIZE;
 	DB_Type colChoiceType = INTEGER;
 	int colChoiceOffset = 0;
-	uint8_t* dummy = (uint8_t*)malloc(BLOCK_DATA_SIZE);
-	dummy[0]='\0';
 	if(colChoice != -1){
 		colChoiceSize = schemas[structureId].fieldSizes[colChoice];
 		colChoiceType = schemas[structureId].fieldTypes[colChoice];
 		colChoiceOffset = schemas[structureId].fieldOffsets[colChoice];
-		free(dummy);
-		dummy = (uint8_t*)malloc(colChoiceSize+1);
-		dummy[0]='\0';
 	}
 	int count = 0;
 	int stat = 0;
@@ -1969,7 +1964,7 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 
 	int groupValSize = schemas[structureId].fieldSizes[groupCol];
 	if(algChoice == -2){
-		groupValSize = 8;
+			groupValSize = 8;
 	}
 
 	//allocate hash table
@@ -1978,7 +1973,7 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 	sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
 	unsigned int index = 0;
 	//clear hash table
-	memset(hashTable, '\0', (groupValSize+4)*MAX_GROUPS*3/2);
+	memset(hashTable, 0xff, (groupValSize+4)*MAX_GROUPS*3/2);
 
 	//group by
 	if(aggregate == -1 || colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER) {
@@ -1997,7 +1992,6 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 	int numGroups = 0, dummyCounter = 0;
 	uint8_t* groupVal = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
 	int aggrVal = 0;
-	int aggrVal2 = 0;
 	uint8_t* groups[MAX_GROUPS];
 	uint8_t* dummyData;
 	int groupStat[MAX_GROUPS] = {0};
@@ -2006,8 +2000,9 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 	//printf("oblivStructureSizes %d %d\n", structureId, oblivStructureSizes[structureId]);
 	for(int i = 0; i < oblivStructureSizes[structureId]; i++){
 		opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
-		memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
+		memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], substrX);
 		memcpy(&aggrVal, &row[schemas[structureId].fieldOffsets[colChoice]], 4);
+		//printf("groupVal: %s", groupVal);
 		row = ((Linear_Scan_Block*)row)->data;
 		if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy branch
 			continue; //dummy branch was here but we're not really worrying about this side channel too much
@@ -2015,8 +2010,43 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 		}
 		else{
 			int foundAGroup = 0;
-			memcpy(&groupNum, &hashTable[(4+groupValSize)*index], 4);
-	  		if(hashTable[(4+groupValSize)*index] != '\0' && memcmp(&groupVal, &hashTable[(4+groupValSize)*index+4], substrX) == 0){
+
+			int checkCounter = 0, match = -1;
+			do{
+				//compute hash
+				memset(hashIn, 0, 1+groupValSize);
+				hashIn[0] = checkCounter;
+				if(schemas[structureId].fieldTypes[groupCol] != TINYTEXT || algChoice == -2)
+					memcpy(&hashIn[1], groupVal, groupValSize);
+				else
+					strncpy((char*)&hashIn[1], (char*)groupVal, groupValSize);
+				sgx_sha256_msg(hashIn, 1+groupValSize, hashOut);
+				memcpy(&index, hashOut, 4);
+				index %= MAX_GROUPS*3/2;
+				//compare against table
+				int compval = 0;
+				memcpy(&compval, &hashTable[(4+groupValSize)*index], 4);
+				if(compval == -1 || row[0] == '\0'){
+					checkCounter = -1;
+					//int i1 = compval == -1;
+					//int i2 = row[0] == '\0';
+					//printf("here?? %d %d\n", i1, i2);
+				}
+				else if(memcmp(groupVal, &hashTable[(4+groupValSize)*index+4], substrX) == 0){
+					match = index;
+					checkCounter = -1;
+					memcpy(&groupNum, &hashTable[(4+groupValSize)*index], 4);
+					//printf("here--------------------\n");
+				}
+				else{//false match
+					//printf("here???\n");
+					checkCounter++;
+				}
+			}while(checkCounter != -1);
+
+			//printf("%s %s %d");
+	  		if(match != -1){
+	  			//printf("match!!\n");
 				foundAGroup = 1;
 				groupCount[groupNum]++;
 				switch(aggregate){
@@ -2073,9 +2103,12 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 					index %= MAX_GROUPS*3/2;
 					//printf("hash input: %s\nhash output: %d\n", &hashIn[1], index);
 					//try inserting or increment counter
-					if(hashTable[(4+groupValSize)*index] == '\0'){//change (groupValSize+4)*MAX_GROUPS*3/2
+					int compval = 0;
+					memcpy(&compval, &hashTable[(4+groupValSize)*index], 4);
+					if(compval == -1){
 						memcpy(&hashTable[(groupValSize+4)*index], &numGroups, 4);
-						memcpy(&hashTable[(groupValSize+4)*index], groupVal, groupValSize);
+						memcpy(&hashTable[(groupValSize+4)*index+4], groupVal, groupValSize);
+						//printf("putting in %d %d %s\n", index, numGroups, groupVal);
 						insertCounter = -1;
 					}
 					else{
@@ -2114,7 +2147,6 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 			free(groups[j]);
 		}
 
-	free(dummy);
 	free(row);
 }
 
