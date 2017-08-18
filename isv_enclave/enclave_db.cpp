@@ -338,7 +338,6 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 	uint8_t* row; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	uint8_t* row1; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	uint8_t* row2; //= (uint8_t*)malloc(BLOCK_DATA_SIZE);
-	Oram_Block *block;// = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
 	char* retTableName = "JoinTable";
 	char* realRetTableName = "JoinReturn";
 	int retStructId = -1;
@@ -348,6 +347,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 	int size = 0;
 	if(numRows[structureId1] < numRows[structureId2]) size = numRows[structureId1];
 	else size = numRows[structureId2];
+	//this may cause issues if the table returned is big. Table ordering matters on the input
 
 	//figure out joined table schema
 	Schema s2 = schemas[structureId2];//need the second schema sometimes
@@ -377,16 +377,16 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
-		block = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+		uint8_t* block = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		//allocate hash table
 		uint8_t* hashTable = (uint8_t*)malloc(ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
 		uint8_t* hashIn = (uint8_t*)malloc(1+s.fieldSizes[joinCol1]);
 		sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
 		unsigned int index = 0;
 
-		//create oram "table"
-		createTable(&s, retTableName, strlen(retTableName), TYPE_ORAM, size, &retStructId);
-		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
+
+		createTable(&s, realRetTableName, strlen(retTableName), TYPE_LINEAR_SCAN, numRows[structureId1]+numRows[structureId2], &realRetStructId);
+		//createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
 		//printf("table creation returned %d %d %d\n", retStructId, size, strlen(retTableName));
 
 		for(int i = 0; i < numRows[structureId1]; i+=(ROWS_IN_ENCLAVE/2)){
@@ -486,42 +486,21 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					match = 0;
 				}
 
-				block->actualAddr = numRows[retStructId];
-				memcpy(&block->data[0], &row1[0], BLOCK_DATA_SIZE);
+				//block->actualAddr = numRows[retStructId];
+				memcpy(block, &row1[0], BLOCK_DATA_SIZE);
 
-				//do oram op, write if there's a match
-				//printf("here? %d %d", retStructId, numRows[retStructId]);
-				//printf("check2.5 %d %d %d %c\n", numRows[retStructId], match, block->actualAddr, block->data[9]);
-
-				int opAddr = numRows[retStructId];
-				if(opAddr == size && match == 0){
-					opAddr = size - 1;
-				}else{
-					dummyVal = size - 1;
-				}
-				//printf("\n%d %d %d leaves %d %d %d %d", opAddr, match, size, positionMaps[retStructId][5], positionMaps[retStructId][6], positionMaps[retStructId][7], positionMaps[retStructId][8]);
-
-				opOramBlock(retStructId, opAddr, block, match);
+				opOneLinearScanBlock(retStructId, numRows[retStructId], (Linear_Scan_Block*)block, match);
 				if(match) {
 					//printf("here? %d\n", numRows[retStructId]);
-					numRows[retStructId]++;
 					numRows[realRetStructId]++;
 				}
 				else {
-					dummyVal++;
 					dummyVal++;
 				}
 
 			}
 			//printf("here\n");
 		}
-		printf("now converting table\n");
-		for(int i = 0; i < size; i++){
-			opOramBlock(retStructId, i, block, 0);
-			opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)&block->data[0], 1);
-		}//printTable("JoinReturn");
-
-		deleteTable("JoinTable");
 
 		free(hashTable);
 		free(hashIn);
@@ -540,7 +519,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
 		Oram_Block* b1 = (Oram_Block*)malloc(sizeof(Oram_Block));
 		Oram_Block* b2 = (Oram_Block*)malloc(sizeof(Oram_Block));
-		block = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+		Oram_Block* block = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
 		row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 
 
