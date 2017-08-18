@@ -393,7 +393,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			//initialize hash table
 			memset(hashTable, '\0', ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
 
-			for(int j = 0; j<(ROWS_IN_ENCLAVE/2) && i+j < numRows[structureId1]; j++){
+			for(int j = 0; j<(ROWS_IN_ENCLAVE/8) && i+j < numRows[structureId1]; j++){
 				//get row
 				opOneLinearScanBlock(structureId1, i+j, (Linear_Scan_Block*)row, 0);
 				//insert into hash table

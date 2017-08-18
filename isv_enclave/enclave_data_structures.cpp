@@ -259,6 +259,10 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 		if(write){
 			memcpy(block, retBlock, blockSize);
 		}
+		else{
+			memset(block->data, 0, BLOCK_DATA_SIZE);
+			memcpy(retBlock, block, blockSize);
+		}
 		//memcpy(&stashes[structureId][stashOccs[structureId]], &newBlock, blockSize);
 		stashes[structureId]->push_back(*block);
 		stashOccs[structureId]++;
