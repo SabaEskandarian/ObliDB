@@ -23,7 +23,7 @@
 #define MAX_CONDITIONS 5
 #define ROWS_IN_ENCLAVE 5000
 #define PERCENT_ALMOST_ALL 90
-#define MAX_GROUPS 10000
+#define MAX_GROUPS 350000
 //NUM_BLOCKS_ORAM is larger than the logical size of the oram;
 //within the oram, there will be a B+-tree in whose leaves we will store the actual data
 //so to match a linear scan structure with 16 blocks, we need 16 blocks of leaves in the B+-tree, meaning 31 nodes in the B+-tree

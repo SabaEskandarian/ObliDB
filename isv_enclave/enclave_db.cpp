@@ -101,7 +101,7 @@ int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, i
 		return 4;
 	}
 
-	numberOfRows = nextPowerOfTwo(numberOfRows+1) - 1;
+	if(type == TYPE_TREE_ORAM || type == TYPE_ORAM) numberOfRows = nextPowerOfTwo(numberOfRows+1) - 1;
 	numberOfRows += (numberOfRows == 0);
 	int initialSize = numberOfRows;
 	if(type == TYPE_TREE_ORAM){

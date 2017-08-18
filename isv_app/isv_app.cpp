@@ -427,7 +427,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	cond.nextCondition = NULL;
 
 	char* tableName = "uservisits";
-	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 3510, &structureIdLinear);//TODO temp really 350010
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 350010, &structureIdLinear);//TODO temp really 350010
 
 
 	std::ifstream file2("uservisits.csv");
@@ -435,7 +435,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status){
 	char data[BLOCK_DATA_SIZE];
 	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	for(int i = 0; i < 3500; i++){//TODO temp really 350000
+	for(int i = 0; i < 350000; i++){//TODO temp really 350000
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file2.getline(line, BLOCK_DATA_SIZE);//get the field
@@ -1814,8 +1814,8 @@ int main(int argc, char* argv[])
         //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //256
         //BDB1(enclave_id, status);//512
-        //BDB2(enclave_id, status);//2048
-        BDB3(enclave_id, status);//2048
+        BDB2(enclave_id, status);//2048
+        //BDB3(enclave_id, status);//2048
 
         /*
         //rename test
