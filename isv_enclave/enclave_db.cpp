@@ -385,17 +385,18 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		unsigned int index = 0;
 
 
-		createTable(&s, realRetTableName, strlen(retTableName), TYPE_LINEAR_SCAN, numRows[structureId1]+numRows[structureId2], &realRetStructId);
+		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, oblivStructureSizes[structureId1]+oblivStructureSizes[structureId2], &realRetStructId);
 		//createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
 		//printf("table creation returned %d %d %d\n", retStructId, size, strlen(retTableName));
 
-		for(int i = 0; i < numRows[structureId1]; i+=(ROWS_IN_ENCLAVE/2)){
+		for(int i = 0; i < oblivStructureSizes[structureId1]; i+=(ROWS_IN_ENCLAVE/4)){
 			//initialize hash table
 			memset(hashTable, '\0', ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
 
-			for(int j = 0; j<(ROWS_IN_ENCLAVE/8) && i+j < numRows[structureId1]; j++){
+			for(int j = 0; j<(ROWS_IN_ENCLAVE/4) && i+j < oblivStructureSizes[structureId1]; j++){
 				//get row
 				opOneLinearScanBlock(structureId1, i+j, (Linear_Scan_Block*)row, 0);
+				if(row[0] == '\0') continue;
 				//insert into hash table
 				int insertCounter = 0;//increment on failure to insert, set to -1 on successful insertion
 
@@ -424,9 +425,10 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				while(insertCounter != -1);
 			}
 			//printf("\n");
-			for(int j = 0; j<numRows[structureId2]; j++){
+			for(int j = 0; j<oblivStructureSizes[structureId2]; j++){
 				//get row
 				opOneLinearScanBlock(structureId2, j, (Linear_Scan_Block*)row, 0);
+				if(row[0] == '\0') continue;
 				int checkCounter = 0, match = -1;
 				do{
 					//compute hash
@@ -477,6 +479,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				}
 				else{//dummy op
 					memcpy(&row1[0], &hashTable[0*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
+					row1[0] = '\0';
 					shift = getRowSize(&schemas[structureId1]);
 					for(int k = 1; k < schemas[structureId2].numFields; k++){
 						if(k == joinCol2) continue;
@@ -489,9 +492,9 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				//block->actualAddr = numRows[retStructId];
 				memcpy(block, &row1[0], BLOCK_DATA_SIZE);
 
-				opOneLinearScanBlock(retStructId, numRows[retStructId], (Linear_Scan_Block*)block, match);
+				opOneLinearScanBlock(realRetStructId, numRows[realRetStructId], (Linear_Scan_Block*)block, match);
 				if(match) {
-					//printf("here? %d\n", numRows[retStructId]);
+					//printf("here? %d\n", numRows[realRetStructId]);
 					numRows[realRetStructId]++;
 				}
 				else {
@@ -1731,13 +1734,15 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			int groupCount[MAX_GROUPS] = {0};
 			//printf("oblivStructureSizes %d %d\n", structureId, oblivStructureSizes[structureId]);
 			for(int i = 0; i < oblivStructureSizes[structureId]; i++){
+				//opOneLinearScanBlock(structureId, i+306000, (Linear_Scan_Block*)row, 0);
+				//printf(" op done\n");
 				opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 				memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], schemas[structureId].fieldSizes[groupCol]);
 				memcpy(&aggrVal, &row[schemas[structureId].fieldOffsets[colChoice]], 4);
 				memcpy(&aggrVal2, &row[schemas[structureId].fieldOffsets[colChoice2]], 4);
 				row = ((Linear_Scan_Block*)row)->data;
 				if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy brach
-					//continue;
+					continue;
 					int foundAGroup = 0;
 					for(int j = 0; j < numGroups; j++){
 						if(memcmp(groupVal, groups[j], substrX) == 0){
@@ -1777,8 +1782,8 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						memcpy(dummyData, &row[schemas[structureId].fieldOffsets[groupCol]], substrX);
 						switch(aggregate){
 						case 1:
-								dummyCounter+=aggrVal;
-								dummyCounter+=aggrVal2;
+							dummyCounter+=aggrVal;
+							dummyCounter+=aggrVal2;
 							break;
 						case 2:
 							dummyCounter = aggrVal;
@@ -1859,7 +1864,6 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				if(aggregate == 0) groupStat[j] = groupCount[j];
 				else if(aggregate == 4) groupStat[j] /= groupCount[j];
 			}
-
 			if(!bdb2 && algChoice != -1){//bdb3
 				//create table and fill it with results
 				retSchema.numFields = 4;
@@ -2215,6 +2219,7 @@ int printTable(char* tableName){//only for linear scan tables
 				dummyCounter++;
 			}
 		}
+		//printf("here! %d\n", pauseCounter);
 		//copy to response
 		for(int i = 0; i < ROWS_IN_ENCLAVE; i++){
 			//printf("%d %d %d\n", i, storageCounter, storage[i*colChoiceSize]);

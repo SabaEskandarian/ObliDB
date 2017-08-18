@@ -574,13 +574,13 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	userdataSchema.fieldTypes[9] = INTEGER;
 
 	char* tableName2 = "uservisits";
-	createTable(enclave_id, (int*)&status, &userdataSchema, tableName2, strlen(tableName2), TYPE_TREE_ORAM, 3510, &structureIdIndex2); //TODO temp really 350010
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName2, strlen(tableName2), TYPE_TREE_ORAM, 350010, &structureIdIndex2); //TODO temp really 350010
 
 	std::ifstream file2("uservisits.csv");
 
 	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
-	for(int i = 0; i < 3500; i++){//TODO temp really 350000
+	for(int i = 0; i < 350000; i++){//TODO temp really 350000
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file2.getline(line, BLOCK_DATA_SIZE);//get the field
@@ -639,6 +639,7 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	joinTables(enclave_id, (int*)&status, "uvJ", "rankings",  2, 1, -1, -1);
 	//int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 	renameTable(enclave_id, (int*)&status, "JoinReturn", "jr");
+	//printTable(enclave_id, (int*)&status, "jr");
 	selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4);
 	renameTable(enclave_id, (int*)&status, "ReturnTable", "last");
 	//printTable(enclave_id, (int*)&status, "last");
