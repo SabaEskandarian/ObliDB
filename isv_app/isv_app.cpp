@@ -383,6 +383,87 @@ void BDB1(sgx_enclave_id_t enclave_id, int status){
     deleteTable(enclave_id, (int*)&status, "rankings");
 }
 
+void BDB1Baseline(sgx_enclave_id_t enclave_id, int status){
+	//block size needs to be 512
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	int structureId1 = -1;
+	int structureId2 = -1;
+	Schema rankingsSchema;
+	rankingsSchema.numFields = 4;
+	rankingsSchema.fieldOffsets[0] = 0;
+	rankingsSchema.fieldSizes[0] = 1;
+	rankingsSchema.fieldTypes[0] = CHAR;
+	rankingsSchema.fieldOffsets[1] = 1;
+	rankingsSchema.fieldSizes[1] = 255;
+	rankingsSchema.fieldTypes[1] = TINYTEXT;
+	rankingsSchema.fieldOffsets[2] = 256;
+	rankingsSchema.fieldSizes[2] = 4;
+	rankingsSchema.fieldTypes[2] = INTEGER;
+	rankingsSchema.fieldOffsets[3] = 260;
+	rankingsSchema.fieldSizes[3] = 4;
+	rankingsSchema.fieldTypes[3] = INTEGER;
+
+	Condition cond;
+	int val = 1000;
+	cond.numClauses = 1;
+	cond.fieldNums[0] = 2;
+	cond.conditionType[0] = 1;
+	cond.values[0] = (uint8_t*)malloc(4);
+	memcpy(cond.values[0], &val, 4);
+	cond.nextCondition = NULL;
+
+	char* tableName = "rankings";
+	createTable(enclave_id, (int*)&status, &rankingsSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, 360010, &structureId1); //TODO temp really 360010
+
+	std::ifstream file("rankings.csv");
+
+	char line[BLOCK_DATA_SIZE];//make this big just in case
+	char data[BLOCK_DATA_SIZE];
+	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
+	row[0] = 'a';
+	for(int i = 0; i < 360000; i++){ //TODO temp really 360000
+	//for(int i = 0; i < 1000; i++){
+		memset(row, 'a', BLOCK_DATA_SIZE);
+		file.getline(line, BLOCK_DATA_SIZE);//get the field
+
+		std::istringstream ss(line);
+		for(int j = 0; j < 3; j++){
+			if(!ss.getline(data, BLOCK_DATA_SIZE, ',')){
+				break;
+			}
+			//printf("data: %s\n", data);
+			if(j == 1 || j == 2){//integer
+				int d = 0;
+				d = atoi(data);
+				//printf("data: %s\n", data);
+				//printf("d %d\n", d);
+				memcpy(&row[rankingsSchema.fieldOffsets[j+1]], &d, 4);
+			}
+			else{//tinytext
+				strncpy((char*)&row[rankingsSchema.fieldOffsets[j+1]], data, strlen(data)+1);
+			}
+		}
+		//manually insert into the linear scan structure for speed purposes
+		opOneLinearScanBlock(enclave_id, (int*)&status, structureId1, i, (Linear_Scan_Block*)row, 1);
+		incrementNumRows(enclave_id, (int*)&status, structureId1);
+	}
+	printf("created BDB1 table - baseline\n");
+	time_t startTime, endTime;
+	double elapsedTime;
+	//printTable(enclave_id, (int*)&status, "rankings");
+
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 5);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB1 running time (baseline): %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "rankings");
+}
+
+
 void BDB2(sgx_enclave_id_t enclave_id, int status){
 //block size 2048
 
@@ -1814,7 +1895,8 @@ int main(int argc, char* argv[])
         //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //256
         //BDB1(enclave_id, status);//512
-        BDB2(enclave_id, status);//2048
+        BDB1Baseline(enclave_id, status);//512
+        //BDB2(enclave_id, status);//2048
         //BDB3(enclave_id, status);//2048
 
         /*

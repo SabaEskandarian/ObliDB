@@ -1335,6 +1335,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				int small = 0;
 				int contTemp = 0;
 				int dummyVar = 0;
+				int baseline = 0;
 				//first pass to determine 1) output size (count), 2) whether output is one continuous chunk (continuous)
 				for(int i = 0; i < oblivStructureSizes[structureId]; i++){
 					opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
@@ -1386,13 +1387,19 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 					small = 0;
 					almostAll = 1;
 					break;
+				case 5:
+					baseline = 1;
+					continuous = 0;
+					small = 0;
+					almostAll = 0;
+					break;
 				}
 
 				//create table to return
 				if(almostAll){
 					retNumRows = oblivStructureSizes[structureId];
 				}
-				else if(small || continuous){
+				else if(small || continuous || baseline){
 					retNumRows = count;
 				}
 				else{//hash
@@ -1425,7 +1432,40 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				}
 				//printf("Made it to algorithm slection\n");
 				//pick algorithm
-				if(continuous){//use continuous chunk algorithm
+				if(baseline){
+					printf("BASELINE\n");
+					Oram_Block* oBlock = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+					int oramTableId = -1;
+					char* oramName = "tempOram";
+					createTable(&retSchema, oramName, strlen(oramName), TYPE_ORAM, retNumRows, &oramTableId);
+					int oramRows = 0;
+					for(int i = 0; i < oblivStructureSizes[structureId]; i++){
+						opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)oBlock->data, 0);
+						//oBlock->data = ((Linear_Scan_Block*)(oBlock->data))->data;
+						int match = rowMatchesCondition(c, oBlock->data, schemas[structureId]) && oBlock->data[0] != '\0';
+						if(colChoice != -1){
+							memset(&oBlock->data[0], 'a', 1);
+							memmove(&oBlock->data[1], &row[colChoiceOffset], colChoiceSize);//row[0] will already be not '\0'
+						}
+						oBlock->actualAddr = oramRows;
+						if(match){
+							opOramBlock(oramTableId, oramRows, oBlock, 1);
+							oramRows++;
+						}
+						else{
+							opOramBlock(oramTableId, oramRows, oBlock, 0);
+							dummyVar++;
+						}
+					}
+					//copy back to linear structure
+					for(int i = 0; i < oramRows; i++){
+						opOramBlock(oramTableId, i, oBlock, 0);
+						opOneLinearScanBlock(retStructId, i, (Linear_Scan_Block*)(oBlock->data), 1);
+						numRows[retStructId]++;
+					}
+					free(oBlock);
+				}
+				else if(continuous){//use continuous chunk algorithm
 					printf("CONTINUOUS\n");
 					int rowi = -1, dummyVar = 0;//NOTE: rowi left in for historical reasons; it should be replaced by i
 					for(int i = 0; i < oblivStructureSizes[structureId]; i++){
