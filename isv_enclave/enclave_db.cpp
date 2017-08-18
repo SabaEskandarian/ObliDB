@@ -515,6 +515,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			}
 			//printf("here\n");
 		}
+		printf("now converting table\n");
 		for(int i = 0; i < size; i++){
 			opOramBlock(retStructId, i, block, 0);
 			opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)&block->data[0], 1);
