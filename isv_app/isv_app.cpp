@@ -487,7 +487,7 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 //block size 2048
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	int structureId1 = -1;
-	int structureIdIndex2 = -1;
+	int structureId2 = -1;
 	Schema rankingsSchema;
 	rankingsSchema.numFields = 4;
 	rankingsSchema.fieldOffsets[0] = 0;
@@ -573,8 +573,12 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	userdataSchema.fieldSizes[9] = 4;
 	userdataSchema.fieldTypes[9] = INTEGER;
 
+	Condition cond;
+	cond.numClauses = 0;
+	cond.nextCondition = NULL;
+
 	char* tableName2 = "uservisits";
-	createTable(enclave_id, (int*)&status, &userdataSchema, tableName2, strlen(tableName2), TYPE_TREE_ORAM, 350010, &structureIdIndex2); //TODO temp really 350010
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName2, strlen(tableName2), TYPE_LINEAR_SCAN, 350010, &structureId2); //TODO temp really 350010
 
 	std::ifstream file2("uservisits.csv");
 
@@ -603,11 +607,9 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 				strncpy((char*)&row[userdataSchema.fieldOffsets[j+1]], data, strlen(data)+1);
 			}
 		}
-		//insert the row into the database - index by visit date
-		int indexval = 0;
-		memcpy(&indexval, &row[userdataSchema.fieldOffsets[3]], 4);
-		//printf("indexval: %d\n", indexval);
-		insertRow(enclave_id, (int*)&status, "uservisits", row, indexval);
+		//manually insert into the linear scan structure for speed purposes
+		opOneLinearScanBlock(enclave_id, (int*)&status, structureId2, i, (Linear_Scan_Block*)row, 1);
+		incrementNumRows(enclave_id, (int*)&status, structureId2);
 	}
 
 	printf("created uservisits table\n");
@@ -633,7 +635,8 @@ void BDB3(sgx_enclave_id_t enclave_id, int status){
 	noCond.nextCondition = NULL;
 
 	startTime = clock();
-	indexSelect(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2, l, h);
+	selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2);
+	//indexSelect(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2, l, h);
 	renameTable(enclave_id, (int*)&status, "ReturnTable", "uvJ");
 	//printTable(enclave_id, (int*)&status, "uvJ");
 	joinTables(enclave_id, (int*)&status, "uvJ", "rankings",  2, 1, -1, -1);
