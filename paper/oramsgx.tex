@@ -16,7 +16,7 @@
 \usepackage{url}
 \usepackage{graphicx}
 \usepackage{pgfplotstable}
-\usepackage{pgfplots}
+\usepackage{pgfplots} 
 \usetikzlibrary{positioning}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
@@ -32,7 +32,7 @@
 \begin{document} 
 
 \title{\name/: A Protected Database with Near-Minimal Leakage Using SGX
-\thanks{Identify applicable funding agency here. If none, delete this.}
+\ignore{\thanks{Identify applicable funding agency here. If none, delete this.}}
 }
 
 \ignore{\author{\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
@@ -51,11 +51,11 @@ email address}
 \maketitle
 
 \begin{abstract}
-We present \name/, a database built on Intel's SGX hardware that provides minimal leakage of cryptographically protected data. \name/ achieves superior performance to prior work while leaking only the structure of queries and the protected data returned from them. In particular, access patterns to data are hidden. \name/ supports a broad range of SQL queries including groupings and joins and makes use of both ORAM-based oblivious indexes and linear search-based data structures. It also provides a range of oblivious algorithms to execute operators with different result sizes. \name/ outperforms a baseline implementation by 9-500x and recent prior work by 1.2-20x, coming within 2.2x of the performance of Spark SQL, a system with no security guarantees.  
+We present \name/, a database built on Intel's SGX hardware that provides minimal leakage of cryptographically protected data. \name/ achieves superior performance to prior work while leaking only the structure of queries and the protected data returned from them. In particular, access patterns to data are hidden. \name/ supports a broad range of SQL queries including groupings and joins and makes use of both ORAM-based oblivious indexes and linear search-based data structures. It also provides a range of oblivious algorithms to execute operators with different result sizes. \name/ outperforms a baseline implementation by 9-500x and Opaque's oblivious mode \cite{ZDB+17} by 1.2-20x, coming within 2.2x of the performance of Spark SQL\cite{SparkSQL}, a system with no security guarantees.  
 \end{abstract}
 
 \begin{IEEEkeywords}
-component, formatting, style, styling, insert
+TODO Matei?
 \end{IEEEkeywords}
 
 \section{Introduction}
@@ -64,7 +64,7 @@ The advent of cloud computing has ushered in hopes of a future where data owners
 
 We present \name/, an SGX-based system that specializes data structures and query execution for the database case and leaks only structural information about queries, results, and stored data -- the leakage that can be hidden only by padding. \name/ provides both indexed and unindexed tables and supports many SQL queries including the aggregates \texttt{COUNT}, \texttt{SUM}, \texttt{MIN}, \texttt{MAX}, and \texttt{AVG}, as well as \texttt{SELECT}, \texttt{INSERT}, \texttt{UPDATE}, \texttt{DELETE}, \texttt{GROUP BY} and \texttt{JOIN} queries, a broader set of queries than those supported by most systems offering search over encrypted data that hide data access patterns \cite{FVY+17}. \name/ also supplies a number of algorithms that optimize operator performance based on the size of data to be returned from a query, thereby providing better performance without any additional leakage. 
 
-We implement a prototype of \name/ and report on its performance, testing it with microbenchmarks on fabricated data of up to 500,000 rows and real queries on multiple real-world data sets of various sizes: domestic US flight data \cite{FLIGHT}, consumer complaints to the consumer financial protection bureau \cite{CFPB}, the NASDAQ stock exchange \cite{NASDAQ}, and the tables and queries of the Big Data Benchmark \cite{BDB}. We compare \name/ to a baseline implementation where a database index is generically modified to provide data access obliviousness via ORAM and show that \name/ outperforms the baseline by approximately 70\% on insertions and deletions and by 9-500x on realistic queries to data. We also compare \name/ to prior work and find that \name/ performs comparably to the range search scheme of Demertzis et al \cite{DPP+16} which does not hide access patterns and ranges from 1.2-20x faster than Opaque's Oblivious mode, an SGX-based data analytics platform that does hide access patterns, suggesting that \name/ and Opaque are fundamentally well-suited to different use cases. Moreover, \name/ comes within at least 2.2x of the performance of Spark SQL, which provides no security or privacy guarantees, on all implemented Big Data Benchmark queries. Finally, we show that the choices of oblivious data structures and algorithms available in \name/ allow for meaningful optimizations in different data and query settings. 
+We implement a prototype of \name/ and report on its performance, testing it with microbenchmarks on fabricated data of up to 500,000 rows and real queries on multiple real-world data sets of various sizes: domestic US flight data \cite{FLIGHT}, consumer complaints to the consumer financial protection bureau \cite{CFPB}, the NASDAQ stock exchange \cite{NASDAQ}, and the tables and queries of the Big Data Benchmark \cite{BDB}. We compare \name/ to a baseline implementation where a database index is generically modified to provide data access obliviousness via ORAM and show that \name/ outperforms the baseline by over 3x on insertions and deletions and by 9-500x on realistic queries to data. We also compare \name/ to prior work and find that \name/ performs comparably to the range search scheme of Demertzis et al \cite{DPP+16} which does not hide access patterns and ranges from 1.2-20x faster than Opaque's Oblivious mode \cite{ZDB+17}, an SGX-based data analytics platform that does hide access patterns, suggesting that \name/ and Opaque are fundamentally well-suited to different use cases. Moreover, \name/ comes within at least 2.2x of the performance of Spark SQL \cite{SparkSQL}, which provides no security or privacy guarantees, on all implemented Big Data Benchmark queries. Finally, we show that the choices of oblivious data structures and algorithms available in \name/ allow for meaningful optimizations in different data and query settings. 
 
 The rest of this paper is organized as follows: section \ref{model} gives an overview of \name/ and the security model in which we operate. section \ref{background} gives background on relevant tools used in \name/, and sections \ref{oblivData} and \ref{oblivOps} detail \name/'s design. Sections \ref{imp} and \ref{eval} describe our implementation and evaluation respectively, and section \ref{related} discusses related work before concluding in section \ref{conclusion}. 
 
@@ -206,7 +206,7 @@ We implemented and evaluated \name/ on an Intel Nuc box with an 1.9 GHz Intel Co
 
 Since the structure of a B+ tree changes dynamically as rows are added and removed from a database, the B+ tree implementation must use some form of dynamic memory management and pointers between nodes in the tree. In order to accommodate this, we implemented equivalents of malloc, free and the pointer dereference operator for our ORAM. Our memory management system simply consisted of an array of flags that would be set if the corresponding block was in use and unset if it was not. This increases the protected memory needed over the ORAM's position map by 20\% but does not represent a dramatic increase in memory requirements over the total space needed by \name/ for the position map, ORAM stash, and other elements of system state recording the names, sizes, and types of existing tables. 
 
-There are many parameters in \name/ that, set appropriately, could improve performance that we made no effort to optimize. Most importantly, we set the bucket size of the ORAM to 4 and used a binary tree for the tree structure of the PATH ORAM. We also set the maximum branching factor of the B+ tree to 20. We set the number of rows that can fit in the enclave for the ``Small'' selection strategy at 5000, a number that we felt would allow for reasonably-sized rows without overflowing the memory available to the enclave. 
+There are many parameters in \name/ that, set appropriately, could improve performance that we made no effort to optimize. Most importantly, we set the bucket size of the ORAM to 4 and used a binary tree for the tree structure of the PATH ORAM. We also set the maximum branching factor of the B+ tree to 20. We set the number of rows that can fit in the enclave for the ``Small'' selection strategy at 5,000, a number that we felt would allow for reasonably-sized rows without overflowing the memory available to the enclave. 
 
 \section{Evaluation}\label{eval}
 \begin{figure*}
@@ -231,7 +231,7 @@ FROM
     GROUP BY UV.sourceIP)
   ORDER BY totalRevenue DESC LIMIT 1} & 15.66s & 138.53s& 8.8x\\\rule{0pt}{3ex}
 \end{tabular}
-\caption{Queries executed on real data. The NASDAQ queries return technology stocks in the \$100-200 price range and the average price of stocks in each sector. The CFPB queries find instances where Bank of America did not respond to complaints about credit cards or mortgages in the month of May 2013 and all complaints in the business week of May 6, 2013. The FLIGHTS queries find the average price to a particular destination from all airports as well as the prices of all flights to that destination.}
+\caption{Comparison of \name/ and a baseline where a naive oblivious database implementation directly ports non-oblivious algorithms to their oblivious counterparts via ORAM. Queries executed on real data sets of various sizes, including three realistic queries on real-world data \cite{NASDAQ, CFPB, FLIGHT} and three queries from the Big Data Benchmark \cite{BDB}. \name/ significantly outperforms the baseline on all queries, but the speedup increases as the data size grows and in queries where \name/ can take advantage of its oblivious indexes.}
 \label{figQueries}
 \end{figure*}
 
@@ -384,7 +384,7 @@ FROM
 \end{axis}
 \end{tikzpicture}\\
 \end{tabular}
-\caption{Comparison of Linear and Index versions of various operators. Linear scans do better when most of the data needs to be accessed regardless, but Indexed structures perform far better for small queries. Operations involving modification of the database are far faster for indexed structures.}
+\caption{Comparison of Linear and Index versions of various operators over a table of 100,000 rows. Linear scans do better when most of the data needs to be accessed regardless, but Indexed structures perform far better for small queries. Operations involving modification of the database are far faster for indexed structures.}
 \label{figC1}
 \end{figure*}
 
@@ -423,7 +423,7 @@ FROM
 \end{axis}
 \end{tikzpicture} 
 
-\caption{Comparison of \texttt{SELECT} algorithms on Linear table where 5 and 95 percent of a table are retrieved. The Small and Large strategies do well in the 5\% and 95\% cases, respectively, and the Continuous strategy always performs well when applicable.} 
+\caption{Comparison of \texttt{SELECT} algorithms on Linear table where 5 and 95 percent of a 100,000 row table are retrieved. The Small and Large strategies do well in the 5\% and 95\% cases, respectively, and the Continuous strategy always performs well when applicable.} 
 \label{figC3}
 \end{figure}
 
@@ -471,7 +471,7 @@ FROM
 \end{axis}
 \end{tikzpicture}
 \end{tabular}
-\caption{Comparison between \name/ and a baseline solution where a B+ tree is generically ported to use ORAM and naive oblivious algorithms are used. \name/ significantly outperforms the baseline with its Hash and Continuous algorithms as well as its \texttt{Insert}, \texttt{Delete}, and \texttt{Update} operations.}
+\caption{Comparison between \name/ and a baseline solution where a B+ tree is generically ported to use ORAM on a table of 100,000 rows. \name/ outperforms the baseline for insertions and deletions by 3.6x and 3.1x, respectively, while performing slightly faster on updates.}
 \label{figC2} 
 \end{figure}
 
@@ -503,10 +503,10 @@ FROM
     \legend{Baseline, Opaque Oblivious, \name/, Spark SQL}
 \end{semilogyaxis}
 \end{tikzpicture}
-\caption{Comparison of \name/ and Opaque Oblivious mode on the Big data benchmark queries 1 and 3. \name/ outperforms Opaque on query 1 where it can leverage that advantage of its oblivious Indexed tables, but Opaque's custom-made oblivious analytics algorithms outperform \name/ when it uses a Linear table to compute the \texttt{INNER JOIN} in query 3.} 
+\caption{Comparison of \name/ to a baseline implementation, Opaque Oblivious mode (single node) \cite{ZDB+17}, and Spark SQL \cite{SparkSQL} on the queries of the Big Data Benchmark \cite{BDB} over tables of 360,000 and 350,000 rows provided with the benchmark. Opaque Oblivious mode provides equivalent security guarantees to \name/, and Spark SQL provides no security properties. \name/ outperforms the baseline by 9-500x and Opaque by 1.2-20x. It also never does worse than 2.2x the performance of Spark SQL, even outperforming Spark SQL on Query 1 where it can make effective use of an oblivious index.} 
 \label{figOpaque}
 \end{figure}
-\name/ can handle real-world data sets with reasonable performance comparable to other solutions with more permissive leakage functions. We extensively evaluate \name/ on fabricated data with table sizes of up to 500,000 rows (results in the tables below are for tables of 100,000 rows) as well as three real data sets. NASDAQ \cite{NASDAQ} consists of the last sale price and other related information for all approximately 3200 stocks on the NASDAQ stock exchange. CFPB \cite{CFPB} contains individual complaints on financial products and services sent to the US consumer financial protection bureau and contains about 106,000 rows. Finally, FLIGHTS \cite{FLIGHT}, a subset of the flight dataset used to evaluate Splinter \cite{WYG+17}, contains data on arrival/departure points, flight numbers, ticket prices, and delays for 250,000 US domestic flights. A summary of queries executed on real-world data is shown in figure \ref{figQueries}. We also compare \name/ to prior work and show that it performs comparably or better. 
+We extensively evaluate \name/ on fabricated data with table sizes of up to 500,000 rows as well as three real data sets. NASDAQ \cite{NASDAQ} consists of the last sale price and other related information for all approximately 3,200 stocks on the NASDAQ stock exchange. CFPB \cite{CFPB} contains individual complaints on financial products and services sent to the US consumer financial protection bureau and contains about 106,000 rows. Finally, FLIGHTS \cite{FLIGHT}, a subset of the flight dataset used to evaluate Splinter \cite{WYG+17}, contains data on arrival/departure points, flight numbers, ticket prices, and delays for 250,000 US domestic flights. A summary of queries executed on real-world data is shown in figure \ref{figQueries}. We also compare \name/ to prior work and show that it performs comparably or better. 
 
 We will through our evaluation prove the following two claims: 
 
@@ -516,12 +516,10 @@ We will through our evaluation prove the following two claims:
 \item \name/ performs better than a baseline solution that generically uses ORAM and comparably or better than prior work with similar or more permissive leakage.
 \end{enumerate}
 
-%paragraph summarizing evaluation results like in the introduction?
-
 \subsection{Effectiveness of Low-Leakage Optimization}
 We wish to show that providing both Indexed and Linear tables and optimizing \texttt{SELECT} queries based only on information from structureal leakage allows \name/ to make meaningful performance improvements for diverse data sets and queries. To this end, figure \ref{figC1} compares the performance of Linear and Indexed tables on various \texttt{SELECT} algorithms as well as \texttt{GROUP BY}, \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. Observe, moreover, in figure \ref{figQueries}, that queries perform better on Linear tables when the tables are smaller or involves aggregates over a whole table, but Indexed tables perform better when table sizes become large. This is not a surprising conclusion to draw, but it contrasts with claims in prior work \cite{RLT15} that claims linear scans perform better than ORAM for oblivious memory access. In general, Indexed \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables.
 
-Figure \ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of a table. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small, large, or a continuous set of rows) suffices to pick an algorithm that will perform dramatically better in practice. 
+Figure \ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of a table. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small, large, or a continuous set of rows) suffices to pick an algorithm that will perform much better in practice. 
 
 \subsection{Comparison to Baseline and Prior Work}
 
