@@ -1,6 +1,11 @@
-\documentclass[USenglish,oneside,twocolumn]{article}
-\usepackage[utf8]{inputenc}%(only for the pdftex engine)
-%\RequirePackage[no-math]{fontspec}%(only for the luatex or the xetex engine)
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
 \usepackage{amsfonts,amsthm,amsmath,amssymb}
 \usepackage{hyperref}
 \usepackage{framed}
@@ -13,8 +18,9 @@
 \usepackage{pgfplotstable}
 \usepackage{pgfplots}
 \usetikzlibrary{positioning}
-
-
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+    
 \newcommand{\ignore}[1]{}
 
 \newtheorem{theorem}{Theorem}
@@ -23,44 +29,42 @@
 \def\name/{OblivDB}
 
 \pgfplotsset{width=6cm,compat=1.9} 
+\begin{document} 
 
-% Alter some LaTeX defaults for better treatment of figures:
-    % See p.105 of "TeX Unbound" for suggested values.
-    % See pp. 199-200 of Lamport's "LaTeX" book for details.
-    %   General parameters, for ALL pages:
-    \renewcommand{\topfraction}{0.9}	% max fraction of floats at top
-    \renewcommand{\bottomfraction}{0.8}	% max fraction of floats at bottom
-    %   Parameters for TEXT pages (not float pages):
-    \setcounter{topnumber}{2}
-    \setcounter{bottomnumber}{2}
-    \setcounter{totalnumber}{4}     % 2 may work better
-    \setcounter{dbltopnumber}{2}    % for 2-column pages
-    \renewcommand{\dbltopfraction}{0.9}	% fit big float above 2-col. text
-    \renewcommand{\textfraction}{0.07}	% allow minimal text w. figs
-    %   Parameters for FLOAT pages (not text pages):
-    \renewcommand{\floatpagefraction}{0.9}	% require fuller float pages
-	% N.B.: floatpagefraction MUST be less than topfraction !!
-    \renewcommand{\dblfloatpagefraction}{0.9}	% require fuller float pages
-
-	% remember to use [htp] or [htpb] for placement
-  
-  \author{}
-  \title{\textbf{\name/: A Protected Database with Near-Minimal Leakage Using SGX}}
-  
-\begin{document}
-\maketitle
-  \begin{abstract}
-{We present \name/, a database built on Intel's SGX hardware that provides minimal leakage of cryptographically protected data. \name/ achieves comparable performance to prior work while leaking only the structure of queries and the protected data returned from them. In particular, access patterns to data are hidden. \name/ supports a broad range of SQL queries including groupings and joins and makes use of both ORAM-based oblivious indexes and linear search-based data structures. It also provides a range of oblivious algorithms to execute \texttt{SELECT} operations with different result sizes. 
+\title{\name/: A Protected Database with Near-Minimal Leakage Using SGX
+\thanks{Identify applicable funding agency here. If none, delete this.}
 }
-\end{abstract} 
+
+\ignore{\author{\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+\textit{name of organization (of Aff.)}\\
+City, Country \\
+email address}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+\textit{name of organization (of Aff.)}\\
+City, Country \\
+email address}
+}}
+
+\maketitle
+
+\begin{abstract}
+We present \name/, a database built on Intel's SGX hardware that provides minimal leakage of cryptographically protected data. \name/ achieves superior performance to prior work while leaking only the structure of queries and the protected data returned from them. In particular, access patterns to data are hidden. \name/ supports a broad range of SQL queries including groupings and joins and makes use of both ORAM-based oblivious indexes and linear search-based data structures. It also provides a range of oblivious algorithms to execute operators with different result sizes. \name/ outperforms a baseline implementation by 9-500x and recent prior work by 1.2-20x, coming within 2.2x of the performance of Spark SQL, a system with no security guarantees.  
+\end{abstract}
+
+\begin{IEEEkeywords}
+component, formatting, style, styling, insert
+\end{IEEEkeywords}
 
 \section{Introduction}
 
 The advent of cloud computing has ushered in hopes of a future where data owners can outsource their databases while retaining data security. In recent years, a smorgasbord of solutions to the problems of cryptographically-protected databases and search over encrypted data has explored a large space of tradeoffs between performance and leakage of private queries and data \cite{FVY+17}, but performant systems which provide the highest levels of security -- that of hiding even access patterns to protected data -- remain out of reach. Meanwhile, increasing interest in trusted hardware solutions, lent impetus by the appearance of Intel's SGX \cite{CD16} has allowed for dramatic speedups in tasks previously requiring heavy and slow cryptographic operations \cite{FVBG16, NFR+17}. While SGX alone partially solves the problem of protected databases \cite{FBB+17}, preventing leakage of data access patterns requires more work. Several prior works \cite{PBP16, DPP+16, FVY+17} mention the possibility of generically using Oblivious RAM (ORAM) on top of SGX to hide these access patterns but point out that, unfortunately, simply running a generic database application over ORAM adds significant slowdowns.
 
-We present \name/, an SGX-based system that specializes data structures and query execution for the database case and leaks only structural information about queries, results, and stored data -- the leakage that can be hidden only by padding. \name/ provides both indexed and unindexed tables and supports many SQL queries including the aggregates \texttt{COUNT}, \texttt{SUM}, \texttt{MIN}, \texttt{MAX}, and \texttt{AVG}, as well as \texttt{SELECT}, \texttt{INSERT}, \texttt{UPDATE}, \texttt{DELETE}, \texttt{GROUP BY} and \texttt{JOIN} queries, a broader set of queries than those supported by most systems offering search over encrypted data that hide data access patterns \cite{FVY+17}. \name/ also supplies a number of algorithms that optimize \texttt{SELECT} performance based on the size of data to be returned from a query, thereby providing better performance without any additional leakage. 
+We present \name/, an SGX-based system that specializes data structures and query execution for the database case and leaks only structural information about queries, results, and stored data -- the leakage that can be hidden only by padding. \name/ provides both indexed and unindexed tables and supports many SQL queries including the aggregates \texttt{COUNT}, \texttt{SUM}, \texttt{MIN}, \texttt{MAX}, and \texttt{AVG}, as well as \texttt{SELECT}, \texttt{INSERT}, \texttt{UPDATE}, \texttt{DELETE}, \texttt{GROUP BY} and \texttt{JOIN} queries, a broader set of queries than those supported by most systems offering search over encrypted data that hide data access patterns \cite{FVY+17}. \name/ also supplies a number of algorithms that optimize operator performance based on the size of data to be returned from a query, thereby providing better performance without any additional leakage. 
 
-We implement a prototype of \name/ and report on its performance, testing it on both fabricated data of up to 500,000 rows and three real-world data sets of various sizes: domestic US flight data \cite{FLIGHT}, consumer complaints to the consumer financial protection bureau \cite{CFPB}, and the NASDAQ stock exchange \cite{NASDAQ}. We compare \name/ to a baseline implementation where a database index is generically modified to provide data access obliviousness via ORAM and show that \name/ outperforms the baseline by approximately 70\% on insertions and deletions and by 60\% on \texttt{SELECT} operations. We also compare \name/ to prior work and find that \name/ performs comparably to the range search scheme of Demertzis et al \cite{DPP+16} which does not hide access patterns and ranges from 6.3x slower to 20x faster than Opaque's Oblivious mode, an SGX-based data analytics platform that does hide access patterns, suggesting that \name/ and Opaque are fundamentally well-suited to different use cases. Moreover, we show that the choices of oblivious data structures and algorithms available in \name/ allow for meaningful optimizations in different data and query settings. 
+We implement a prototype of \name/ and report on its performance, testing it with microbenchmarks on fabricated data of up to 500,000 rows and real queries on multiple real-world data sets of various sizes: domestic US flight data \cite{FLIGHT}, consumer complaints to the consumer financial protection bureau \cite{CFPB}, the NASDAQ stock exchange \cite{NASDAQ}, and the tables and queries of the Big Data Benchmark \cite{BDB}. We compare \name/ to a baseline implementation where a database index is generically modified to provide data access obliviousness via ORAM and show that \name/ outperforms the baseline by approximately 70\% on insertions and deletions and by 9-500x on realistic queries to data. We also compare \name/ to prior work and find that \name/ performs comparably to the range search scheme of Demertzis et al \cite{DPP+16} which does not hide access patterns and ranges from 1.2-20x faster than Opaque's Oblivious mode, an SGX-based data analytics platform that does hide access patterns, suggesting that \name/ and Opaque are fundamentally well-suited to different use cases. Moreover, \name/ comes within at least 2.2x of the performance of Spark SQL, which provides no security or privacy guarantees, on all implemented Big Data Benchmark queries. Finally, we show that the choices of oblivious data structures and algorithms available in \name/ allow for meaningful optimizations in different data and query settings. 
 
 The rest of this paper is organized as follows: section \ref{model} gives an overview of \name/ and the security model in which we operate. section \ref{background} gives background on relevant tools used in \name/, and sections \ref{oblivData} and \ref{oblivOps} detail \name/'s design. Sections \ref{imp} and \ref{eval} describe our implementation and evaluation respectively, and section \ref{related} discusses related work before concluding in section \ref{conclusion}. 
 
@@ -132,7 +136,9 @@ Tables in \name/ are created with an initial maximum capacity that can be increa
 
 A Linear type table simply stores rows in a series of adjacent blocks with no additional mechanism to ensure obliviousness of memory accesses. This is a ``trivial'' ORAM where every read or write to the table must involve accesses to every block of the structure in order to maintain obliviousness of access patterns. As such, operators acting on such a tables, as will be seen in section \ref{oblivOps}, involve a series of linear scans over the entire data structure. This data structure performs best with small tables, tables where operations will typically require returning large swaths of the table, or aggregates that involve reading most or all of the table regardless of the need for obliviousness.
 
-In contrast to the simplicity of Linear tables, Indexed type tables make use of both an ORAM and a B+ tree in order to provide better performance without losing obliviousness for large data sets. The data structure consists of a nonrecursive Path ORAM that holds a B+ tree where the actual data of the table resides. Although the security properties of ORAM guarantee that two access transcripts of the same length will be indistinguishable from each other, it is important in designing oblivious algorithms for operators over Indexed tables to make sure that the total number of accesses or the timing gaps between accesses do not leak any additional private data. These concerns are addressed for each operator in section \ref{oblivOps}. 
+In contrast to the simplicity of Linear tables, Indexed type tables make use of both an ORAM and a B+ tree in order to provide better performance without losing obliviousness for large data sets. The data structure consists of a nonrecursive Path ORAM that holds a B+ tree where the actual data of the table resides. The nonrecursive ORAM can fit up to about 15 million rows before needing a second layer of recursion in order to fit the position map in an SGX enclave, so \name/ can handle realistic data sets without any need for a recursive ORAM. That said, there is no reason \name/ cannot be modified to make use of recursive ORAM at a modest performance penalty for Indexed tables. 
+
+Although the security properties of ORAM guarantee that two access transcripts of the same length will be indistinguishable from each other, it is important in designing oblivious algorithms for operators over Indexed tables to make sure that the total number of accesses or the timing gaps between accesses do not leak any additional private data. For example, the property of the B+ tree that all data is stored in the leaves of the tree, always at the same depth, means that any search in the tree will make the same number of accesses to intermediate nodes before finding the desired data. Using a different data structure that did not exhibit such a property would compromise the obliviousness of our operators on Indexed tables. These concerns are addressed for each operator in section \ref{oblivOps}. 
 
 \section{Oblivious Operators}\label{oblivOps}
 In this section we describe the various oblivious operator algorithms used in \name/. \name/ provides support for a large subset of SQL, including insertions, updates, deletions, joins, aggregates (count, sum, max, min, average), groupings, and selection with conditions composed of arbitrary logical combinations of equality or range queries. Moreover, depending on known structural information about the response to a query, \name/ can use a different algorithm in order to maximize performance in each situation. We will begin by discussing algorithms for Linear tables and then discuss the modifications or entirely different solutions used for Indexed tables. Each operation will be accompanied by a security argument. 
@@ -175,10 +181,17 @@ The modifications above ensure that data access patterns are fixed regardless of
 \medskip \noindent \textbf{Aggregates \& Group By}\\
 Computing aggregates can be done far faster than selection and only requires one oblivious pass over a Linear table. An aggregate over a whole table or some selected subset of a table requires only one pass over the whole table where the aggregate is calculated cumulatively based on the data in each row. Since the memory access pattern of this operation will always be sequential reads of each block in the data structure, nothing is leaked from this operation beyond the size of $T$. 
 
-Groupings are handled similarly to aggregates without groupings, except that an array is kept inside the enclave that keeps track of the aggregate for each group. \name/, as implemented, supports only a large fixed total number of groups (up to as many as can fit in an enclave), but appendix \ref{groupby} discusses potential solutions for unbounded numbers of groups. 
+Groupings are handled similarly to aggregates without groupings, except that an array is kept inside the enclave that keeps track of the aggregate for each group. The method for determining which group each row belongs to is handled differently for low and high-cardinality aggregation:
+\begin{itemize}
+\item \textit{Low-Cardinality}: In the low-cardinality setting, a linear scan is made over all the known group values in order to check for a match. If no match is found, a new group is created. 
+
+\item \textit{High-Cardinality}: Linearly scanning over all known groups becomes prohibitively expensive as the number of groups becomes larger, so high-cardinality groupings employ a hash table where each group's value is hashed and inserted into a hash table held in the enclave. Each row scanned is hashed and checked against the table. If there is a match, then the row under examination corresponds to a known group referenced in the table, and if not, then the current row is added as a new group. 
+
+\name/, as implemented, supports only a large fixed total number of groups (up to as many as can fit in an enclave), but it can be extended to support arbitrarily large numbers of groups by storing the hash table in an ORAM outside the enclave instead of in the enclave's trusted memory. 
+\end{itemize}
 
 \medskip \noindent \textbf{Join}\\
-The Join functionality for Linear tables is implemented as a variant of the standard hash join algorithm \cite{EN10}. Although we only implement inner joins for Linear tables, other forms of join can be implemented without any additional technical or security-related obstacles. We will refer to the two tables being joined as $T_1$ and $T_2$. The Join proceeds by making a hash table out of as many rows of $T_1$ as will fit in the enclave and then hashing the variable to be joined from each row of $T_2$ to check for matches. This process repeats until the end of $T_1$ is reached. When a match occurs between a row of $T_1$ and $T_2$, the joined row is written to an ORAM, and if a match does not occur, the ORAM receives a dummy write in order to conceal whether or not there has been a match. The ORAM is important for security in order to hide the rate at which rows are added to the returned table. Once the Join process is completed, the contents of the ORAM are copied to a Linear table. This final copy step reveals only the size of the returned table $O$, and because of the obliviousness property of the ORAM, the join itself also only reveals the sizes of $T_1$ and $T_2$. 
+The Join functionality for Linear tables is implemented as a variant of the standard hash join algorithm \cite{EN10}. Although we only implement inner joins for Linear tables, other forms of join can be implemented without any additional technical or security-related obstacles. We will refer to the two tables being joined as $T_1$ and $T_2$. The Join proceeds by making a hash table out of as many rows of $T_1$ as will fit in the enclave and then hashing the variable to be joined from each row of $T_2$ to check for matches. This process repeats until the end of $T_1$ is reached. After each check, a row is written to the next block of an output linear table. If there is a match, the joined row is written. If not, a dummy row is written to the table at that position. This algorithm reveals the sizes of the tables $T_1$ and $T_2$, but not the size of the output table, which is padded to the maximum possible size by dummy rows. Since each comparison between the two tables results in one write to the output structure regardless of the results of the comparison, the memory access pattern of this algorithm is oblivious. 
 
 \subsection{Indexed Tables}
 
@@ -189,7 +202,7 @@ There are a few other differences between the behavior of \name/ on Linear and I
 Since the rows of an Indexed table are always sorted by the index column in the leaves of the B+ tree, it is possible to efficiently sort-merge join two tables with the same index \cite{EN10}. $T_1$ and $T_2$ are scanned at the same time, and any matching rows are placed in an output ORAM, just as for Linear tables. More specifically, at each step, the next row of each of $T_1$ and $T_2$ is read. If the rows match, the pointer on the right table advances and there is a write to the ORAM, and if they do not match, a dummy write takes place and the pointer on the table with the lesser value advances. This process proceeds until pointers reach the end of both tables. Obliviousness holds because each step of the algorithm consists of exactly one read to each of $T_1$ and $T_2$ and one write to an ORAM, and the total number of steps is only a function of the sizes of the three data structures involved.  
 
 \section{Implementation}\label{imp}
-We implemented and evaluated \name/ on an Intel Nuc box with an 1.9 GHz Intel Core i5-6260U Dual-Core processor and 32GB of RAM running Ubuntu 16.04.2 and the SGX Linux SDK version 1.8 \cite{SGXRef}. Our implementation includes the linear scan and oblivious B+ index from section \ref{oblivData} as well as most of the oblivious operator algorithms described in section \ref{oblivOps}, with the exception of those stated there to be unimplemented. Our final implementation consists of 11,000 lines of code and builds upon the Remote Attestation sample code provided with the SDK and the B+ tree implementation of \cite{BPlus}, the latter of which was heavily edited in order to support duplicate labels and the dynamic memory abstraction we built on top of ORAM. 
+We implemented and evaluated \name/ on an Intel Nuc box with an 1.9 GHz Intel Core i5-6260U Dual-Core processor and 32GB of RAM running Ubuntu 16.04.2 and the SGX Linux SDK version 1.8 \cite{SGXRef}. Our implementation includes the linear scan and oblivious B+ index from section \ref{oblivData} as well as most of the oblivious operator algorithms described in section \ref{oblivOps}, with the exception of those stated there to be unimplemented. Our final implementation consists of approximately 12,000 lines of code and builds upon the Remote Attestation sample code provided with the SDK and the B+ tree implementation of \cite{BPlus}, the latter of which was heavily edited in order to support duplicate labels and the dynamic memory abstraction we built on top of ORAM. We intend to make our implementation of \name/ open source and publicly available online.
 
 Since the structure of a B+ tree changes dynamically as rows are added and removed from a database, the B+ tree implementation must use some form of dynamic memory management and pointers between nodes in the tree. In order to accommodate this, we implemented equivalents of malloc, free and the pointer dereference operator for our ORAM. Our memory management system simply consisted of an array of flags that would be set if the corresponding block was in use and unset if it was not. This increases the protected memory needed over the ORAM's position map by 20\% but does not represent a dramatic increase in memory requirements over the total space needed by \name/ for the position map, ORAM stash, and other elements of system state recording the names, sizes, and types of existing tables. 
 
@@ -197,14 +210,26 @@ There are many parameters in \name/ that, set appropriately, could improve perfo
 
 \section{Evaluation}\label{eval}
 \begin{figure*}
-\begin{tabular}{l p{7cm} l l}
- \textbf{Data Set}& \textbf{Query}& \textbf{Time (Linear)} & \textbf{Time (Index)}\\ \hline\rule{0pt}{3ex}
-NASDAQ & \texttt{SELECT Symbol FROM NASDAQ WHERE Sector="Technology" AND Last\_Sale$>$100 AND Last\_Sale$<$200} & .044 & .088\\ \rule{0pt}{3ex}
-NASDAQ & \texttt{SELECT AVG(Last\_Sale) FROM NASDAQ GROUP BY Sector}& .022 & 1.26\\\rule{0pt}{3ex}
-CFPB & \texttt{SELECT COUNT(*) FROM CFPB WHERE Bank="Bank of America" AND (Product="Credit Card" OR Product="Mortgage") AND Timely\_Response="No" AND Date\_Received$>=$2013-05-01 AND Date\_Received$<=$2013-05-31 }& .683 & 1.95\\\rule{0pt}{3ex}
-CFPB & \texttt{SELECT * FROM CFPB WHERE Date\_Received$>=$2013-05-06 AND Date\_Received$<=$2013-05-10 } & 1.41 & 1.86\\\rule{0pt}{3ex} 
-FLIGHTS & \texttt{SELECT AVG(Price) FROM FLIGHTS WHERE Destination\_Id=12173 GROUP BY Origin\_Id}& 1.01 & .376\\\rule{0pt}{3ex}
-FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 & .760\\\rule{0pt}{3ex}
+\begin{tabular}{p{2.2cm} l p{7cm} l l l} 
+ \textbf{Data Set}& \textbf{Rows} & \textbf{Query}& \textbf{\name/} & \textbf{Baseline} & \textbf{Speedup}\\ \hline\rule{0pt}{3ex}
+NASDAQ & 3,300 &\texttt{SELECT Symbol FROM NASDAQ WHERE Sector="Technology" AND Last\_Sale$>$100 AND Last\_Sale$<$200} & .044s & .548s & 12.5x \\ \rule{0pt}{3ex}
+%NASDAQ & \texttt{SELECT AVG(Last\_Sale) FROM NASDAQ GROUP BY Sector}& .022 & 1.26\\\rule{0pt}{3ex}
+%CFPB & \texttt{SELECT COUNT(*) FROM CFPB WHERE Bank="Bank of America" AND (Product="Credit Card" OR Product="Mortgage") AND Timely\_Response="No" AND Date\_Received$>=$2013-05-01 AND Date\_Received$<=$2013-05-31 }& .683 & 1.95\\\rule{0pt}{3ex}
+CFPB & 107,000& \texttt{SELECT * FROM CFPB WHERE Date\_Received$>=$2013-05-06 AND Date\_Received$<=$2013-05-10 } & 1.41s & 64.76s & 45.9x\\\rule{0pt}{3ex} 
+%FLIGHTS & \texttt{SELECT AVG(Price) FROM FLIGHTS WHERE Destination\_Id=12173 GROUP BY Origin\_Id}& 1.01 & .376\\\rule{0pt}{3ex}
+FLIGHTS & 250,000&\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & .760s & 47.39s & 62.4x\\\rule{0pt}{3ex}
+RANKINGS & 360,000 & \texttt{SELECT pageURL, pageRank FROM RANKINGS WHERE pageRank > 1000 }& .112s & 56.33s& 502.9x \\\rule{0pt}{3ex}
+USERVISITS & 350,000 & \texttt{SELECT SUBSTR(sourceIP, 1, X), SUM(adRevenue) FROM USERVISITS GROUP BY SUBSTR(sourceIP, 1, 8)}& 3.52s &225.03s & 63.9x\\\rule{0pt}{3ex}
+RANKINGS \\ USERVISITS&  & \texttt{SELECT sourceIP, totalRevenue, avgPageRank
+FROM
+  (SELECT sourceIP,
+          AVG(pageRank) as avgPageRank,
+          SUM(adRevenue) as totalRevenue
+    FROM Rankings AS R, UserVisits AS UV
+    WHERE R.pageURL = UV.destURL
+       AND UV.visitDate BETWEEN Date(`1980-01-01') AND Date(`1980-04-01')
+    GROUP BY UV.sourceIP)
+  ORDER BY totalRevenue DESC LIMIT 1} & 15.66s & 138.53s& 8.8x\\\rule{0pt}{3ex}
 \end{tabular}
 \caption{Queries executed on real data. The NASDAQ queries return technology stocks in the \$100-200 price range and the average price of stocks in each sector. The CFPB queries find instances where Bank of America did not respond to complaints about credit cards or mortgages in the month of May 2013 and all complaints in the business week of May 6, 2013. The FLIGHTS queries find the average price to a particular destination from all airports as well as the prices of all flights to that destination.}
 \label{figQueries}
@@ -366,7 +391,7 @@ FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 &
 \begin{figure}
 \begin{tikzpicture}
 \begin{axis}[
-	width=8cm,
+	width=7cm,
 	ylabel={Time [seconds]},
     title={\texttt{SELECT} 5\% of Linear Table}, 
 	symbolic x coords={Cont., Small, Hash, 4},
@@ -383,7 +408,7 @@ FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 &
 \vskip 10pt
 \begin{tikzpicture}
 \begin{axis}[
-	width=8cm,
+	width=7cm,
 	ylabel={Time [seconds]},
     title={\texttt{SELECT} 95\% of Linear Table},
 	symbolic x coords={Cont., Small, Large, Hash, 4},
@@ -402,46 +427,8 @@ FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 &
 \label{figC3}
 \end{figure}
 
-\begin{figure*}
-\begin{tabular}{@{}l@{}l@{}l}
-\begin{tikzpicture}
-\begin{axis}[
-    title={\name/ vs Baseline: \texttt{SELECT}},
-    xlabel={Percent of Table Retrieved},
-    ylabel={Time [seconds]},
-    xmin=5, xmax=20,
-    ymin=0, ymax=40,
-    xtick={5, 10, 15, 20},
-    ytick={0,10,20,30,40},
-    legend pos=north west,
-    ymajorgrids=true,
-    grid style=dashed,
-    ]
-    \addplot[
-    color=red,
-    mark=square,
-    ]
-    coordinates {
-    (5,3.60851)(10,10.76450)(15,21.68452)(20,35.90403)
-    };
-    \addplot[
-    color=green,
-    mark=square,
-    ]
-    coordinates {
-    (5,4.10491)(10,8.22869)(15,12.44472)(20,16.44773)
-    };
-    \addplot[
-    color=blue,
-    mark=square,
-    ]
-    coordinates {
-    (5,3.62659)(10,7.26511)(15,10.87671)(20,14.53167)
-    };
-    \legend{Small(Baseline), Hash, Continuous}
-\end{axis}
-\end{tikzpicture}
-&
+\begin{figure}
+\begin{tabular}{@{}l}
 \begin{tikzpicture}
 \begin{axis}[
     title={\name/ vs Baseline},
@@ -449,6 +436,7 @@ FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 &
 	x tick label style={
 		/pgf/number format/1000 sep=},
 	%%ylabel=Time (seconds),
+	width=7cm,
 	enlargelimits=0.05,
 	legend style={at={(0.5,-0.17)},
 	anchor=north,legend columns=-1},
@@ -461,11 +449,12 @@ FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 &
     \legend{Baseline, \name/}
 \end{axis}
 \end{tikzpicture}
-&
+\\
 \begin{tikzpicture}
 \begin{axis}[
     title={\name/ vs Baseline},
 	symbolic x coords={Delete, Update, 4},
+	width=7cm,
 	x tick label style={
 		/pgf/number format/1000 sep=},
 	%%ylabel=Time (seconds),
@@ -483,30 +472,35 @@ FLIGHTS &\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 2.00 &
 \end{tikzpicture}
 \end{tabular}
 \caption{Comparison between \name/ and a baseline solution where a B+ tree is generically ported to use ORAM and naive oblivious algorithms are used. \name/ significantly outperforms the baseline with its Hash and Continuous algorithms as well as its \texttt{Insert}, \texttt{Delete}, and \texttt{Update} operations.}
-\label{figC2}
-\end{figure*}
+\label{figC2} 
+\end{figure}
 
 \begin{figure}
 \begin{tikzpicture}
 \begin{semilogyaxis}[
 	log origin = infty,
-	width=8cm,
+	width=7cm,
+	y label style={at={(axis description cs:-0.1,.5)},anchor=south},
 	ylabel={Time [seconds]},
-    title={\name/ vs Opaque Oblivious},
-	symbolic x coords={BDB Q1, BDB Q3, 4},
+    title={Big Data Benchmark Comparison},
+	symbolic x coords={BDB Q1, BDB Q2, BDB Q3, 4},
 	x tick label style={
 		/pgf/number format/1000 sep=},
 	%%ylabel=Time (seconds),
 	enlargelimits=0.05,
 	legend style={at={(0.5,-0.17)},
 	anchor=north,legend columns=-1},
-	ybar interval=0.7,
+	ybar interval=.7,
     ]
-\addplot 
-	coordinates {(BDB Q1,2.2437) (BDB Q3,19.9664) (4, 1)};
-\addplot 
-	coordinates {(BDB Q1,.11178) (BDB Q3,125.59) (4,1)};
-    \legend{Opaque Oblivious, \name/}
+\addplot %baseline
+	coordinates {(BDB Q1, 56.33) (BDB Q2, 225.03) (BDB Q3, 138.53) (4,1)};
+\addplot %opaque obliv
+	coordinates {(BDB Q1,2.2437) (BDB Q2,4.2908) (BDB Q3,19.9664) (4, 1)};
+\addplot %us
+	coordinates {(BDB Q1,.11178) (BDB Q2, 3.52) (BDB Q3,15.66) (4,1)};
+\addplot %spark sql
+	coordinates {(BDB Q1,.1615) (BDB Q2,1.9757) (BDB Q3,7.2477) (4,1)};
+    \legend{Baseline, Opaque Oblivious, \name/, Spark SQL}
 \end{semilogyaxis}
 \end{tikzpicture}
 \caption{Comparison of \name/ and Opaque Oblivious mode on the Big data benchmark queries 1 and 3. \name/ outperforms Opaque on query 1 where it can leverage that advantage of its oblivious Indexed tables, but Opaque's custom-made oblivious analytics algorithms outperform \name/ when it uses a Linear table to compute the \texttt{INNER JOIN} in query 3.} 
@@ -561,7 +555,7 @@ In addition to general tools, applications to securely conduct data analytics or
 Trusted hardware assumption like those underlying the use of SGX as a secure platform fundamentally differ from traditional mathematical assumptions in that, whereas the validity of a mathematical assumption cannot be challenged by the vicissitudes of succeeding implementations, attacks, and side-channels, the legitimacy of a hardware assumption relies directly on the ability of a piece of manufactured hardware to repel practical attacks. As such, the SGX literature includes a number of works that aim to reveal practical side channels in the implementation of SGX and develop techniques to obviate the risks presented by each known family of attacks. Xu et al \cite{XCP15} use page faults and other ``controlled channel'' side channels to extract images and text documents from protected memory, and Lee et al \cite{LSG+16} use the fact that SGX does not clear branch history when leaving an enclave to infer details of branches taken in protected code. In the multithreaded regime, Weichbrodt et al \cite{WKPK16} compromise security by leveraging synchronization bugs. Defenses against such attacks include the work of Shinde et al \cite{SCNS16} and Raccoon \cite{RLT15} which close side channels by making the memory trace of a program oblivious or obfuscated. SGX-Shield \cite{SLK+17} enables address space layout randomization for SGX, and, finally, T-SGX \cite{SLKP17} protects against side-channel attacks by using another set of hardware features, Transactional Synchronization Extensions (TSX) to close side channels that could otherwise be exploited by a malicious operating system. \name/ can be generically combined with any of these solutions to provide higher levels of confidence in the security of the enclave. 
 
 \section{Conclusion}\label{conclusion}
-We have presented \name/, a cryptographically-protected database system based on Intel SGX with little to no leakage beyond structural information about data and responses to queries. We have shown that \name/ handles practical data sets with acceptable performance comparable to other existing solutions with more permissive leakage functions. It is our hope that solutions like \name/ based on SGX and other techniques that leverage hardware-based advantages can enable rapid advances in the performance and security of solutions to difficult problems related to private databases and search over encrypted data. 
+We have presented \name/, a cryptographically-protected database system based on Intel SGX with little to no leakage beyond structural information about data and responses to queries. We have shown that \name/ handles practical data sets with performance surpassing prior work with similar security properties and comparable to other existing solutions with more permissive leakage functions. It is our hope that solutions like \name/ based on SGX and other techniques that leverage hardware-based advantages can enable rapid advances in the performance and security of solutions to difficult problems related to private databases and search over encrypted data. 
 
 \section*{Acknowledgements}
 
@@ -570,12 +564,4 @@ We have presented \name/, a cryptographically-protected database system based on
 \bibliographystyle{plain}
 \bibliography{oramsgx}
 
-\appendix
-
-\section{Support for Unbounded Numbers of Groups}\label{groupby}
-As mentioned in section \ref{oblivOps}, our implementation of \name/ supports a large but fixed maximum number of groups. Here we mention ideas that could be implemented to increase this limit to support arbitrary high-cardinality aggregation. 
-
-First, if the number of groups is larger than can be kept in the enclave at once, it becomes important to be able to count the total number on a first pass. This can be accomplished with the HyperLogLog algorithm \cite{FFGM07}. Once this is done, it is possible to make multiple passes over the table being selected from, each time calculating the aggregate for as many groups as possible. In order to make sure each group is aggregated only once, each pass will cover successive groups in alphabetical order and the enclave will store the name of the last alphabetical group to have been aggregated. To make sure each pass only aggregates groups in alphabetical order, the algorithm will hae to check on each row whether the group to which the row belongs is alphabetically prior to any group permanently being aggregated. If so, that row is given a place in the enclave and the alphabetically last group under consideration is thrown out to be re-examined on a future pass. 
-
-If the number of groups were large enough that the above solution becomes impractical because it requires a number of passes linear in the number of groups, another solution would be to, after completing the HyperLogLog scan, create a copy of the table $T$ called $T'$ and sort it obliviously by group. Then, after creating $O$ of size $o$ as determined by the HyperLogLog algorithm, one additional scan over the sorted table could be done, with the aggregate value for each group being calculated as that group is reached in $T'$. 
 \end{document}
