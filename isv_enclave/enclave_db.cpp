@@ -1477,6 +1477,9 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 					int oramTableId = -1;
 					char* oramName = "tempOram";
 					createTable(&retSchema, oramName, strlen(oramName), TYPE_ORAM, retNumRows, &oramTableId);
+					memset(oBlock, 0, sizeof(Oram_Block));
+					opOramBlock(oramTableId, 0, oBlock, 1);
+
 					int oramRows = 0;
 					for(int i = 0; i < oblivStructureSizes[structureId]; i++){
 						opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)oBlock->data, 0);
@@ -1494,7 +1497,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						}
 						else{
 							dummyVar=1;
-							opOramBlock(oramTableId, oramRows, oBlock, 0);
+							opOramBlock(oramTableId, 0, oBlock, 0);
 							dummyVar++;
 						}
 					}
