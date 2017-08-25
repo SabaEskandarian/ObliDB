@@ -353,7 +353,7 @@ void BDB1(sgx_enclave_id_t enclave_id, int status){
 		//insert the row into the database - index by last sale price
 		int indexval = 0;
 		memcpy(&indexval, &row[rankingsSchema.fieldOffsets[2]], 4);
-		insertRow(enclave_id, (int*)&status, "rankings", row, indexval);
+		insertIndexRowFast(enclave_id, (int*)&status, "rankings", row, indexval);
 		//if (indexval > 1000) printf("indexval %d \n", indexval);
 		//printTable(enclave_id, (int*)&status, "rankings");
 	}
@@ -839,7 +839,7 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
 		//insert the row into the database - index by last sale price
 		int indexval = 0;
 		memcpy(&indexval, &row[flightSchema.fieldOffsets[2]], 4);
-		insertRow(enclave_id, (int*)&status, "flightTableIndex", row, indexval);
+		insertIndexRowFast(enclave_id, (int*)&status, "flightTableIndex", row, indexval);
 		//manually insert into the linear scan structure for speed purposes
 		opOneLinearScanBlock(enclave_id, (int*)&status, structureIdLinear, i, (Linear_Scan_Block*)row, 1);
 		incrementNumRows(enclave_id, (int*)&status, structureIdLinear);
@@ -1518,7 +1518,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
 	//time to test performance of everything
 
-	int testSizes[] = {100000};
+	int testSizes[] = {10000};
 	int numTests = 1;
 	//int testSizes[] = {500};//for testing
 	//int numTests = 1;
@@ -1526,12 +1526,19 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
     deleteRows(enclave_id, (int*)&status, "jIndex", condition1, low, high);
     createTestTable(enclave_id, (int*)&status, "jTable", high);
     deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
+	char tableName[20];
+	int testSize = testSizes[0];
+	sprintf(tableName, "testTable%d", testSize);
+    createTestTable(enclave_id, (int*)&status, "testTable", testSize);
+    createTestTableIndex(enclave_id, (int*)&status, tableName, testSize);
+    //loadIndexTable(enclave_id, (int*)&status, testSize);
+    printf("created tables\n");
 	for(int i = 0; i < numTests; i++){
 		int testSize = testSizes[i];
 		printf("\n\n|Test Size %d:\n", testSize);
 
 		//first we'll do the read-only tests
-		int numInnerTests = 5;//how many points do we want along the line
+		int numInnerTests = 13;//how many points do we want along the line
 		for(int testRound = 0; testRound <= numInnerTests; testRound++){
 			//if(testRound > numInnerTests/6){
 			//	testRound = numInnerTests;
@@ -1544,8 +1551,8 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
 			if(testRound < numInnerTests){
 				//printf("querying %d%% of table\n", (int)((double)1/numInnerTests*100*(testRound+1)));
-				//printf("%d rows", (testRound+1)*100);
-				printf("query %d rows of db\n", testSize - (testRound*5000));
+				printf("%d rows", (testRound+1)*500);
+				//printf("query %d rows of db\n", testSize - (testRound*5000));
 			}
 			else{
 				printf("doing insert, update, delete queries and miscellaneous stuff\n");
@@ -1574,16 +1581,25 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         	time_t startTime, endTime;
         	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
         	const char* text = "You would measure time the measureless and the immeasurable.";
+
     		for(int j = 0; j < 1; j++){ //want to average 5 trials
-    			char tableName[20];
-    			sprintf(tableName, "testTable%d", testSize);
-    	        createTestTable(enclave_id, (int*)&status, "testTable", testSize);
-    	        loadIndexTable(enclave_id, (int*)&status, testSize);
-    	        printf("created tables\n");
+
     			if(testRound < numInnerTests){
     				//high = testSize/20*(testRound+1);
-				//high = (testRound+1)*100;
-				high = testSize - (testRound)*5000;
+				high = (testRound+1)*500;
+				//high = testSize - (testRound)*5000;
+				if(testRound == numInnerTests - 2){
+					high = testSize - 5000;
+					printf("95%\n", high);
+				}
+				else if(testRound == numInnerTests -1){
+					high = 5000;
+					printf("5%\n", high);
+				}
+				else if(testRound == numInnerTests -3){
+					high = 100;
+					printf("100 rows\n", high);
+				}
 
         			//do an aggregate
     				startTime = clock();
@@ -1655,11 +1671,11 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     	    			//join
-    					startTime = clock();
-    			        joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
-    					endTime = clock();
-    					linjoinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-    	    	        deleteTable(enclave_id, (int*)&status, "JoinReturn");
+    					//startTime = clock();
+    			        //joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
+    					//endTime = clock();
+    					//linjoinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+    	    	        //deleteTable(enclave_id, (int*)&status, "JoinReturn");
     		        //}
 
         			//do an aggregate
@@ -1685,11 +1701,11 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
         			//join
-    				startTime = clock();
-    		        joinTables(enclave_id, (int*)&status, "jIndex", tableName, 1, 1, low, high);
-    				endTime = clock();
-    				joinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-        	        deleteTable(enclave_id, (int*)&status, "JoinReturn");
+    				//startTime = clock();
+    		        //joinTables(enclave_id, (int*)&status, "jIndex", tableName, 1, 1, low, high);
+    				//endTime = clock();
+    				//joinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        	        //deleteTable(enclave_id, (int*)&status, "JoinReturn");
 
 
     			}
@@ -1742,14 +1758,14 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         		        //printTable(enclave_id, (int*)&status, "ReturnTable");
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
-        		        if(testSize < 1500){
+        		        //if(testSize < 1500){
         	    			//join
-        					startTime = clock();
-        			        joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
-        					endTime = clock();
-        					linjoinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-        	    	        deleteTable(enclave_id, (int*)&status, "JoinReturn");
-        		        }
+        				//	startTime = clock();
+        			    //    joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
+        			//		endTime = clock();
+        			//		linjoinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        	    	 //       deleteTable(enclave_id, (int*)&status, "JoinReturn");
+        		     //   }
 
         				startTime = clock();
         				insertRow(enclave_id, (int*)&status, "testTable", row, -1);
@@ -1807,11 +1823,11 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
             			//join
-        				startTime = clock();
-        		        joinTables(enclave_id, (int*)&status, "jIndex", tableName, 1, 1, low, high);
-        				endTime = clock();
-        				joinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-            	        deleteTable(enclave_id, (int*)&status, "JoinReturn");
+        				//startTime = clock();
+        		        //joinTables(enclave_id, (int*)&status, "jIndex", tableName, 1, 1, low, high);
+        				//endTime = clock();
+        				//joinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+            	        //deleteTable(enclave_id, (int*)&status, "JoinReturn");
 
 
             	        printf("inserting\n");
@@ -1835,8 +1851,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         				printf("end\n");
     			}
 
-    			deleteTable(enclave_id, (int*)&status, "testTable");
-    			deleteTable(enclave_id, (int*)&status, tableName);
+
 
 
     		}
@@ -1910,6 +1925,8 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 	}
     deleteTable(enclave_id, (int*)&status, "jIndex");
     deleteTable(enclave_id, (int*)&status, "jTable");
+	deleteTable(enclave_id, (int*)&status, "testTable");
+	deleteTable(enclave_id, (int*)&status, tableName);
 
 }
 
@@ -2500,7 +2517,7 @@ int main(int argc, char* argv[])
         //BDB2(enclave_id, status, 1);//2048 (baseline)
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);
-        //fabTests(enclave_id, status);
+        fabTests(enclave_id, status);
 
         /*
         //rename test

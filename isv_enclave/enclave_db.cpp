@@ -161,6 +161,30 @@ Schema getTableSchema(char *tableName) {
 	return schemas[structureId];
 }
 
+int insertIndexRowFast(char* tableName, uint8_t* row, int key) {//trust that the row is good and insert it
+	int structureId = getTableId(tableName);
+	int done = 0;
+	int dummyDone = 0;
+	if(numRows[structureId] == oblivStructureSizes[structureId]){
+		growStructure(structureId);//not implemented
+	}
+	uint8_t* tempRow = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+
+	record *temp = make_record(structureId, row);
+	//printf("before insert %d", key);
+	bPlusRoots[structureId] = insert(structureId, bPlusRoots[structureId], key, temp);
+	//printf("after insert\n");
+	if(bPlusRoots[structureId] == NULL) printf("bad news...\n");
+	free(temp);
+	Oram_Block* oblock = (Oram_Block*)malloc(sizeof(Oram_Block));
+	//printf("starting padding\n");
+	free(oblock);
+
+	numRows[structureId]++;
+	free(tempRow);
+}
+
+
 int insertRow(char* tableName, uint8_t* row, int key) {//trust that the row is good and insert it
 	int structureId = getTableId(tableName);
 	int done = 0;
@@ -2463,7 +2487,7 @@ int createTestTableIndex(char* tableName, int numberOfRows){
 		else row[9]= 'c';
 		memcpy(&row[10], text, strlen(text));
 		//printf("heree");
-		insertRow(tableName, row, rowi);
+		insertIndexRowFast(tableName, row, rowi);
 		//printf("inserted!!\n");
 		//debug
 		//printf("root node actualAddr: %d\n", bPlusRoots[structureId]->actualAddr);
