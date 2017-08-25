@@ -11,7 +11,7 @@
 #include "string.h"
 
 
-#define BLOCK_DATA_SIZE 512
+#define BLOCK_DATA_SIZE 1024
 #define NUM_BLOCKS_POW 10
 #define TEST_TYPE 1
 
@@ -39,6 +39,12 @@ typedef enum _Obliv_Type{
 } Obliv_Type;
 
 typedef struct{
+	int actualAddr;
+	uint8_t data[BLOCK_DATA_SIZE];
+	int revNum;
+} Real_Linear_Scan_Block;
+
+typedef struct{
 	uint8_t data[BLOCK_DATA_SIZE];
 } Linear_Scan_Block;
 
@@ -54,12 +60,14 @@ typedef struct{
 	int actualAddr;
 	//int leafNum;
 	uint8_t data[BLOCK_DATA_SIZE];
+	int revNum;
 } Oram_Block;
 
 typedef struct{ //for compatibility with bplustree, same as Oram_Block
 	int actualAddr;
 	//int leafNum;
 	uint8_t data[BLOCK_DATA_SIZE];
+	int revNum;
 } record;
 
 typedef struct node { //size 8*MAX_ORDER + 16 = currently 176, which wastes a lot of space, but oh well
@@ -71,7 +79,7 @@ typedef struct node { //size 8*MAX_ORDER + 16 = currently 176, which wastes a lo
 	//struct node * parent;
 	int parentAddr;
 	int num_keys;
-	uint8_t waste[BLOCK_DATA_SIZE - 8*MAX_ORDER - 12]; //to make all oram blocks the same size
+	uint8_t waste[BLOCK_DATA_SIZE - 8*MAX_ORDER - 8]; //to make all oram blocks the same size
 	//struct node * next; // Used for queue.
 } node;
 
@@ -86,7 +94,7 @@ typedef struct{
 }Encrypted_Oram_Bucket;
 
 typedef struct{
-	uint8_t ciphertext[sizeof(Linear_Scan_Block)]; //sizeof(Oram_Tree_Block)
+	uint8_t ciphertext[sizeof(Real_Linear_Scan_Block)];
 	uint8_t macTag[16]; //16 bytes
 	uint8_t iv[12]; //12 bytes
 } Encrypted_Linear_Scan_Block;

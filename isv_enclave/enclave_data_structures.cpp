@@ -9,6 +9,7 @@ Obliv_Type oblivStructureTypes[NUM_STRUCTURES];
 //specific to oram structures
 unsigned int* positionMaps[NUM_STRUCTURES] = {0};
 uint8_t* usedBlocks[NUM_STRUCTURES] = {0};
+int* revNum[NUM_STRUCTURES] = {0};
 std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 int stashOccs[NUM_STRUCTURES] = {0};//stash occupancy, number of elements in stash
 int logicalSizes[NUM_STRUCTURES] = {0};
@@ -41,26 +42,38 @@ int freeBlock(int structureId, int blockNum){
 int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write){
 	//if(oblivStructureTypes[structureId] != TYPE_LINEAR_SCAN) return 1; //if the designated data structure is not a linear scan structure
 	int size = oblivStructureSizes[structureId];
-	int blockSize = sizeof(Linear_Scan_Block);
+	int blockSize = sizeof(Real_Linear_Scan_Block);
 	int encBlockSize = sizeof(Encrypted_Linear_Scan_Block);
 	int i = index;
 	//allocate dummy storage and real storage
-	Linear_Scan_Block* dummy = (Linear_Scan_Block*)malloc(blockSize);
-	Linear_Scan_Block* real = (Linear_Scan_Block*)malloc(blockSize);
+	Real_Linear_Scan_Block* dummy = (Real_Linear_Scan_Block*)malloc(blockSize);
+	Real_Linear_Scan_Block* real = (Real_Linear_Scan_Block*)malloc(blockSize);
 	Encrypted_Linear_Scan_Block* dummyEnc = (Encrypted_Linear_Scan_Block*)malloc(encBlockSize);
 	Encrypted_Linear_Scan_Block* realEnc = (Encrypted_Linear_Scan_Block*)malloc(encBlockSize);
+	memcpy(real->data, block, BLOCK_DATA_SIZE);
 
 	if(write){//we leak whether an op is a read or a write; we could hide it, but it may not be necessary?
-		if(encryptBlock(realEnc, block, obliv_key, TYPE_LINEAR_SCAN)!=0) return 1; //replace encryption of real with encryption of block
+		real->actualAddr = i;
+		real->revNum = revNum[structureId][i]+1;
+		revNum[structureId][i]++;
+		if(encryptBlock(realEnc, real, obliv_key, TYPE_LINEAR_SCAN)!=0) return 1; //replace encryption of real with encryption of block
 		ocall_write_block(structureId, i, encBlockSize, realEnc);//printf("here 3\n");
 	}else{//printf("here0");
 		ocall_read_block(structureId, i, encBlockSize, realEnc);//printf("here\n");
 		//printf("beginning of mac(op)? %d\n", realEnc->macTag[0]);
 		if(decryptBlock(realEnc, real, obliv_key, TYPE_LINEAR_SCAN) != 0) return 1;//printf("here 2\n");
+		if(real->actualAddr != i && real->actualAddr != -1){
+			printf("AUTHENTICITY FAILURE: block address not as expected! Expected %d, got %d\n", i, real->actualAddr);
+			return 1;
+		}
+		if(real->revNum != revNum[structureId][i]){
+			printf("AUTHENTICITY FAILURE: block version not as expected! Expected %d, got %d\n", revNum[structureId][i], real->revNum);
+			return 1;
+		}
 	}
 
 	//clean up
-	if(!write) memcpy(block, real, blockSize); //keep the value we extracted from real if we're reading
+	if(!write) memcpy(block, real->data, BLOCK_DATA_SIZE); //keep the value we extracted from real if we're reading
 
 	free(real);
 	free(dummy);
@@ -237,16 +250,22 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 	std::list<Oram_Block>::iterator stashScan = stashes[structureId]->begin();
 	while(stashScan != stashes[structureId]->end()){
 		//printf("looking at %d\n", stashScan->actualAddr);
-		if(stashScan->actualAddr == index){//printf("hey! we're here!!\n");
+		if(stashScan->actualAddr == index && foundItFlag == 0){//printf("hey! we're here!!\n");
 			foundItFlag = 1;
 			if(write){
+				retBlock->actualAddr = index;
+				revNum[structureId][retBlock->actualAddr]++;
+				retBlock->revNum = revNum[structureId][retBlock->actualAddr];
 				//memcpy(&stashes[structureId][i], retBlock, blockSize);
 				memcpy(&(*stashScan), retBlock, blockSize);
 			}
 			else{
 				//memcpy(retBlock, &stashes[structureId][i], blockSize);
 				memcpy(retBlock, &(*stashScan), blockSize);
-
+				if(retBlock->revNum != revNum[structureId][index]){
+					printf("AUTHENTICITY FAILURE a: block version not as expected! Expected %d, got %d\n", revNum[structureId][index], retBlock->revNum);
+					return 1;
+				}
 			}
 		}
 		stashScan++;
@@ -257,11 +276,18 @@ int opOramBlock(int structureId, int index, Oram_Block* retBlock, int write){
 		//put the new block on the stash
 		block->actualAddr = index;
 		if(write){
+			retBlock->actualAddr = index;
+			revNum[structureId][retBlock->actualAddr]++;
+			retBlock->revNum = revNum[structureId][retBlock->actualAddr];
 			memcpy(block, retBlock, blockSize);
 		}
 		else{
 			memset(block->data, 0, BLOCK_DATA_SIZE);
 			memcpy(retBlock, block, blockSize);
+			if(retBlock->revNum != revNum[structureId][index]){ // == 0
+				printf("AUTHENTICITY FAILURE b: block version not as expected! Expected %d, got %d on block %d %d\n", revNum[structureId][index], retBlock->revNum, retBlock->actualAddr, index);
+				return 1;
+			}
 		}
 		//memcpy(&stashes[structureId][stashOccs[structureId]], &newBlock, blockSize);
 		stashes[structureId]->push_back(*block);
@@ -699,16 +725,16 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
 	int encBlockSize = getEncBlockSize(type);
 	int blockSize = getBlockSize(type);
     //printf("initcheck1\n");
+	revNum[newId] = (int*)malloc(logicalSize*sizeof(int));
+	memset(&revNum[newId][0], 0, logicalSize*sizeof(int));
 
     if(type == TYPE_ORAM || type == TYPE_TREE_ORAM) {
     	blockSize = sizeof(Oram_Bucket);
     	encBlockSize = sizeof(Encrypted_Oram_Bucket);
     	//size = BUCKET_SIZE*size;
     	positionMaps[newId] = (unsigned int*)malloc(logicalSize*sizeof(unsigned int));
-    	if(type == TYPE_TREE_ORAM){
-    		usedBlocks[newId] = (uint8_t*)malloc(logicalSize*sizeof(uint8_t));
-    		memset(&usedBlocks[newId][0], 0, logicalSize*sizeof(uint8_t));
-    	}
+    	usedBlocks[newId] = (uint8_t*)malloc(logicalSize*sizeof(uint8_t));
+    	memset(&usedBlocks[newId][0], 0, logicalSize*sizeof(uint8_t));
     	//stashes[*structureId] = (Oram_Block*)malloc(BLOCK_DATA_SIZE*(BUCKET_SIZE*((int)(log2(logicalSize+1.1))) + EXTRA_STASH_SPACE));//Zlog_2(N)B+90B
     	stashes[newId] = new std::list<Oram_Block>();
     	stashOccs[newId] = 0;
@@ -733,6 +759,9 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
 	uint8_t* junk = (uint8_t*)malloc(blockSize);
 	uint8_t* encJunk = (uint8_t*)malloc(encBlockSize);
 	memset(junk, '\0', blockSize);
+	if(type == TYPE_LINEAR_SCAN){
+		((Real_Linear_Scan_Block*)junk)->actualAddr = -1;
+	}
 	//memset(junk, 0xff, blockSize);
 	memset(encJunk, 0xff, encBlockSize);
 	if(type != TYPE_LINEAR_UNENCRYPTED){
@@ -774,6 +803,7 @@ sgx_status_t init_structure(int size, Obliv_Type type, int* structureId){//size 
 sgx_status_t free_oram(int structureId){
 	sgx_status_t ret = SGX_SUCCESS;
 	free(positionMaps[structureId]);
+	free(usedBlocks[structureId]);
 	//free(stashes[structureId]);
 	delete(stashes[structureId]);
 	if(bPlusRoots[structureId] != NULL){
@@ -789,6 +819,7 @@ sgx_status_t free_structure(int structureId) {
 	if(oblivStructureTypes[structureId] == TYPE_ORAM || oblivStructureTypes[structureId] == TYPE_TREE_ORAM) {
 		free_oram(structureId);
 	}
+	free(revNum[structureId]);
 	stashOccs[structureId] = 0;
 	logicalSizes[structureId] = 0;
 	oblivStructureSizes[structureId] = 0; //most important since this is what we use to check if a slot is open

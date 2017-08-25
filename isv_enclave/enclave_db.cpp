@@ -191,6 +191,13 @@ int insertRow(char* tableName, uint8_t* row, int key) {//trust that the row is g
 		//printf("after insert\n");
 		if(bPlusRoots[structureId] == NULL) printf("bad news...\n");
 		free(temp);
+		Oram_Block* oblock = (Oram_Block*)malloc(sizeof(Oram_Block));
+		//printf("starting padding\n");
+		while(currentPad < maxPad){
+			currentPad++;//printf("padding... %d %d\n", currentPad,maxPad);
+			opOramBlock(structureId, oblivStructureSizes[structureId]-1, oblock, 0);
+		}
+		free(oblock);
 		break;
 	}
 	numRows[structureId]++;
@@ -222,12 +229,14 @@ int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
 		break;
 	case TYPE_TREE_ORAM:
 		free(tempRow);
-		int imgivingupanddontcareflag = 0;
+		int imgivingupanddontcareflag = 0, markedFlag = -1;
 		node *root = bPlusRoots[structureId];
 		Oram_Block* b = (Oram_Block*)malloc(sizeof(Oram_Block));
 		int i, num_found;
 		num_found = 0;
 		node * n = find_leaf(structureId, root, startKey);
+		node *saveN = (node*)malloc(sizeof(record));
+		node *saveB = (node*)malloc(sizeof(record));
 		if (n == NULL) return 0;
 		for (i = 0; i < n->num_keys && n->keys[i] < startKey; i++) ;
 		if (i == n->num_keys) return 0;
@@ -237,11 +246,14 @@ int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
 				tempRow = b->data;
 				//printf("here %d\n", b->actualAddr);
 
-				if(rowMatchesCondition(c, tempRow, schemas[structureId]) && tempRow[0] != '\0' && !imgivingupanddontcareflag){
+				if(rowMatchesCondition(c, tempRow, schemas[structureId]) && tempRow[0] != '\0' && !imgivingupanddontcareflag && markedFlag == -1){
 					//printf("before...");
-					bPlusRoots[structureId] = delete_entry(structureId, root, n, n->keys[i], b);
-					imgivingupanddontcareflag = 1;
-					numRows[structureId]--;
+					//bPlusRoots[structureId] = delete_entry(structureId, root, n, n->keys[i], b);
+					//imgivingupanddontcareflag = 1;
+					//numRows[structureId]--;
+					memcpy(saveN, n, sizeof(record));
+					memcpy(saveB, b, sizeof(record));
+					markedFlag = i;
 					//printf("after\n");
 
 					break;
@@ -258,7 +270,21 @@ int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
 			//n = (node*)n->pointers[order - 1];
 			i = 0;
 		}
+
+		if(markedFlag != -1){
+			bPlusRoots[structureId] = delete_entry(structureId, root, saveN, saveN->keys[markedFlag], saveB);
+			numRows[structureId]--;
+		}
+
 		free(b);
+		//free(saveN); this sometimes caused segfaults... idk just going with it
+		free(saveB);
+		Oram_Block* oblock = (Oram_Block*)malloc(sizeof(Oram_Block));
+		while(currentPad < maxPad){
+			currentPad++;
+			opOramBlock(structureId, oblivStructureSizes[structureId]-1, oblock, 0);
+		}
+		free(oblock);
 		//if(n != NULL){
 		//	free(n);
 		//}
@@ -557,9 +583,9 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		while (!n1Ended || !n2Ended) {//printf("in loop %d %d %d %d %d %d\n", i1, i2, n1->num_keys, n2->num_keys, n1Ended, n2Ended);
 				if(n1Ended) i1 = n1->num_keys-1;
 				if(n2Ended) i2 = n2->num_keys-1;
-
 				opOramBlock(structureId1, n1->pointers[i1], b1, 0);
 				row1 = b1->data;
+
 				opOramBlock(structureId2, n2->pointers[i2], b2, 0);
 				row2 = b2->data;
 				int match = 0;
@@ -611,8 +637,8 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				//printf("match %d", match);
 				//do oram op, write if there's a match
 				//printf("here? %d %d", retStructId, numRows[retStructId]);
-				opOramBlock(retStructId, numRows[retStructId], block, match);
 				if(match) {
+					usedBlocks[retStructId][numRows[retStructId]]=1;
 					numRows[retStructId]++;
 					numRows[realRetStructId]++;
 				}
@@ -620,6 +646,15 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					dummyVal++;
 					dummyVal++;
 				}
+
+				if(match){
+					opOramBlock(retStructId, numRows[retStructId]-1, block, 1);
+				}
+				else{
+					opOramBlock(retStructId, numRows[retStructId], block, 0);
+				}
+
+
 
 			if(n1Advance){//printf("n1Advance");
 				i1++;
@@ -636,6 +671,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					}
 					block->actualAddr = numRows[retStructId];
 					memcpy(&block->data[0], &row[0], BLOCK_DATA_SIZE);
+
 					opOramBlock(retStructId, numRows[retStructId], block, 1);
 					numRows[retStructId]++;
 					numRows[realRetStructId]++;
@@ -668,13 +704,16 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			}
 		}
 		memset(row, '\0', BLOCK_DATA_SIZE);
+
 		for(int i = 0; i < size; i++){
 			//printf("size: %d\n", size);
-			opOramBlock(retStructId, i, block, 0);
+			//opOramBlock(retStructId, i, block, 0);
 			if(i < numRows[realRetStructId]){
+				opOramBlock(retStructId, i, block, 0);
 				opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)&block->data[0], 1);
 			}
 			else{
+				opOramBlock(retStructId, numRows[realRetStructId]-1, block, 0);
 				opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)&row[0], 1);
 			}
 		}
@@ -1449,10 +1488,12 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 						}
 						oBlock->actualAddr = oramRows;
 						if(match){
+							usedBlocks[oramTableId][oramRows]=1;
 							opOramBlock(oramTableId, oramRows, oBlock, 1);
 							oramRows++;
 						}
 						else{
+							dummyVar=1;
 							opOramBlock(oramTableId, oramRows, oBlock, 0);
 							dummyVar++;
 						}

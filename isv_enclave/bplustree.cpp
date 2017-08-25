@@ -59,6 +59,7 @@
 //helper to replace pointers to nodes
 int followNodePointer(int structureId, node* destinationNode, int pointerIndex){
 	//printf("following a node pointer to address %d ", pointerIndex);
+	currentPad++;
 	int t = opOramBlock(structureId, pointerIndex, (Oram_Block*)destinationNode, 0);
 	/*if(t == 0){
 		printf("oram op success\n");
@@ -73,12 +74,14 @@ int followNodePointer(int structureId, node* destinationNode, int pointerIndex){
 //helper to replace pointers to records
 int followRecordPointer(int structureId, record* destinationNode, int pointerIndex){
 	//printf("following a record pointer\n");
+	currentPad++;
 	return opOramBlock(structureId, pointerIndex, (Oram_Block*)destinationNode, 0);
 }
 
 //helpers to write back to oram after using a block
 int writeNode(int structureId, node *n){
 	//printf("writing to block #%d\n", n->actualAddr);
+	currentPad++;
 	int t = opOramBlock(structureId, n->actualAddr, (Oram_Block*)n, 1);
 	/*if(t == 0){
 		printf("oram op write success\n");
@@ -88,6 +91,7 @@ int writeNode(int structureId, node *n){
 	return t;
 }
 int writeRecord(int structureId, record *r){
+	currentPad++;
 	return opOramBlock(structureId, r->actualAddr, (Oram_Block*)r, 1);
 }
 
@@ -104,6 +108,9 @@ int writeRecord(int structureId, record *r){
  * default value.
  */
 int order = MAX_ORDER;
+
+int currentPad = 0;
+int maxPad = 0;
 
 // FUNCTION DEFINITIONS.
 
@@ -156,6 +163,7 @@ int find_range(int structureId, node * root, int key_start, int key_end, int des
 	if (i == n->num_keys) return 0;
 	while (n != NULL) {
 		for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
+			currentPad++;
 			opOramBlock(structureId, n->pointers[i], b, 0);
 			opOneLinearScanBlock(destStructId, num_found, (Linear_Scan_Block*)&b->data[0], 1);
 			//returned_keys[num_found] = n->keys[i];
@@ -587,6 +595,9 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
 //printf("inserting...\n");
 	node * leaf;
 
+	maxPad = log((double)oblivStructureSizes[structureId])/log((double)order/2)*(7+2*order);
+	currentPad = 0;
+
 	/* The current implementation ignores
 	 * duplicates.
 	 */
@@ -622,6 +633,7 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
 		leaf = insert_into_leaf(structureId, leaf, key, pointer);
 		free(leaf);
 		//update root
+		currentPad++;
 		opOramBlock(structureId, root->actualAddr, (Oram_Block*)root, 0);
 		return root;
 	}
@@ -986,6 +998,8 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	int neighbor_index;
 	int k_prime_index, k_prime;
 	int capacity;
+	maxPad = log((double)oblivStructureSizes[structureId])/log((double)order/2)*(8+2*order/2);
+	currentPad = 0;
 
 	//printf("delete_entry called on node at address %d\n", n->actualAddr);
 	//printf("pre-begin %d\n", key);

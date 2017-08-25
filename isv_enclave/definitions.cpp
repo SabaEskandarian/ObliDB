@@ -25,7 +25,7 @@ int getBlockSize(Obliv_Type type){
 	//note: maybe later I can have all encrypted blocks padded to be the same size and hide the type of structure
 	switch(type){ //get the correct encrypted block size
 	case TYPE_LINEAR_SCAN:
-		encBlockSize = sizeof(Linear_Scan_Block);
+		encBlockSize = sizeof(Real_Linear_Scan_Block);
 		break;
 	case TYPE_LINEAR_UNENCRYPTED:
 		encBlockSize = sizeof(Linear_Scan_Block);

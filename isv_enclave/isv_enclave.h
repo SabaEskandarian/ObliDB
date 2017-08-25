@@ -26,10 +26,14 @@ extern int numRows[NUM_STRUCTURES];
 //specific to oram structures
 extern unsigned int* positionMaps[NUM_STRUCTURES];
 extern uint8_t* usedBlocks[NUM_STRUCTURES];
+extern int* revNum[NUM_STRUCTURES];
 extern std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 extern int stashOccs[NUM_STRUCTURES];//stash occupancy, number of elements in stash
 extern int logicalSizes[NUM_STRUCTURES];
 extern node *bPlusRoots[NUM_STRUCTURES];
+
+extern int maxPad;
+extern int currentPad;
 
 
 //isv_enclave.cpp
