@@ -1583,7 +1583,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         	const char* text = "You would measure time the measureless and the immeasurable.";
 
     		for(int j = 0; j < 1; j++){ //want to average 5 trials
-
+    			testRound = numInnerTests;
     			if(testRound < numInnerTests){
     				//high = testSize/20*(testRound+1);
 				high = (testRound+1)*500;
@@ -1847,7 +1847,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         				}
         				endTime = clock();
         				deleteTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-        				insertTimes[j]/=10;
+        				deleteTimes[j]/=10;
         				printf("end\n");
     			}
 
