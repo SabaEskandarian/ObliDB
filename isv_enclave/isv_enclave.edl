@@ -90,8 +90,8 @@ enclave {
 		public int insertIndexRowFast([user_check]char* tableName, [user_check]uint8_t* row, int key);
 		public int deleteRows([user_check]char* tableName, Condition c, int startKey, int endKey);
 		public int updateRows([user_check]char* tableName, Condition c, int colChoice, [user_check]uint8_t* colVal, int startKey, int endKey);
-		public int selectRows([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
-		public int highCardLinGroupBy([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice);
+		public int selectRows([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int intermediate);
+		public int highCardLinGroupBy([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int intermediate);
 		public int printTable([user_check]char* tableName);
 		public int printTableCheating([user_check]char* tableName);
 		public int createTestTable([user_check]char* tableName, int numRows);
@@ -99,7 +99,7 @@ enclave {
 		public int deleteTable([user_check]char *tableName);
 		public int joinTables([user_check]char* tableName1, [user_check]char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey);
 		public int createTestTableIndex([user_check]char* tableName, int numberOfRows);
-		public int indexSelect([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end);	
+		public int indexSelect([user_check]char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end, int intermediate);	
 		public int saveIndexTable([user_check]char* tableName, int tableSize);
 		public int loadIndexTable(int tableSize);	
 		

@@ -288,7 +288,7 @@ void ocall_read_file(void *dest, int dsize){
 
 }
 
-void BDB1(sgx_enclave_id_t enclave_id, int status){
+void BDB1Index(sgx_enclave_id_t enclave_id, int status, int baseline){
 	//block size needs to be 512
 
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
@@ -364,7 +364,7 @@ void BDB1(sgx_enclave_id_t enclave_id, int status){
 	//printTable(enclave_id, (int*)&status, "rankings");
 
 	startTime = clock();
-	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 2, 1000, INT_MAX);
+	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 2, 1000, INT_MAX, 0);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
@@ -372,18 +372,26 @@ void BDB1(sgx_enclave_id_t enclave_id, int status){
 	//printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 	startTime = clock();
-	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 3, 1000, INT_MAX);
+	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 3, 1000, INT_MAX, 0);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("BDB1 running time (hash): %.5f\n", elapsedTime);
 	printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 5, 1000, INT_MAX, 0);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB1 running time (baseline): %.5f\n", elapsedTime);
+	printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     deleteTable(enclave_id, (int*)&status, "rankings");
 }
 
-void BDB1Baseline(sgx_enclave_id_t enclave_id, int status){
+void BDB1Linear(sgx_enclave_id_t enclave_id, int status){
 	//block size needs to be 512
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 	int structureId1 = -1;
@@ -447,13 +455,29 @@ void BDB1Baseline(sgx_enclave_id_t enclave_id, int status){
 		opOneLinearScanBlock(enclave_id, (int*)&status, structureId1, i, (Linear_Scan_Block*)row, 1);
 		incrementNumRows(enclave_id, (int*)&status, structureId1);
 	}
-	printf("created BDB1 table - baseline\n");
+	printf("created BDB1 table - linear\n");
 	time_t startTime, endTime;
 	double elapsedTime;
 	//printTable(enclave_id, (int*)&status, "rankings");
 
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 5);
+	selectRows(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 2, 0);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB1 running time (small): %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 3, 0);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("BDB1 running time (hash): %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "rankings", -1, cond, -1, -1, 5, 0);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
@@ -550,9 +574,9 @@ void BDB2(sgx_enclave_id_t enclave_id, int status, int baseline){
 	//printTable(enclave_id, (int*)&status, "uservisits");
 	startTime = clock();
 	if(baseline == 1)
-		selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2);
+		selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 2);
 	else
-		highCardLinGroupBy(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2);
+		highCardLinGroupBy(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 0);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
@@ -719,20 +743,20 @@ void BDB3(sgx_enclave_id_t enclave_id, int status, int baseline){
 
 	startTime = clock();
 	if(baseline == 1){
-		selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 5);
+		selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 5, 1);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "uvJ");
 		//printTable(enclave_id, (int*)&status, "uvJ");
 		joinTables(enclave_id, (int*)&status, "uvJ", "rankings",  2, 1, -1, -1);
 		//int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 		renameTable(enclave_id, (int*)&status, "JoinReturn", "jr");
 		//printTable(enclave_id, (int*)&status, "jr");
-		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4);
+		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4, 3);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "last");
 		//printTable(enclave_id, (int*)&status, "last");
-		selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, 0);
+		selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, 0, 0);
 	}
 	else{
-		selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2);
+		selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2, 1);
 		//indexSelect(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2, l, h);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "uvJ");
 		//printTable(enclave_id, (int*)&status, "uvJ");
@@ -740,10 +764,10 @@ void BDB3(sgx_enclave_id_t enclave_id, int status, int baseline){
 		//int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 		renameTable(enclave_id, (int*)&status, "JoinReturn", "jr");
 		//printTable(enclave_id, (int*)&status, "jr");
-		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4);
+		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4, 1);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "last");
 		//printTable(enclave_id, (int*)&status, "last");
-		selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, 0);
+		selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, 0, 0);
 		//select from index
 		//join
 		//fancy group by
@@ -852,7 +876,7 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
 	double elapsedTime;
 
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "flightTableLinear", 6, cond0, 4, 1, -1);
+	selectRows(enclave_id, (int*)&status, "flightTableLinear", 6, cond0, 4, 1, -1, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 1 linear running time small: %.5f\n", elapsedTime);
@@ -860,7 +884,7 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
 	startTime = clock();
-	indexSelect(enclave_id, (int*)&status, "flightTableIndex", 6, cond0, 4, 1, -1, val-1, val);
+	indexSelect(enclave_id, (int*)&status, "flightTableIndex", 6, cond0, 4, 1, -1, val-1, val, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 1 index running time hash: %.5f\n", elapsedTime);
@@ -868,7 +892,7 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "flightTableLinear", 6, cond0, -1, -1, 5);
+	selectRows(enclave_id, (int*)&status, "flightTableLinear", 6, cond0, -1, -1, 5, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 2 linear running time baseline: %.5f\n", elapsedTime);
@@ -876,7 +900,7 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
 	startTime = clock();
-	indexSelect(enclave_id, (int*)&status, "flightTableIndex", 6, cond0, -1, -1, 2, val-1, val);
+	indexSelect(enclave_id, (int*)&status, "flightTableIndex", 6, cond0, -1, -1, 2, val-1, val, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 2 index running time small: %.5f\n", elapsedTime);
@@ -884,7 +908,7 @@ void flightTables(sgx_enclave_id_t enclave_id, int status){
 	getNumRows(enclave_id, (int*)&status, 2);
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 	startTime = clock();
-	indexSelect(enclave_id, (int*)&status, "flightTableIndex", 6, cond0, -1, -1, 3, val-1, val);
+	indexSelect(enclave_id, (int*)&status, "flightTableIndex", 6, cond0, -1, -1, 3, val-1, val, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 2 index running time hash: %.5f\n", elapsedTime);
@@ -953,7 +977,7 @@ void complaintTables(sgx_enclave_id_t enclave_id, int status){
 printf("here\n");fflush(stdout);
 	Condition cond0, cond1, cond2, cond3, cond4, condNone;
 	char* negative = "No";
-	char* ccc = "Credit Card";
+	char* ccc = "Credit card";
 	char* mmm = "Mortgage";
 	char* bank = "Bank of America";
 	cond0.numClauses = 1;
@@ -971,11 +995,11 @@ printf("here\n");fflush(stdout);
 	cond1.values[1] = (uint8_t*)malloc(strlen(mmm)+1);
 	strcpy((char*)cond1.values[0], ccc);
 	strcpy((char*)cond1.values[1], mmm);
-	cond1.nextCondition = &cond4;
+	cond1.nextCondition = NULL;
 	cond2.numClauses = 1;
 	cond2.fieldNums[0] = 7;
 	cond2.conditionType[0] = 1;
-	int l = 20130500, h = 20130532;
+	int l = 20130513, h = 20130515;
 	cond2.values[0] = (uint8_t*)malloc(4);
 	memcpy(cond2.values[0], &l, 4);
 	cond2.nextCondition = &cond3;
@@ -990,13 +1014,13 @@ printf("here\n");fflush(stdout);
 	cond4.conditionType[0] = 0;
 	cond4.values[0] = (uint8_t*)malloc(strlen(bank)+1);
 	strcpy((char*)cond4.values[0], bank);
-	cond4.nextCondition = &cond2;
+	cond4.nextCondition = NULL;
 
 	char* tableNameIndex = "compTableIndex";
 	char* tableNameLinear = "compTableLinear";
 
 printf("here\n");fflush(stdout);
-	//createTable(enclave_id, (int*)&status, &compSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 107000, &structureIdIndex);
+	createTable(enclave_id, (int*)&status, &compSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 107000, &structureIdIndex);
 	createTable(enclave_id, (int*)&status, &compSchema, tableNameLinear, strlen(tableNameLinear), TYPE_LINEAR_SCAN, 107000, &structureIdLinear);
 	//createTable(enclave_id, (int*)&status, &compSchema, tableNameIndex, strlen(tableNameIndex), TYPE_TREE_ORAM, 1010, &structureIdIndex);
 printf("here\n");fflush(stdout);
@@ -1034,7 +1058,7 @@ printf("here\n");fflush(stdout);
 		//insert the row into the database - index by last sale price
 		int indexval = 0;
 		memcpy(&indexval, &row[compSchema.fieldOffsets[7]], 4);
-		//insertRow(enclave_id, (int*)&status, "compTableIndex", row, indexval);
+		insertIndexRowFast(enclave_id, (int*)&status, "compTableIndex", row, indexval);
 		//manually insert into the linear scan structure for speed purposes
 		opOneLinearScanBlock(enclave_id, (int*)&status, structureIdLinear, i, (Linear_Scan_Block*)row, 1);
 		incrementNumRows(enclave_id, (int*)&status, structureIdLinear);
@@ -1046,31 +1070,96 @@ printf("here\n");fflush(stdout);
 	time_t startTime, endTime;
 	double elapsedTime;
 
-    l = 20130505;
-    h = 20130510;
+    l = 20130513;
+    h = 20130515;
+
 
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "compTableLinear", -1, cond2, -1, -1, 2);
+	indexSelect(enclave_id, (int*)&status, "compTableIndex", -1, cond2, -1, -1, 2, l, h, 0);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 2 index running time small: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "compTableIndex", -1, cond2, -1, -1, 3, l, h, 0);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 2 index running time hash: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "compTableIndex", -1, cond2, -1, -1, 5, l, h, 0);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 2 index running time baseline: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+
+	startTime = clock();
+	deleteRows(enclave_id, (int*)&status, "compTableIndex", cond4, l, h);
+	//int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("index deletion running time: %.5f\n", elapsedTime);
+
+	//make row to insert
+	uint8_t* rowInsert = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	row[0] = 'a';
+	row[7] = 20170101;
+	//the rest of the fields don't matter
+
+	startTime = clock();
+	insertRow(enclave_id, (int*)&status, "compTableIndex", rowInsert, 20170101);
+	//int insertRow(char* tableName, uint8_t* row, int key)
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("index insertion running time: %.5f\n", elapsedTime);
+
+
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "compTableLinear", -1, cond2, -1, -1, 2, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 2 linear running time small: %.5f\n", elapsedTime);
 	//printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "compTableLinear", -1, cond2, -1, -1, 3);
+	selectRows(enclave_id, (int*)&status, "compTableLinear", -1, cond2, -1, -1, 3, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 2 linear running time hash: %.5f\n", elapsedTime);
 	//printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "compTableLinear", -1, cond2, -1, -1, 5);
+	selectRows(enclave_id, (int*)&status, "compTableLinear", -1, cond2, -1, -1, 5, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 2 linear running time baseline: %.5f\n", elapsedTime);
 	//printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
+
+    cond1.nextCondition = NULL;
+    //SELECT count(*) from CFPB where (PRODUCT = "Credit Card" OR Product = "Mortgaga") AND Timely_Response="No" GROUP BY Bank
+
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "compTableLinear", 1, cond0, 0, 9, -1, 0);
+	//sgx_status_t selectRows(sgx_enclave_id_t eid, int* retval, char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int intermediate)
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 1 linear running time: %.5f\n", elapsedTime);
+	printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	startTime = clock();
+	selectRows(enclave_id, (int*)&status, "compTableLinear", 1, cond0, 0, 9, -1, 2);
+	//sgx_status_t selectRows(sgx_enclave_id_t eid, int* retval, char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int intermediate)
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("query 1 linear running time baseline: %.5f\n", elapsedTime);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     deleteTable(enclave_id, (int*)&status, "compTableLinear");
 }
@@ -1186,14 +1275,14 @@ void nasdaqTables(sgx_enclave_id_t enclave_id, int status){
 
 
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "nasTableLinear", 1, cond1, -1, -1, 2);
+	selectRows(enclave_id, (int*)&status, "nasTableLinear", 1, cond1, -1, -1, 2, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 1 linear running time small: %.5f\n", elapsedTime);
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
 	startTime = clock();
-	selectRows(enclave_id, (int*)&status, "nasTableLinear", 1, cond1, -1, -1, 5);
+	selectRows(enclave_id, (int*)&status, "nasTableLinear", 1, cond1, -1, -1, 5, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("query 1 linear running time baseline: %.5f\n", elapsedTime);
@@ -1329,14 +1418,14 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     //test select aggregate without group
 //int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice)
-    selectRows(enclave_id, (int*)&status, "myTestTable", 1, condition2, 0, -1, -1);
+    selectRows(enclave_id, (int*)&status, "myTestTable", 1, condition2, 0, -1, -1, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
 
     //test select continuous:
 
-    selectRows(enclave_id, (int*)&status, "myTestTable", -1, condition2, -1, -1, -1);
+    selectRows(enclave_id, (int*)&status, "myTestTable", -1, condition2, -1, -1, -1, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
@@ -1347,7 +1436,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
     insertRow(enclave_id, (int*)&status, "myTestTable2", row1, -1);
     insertRow(enclave_id, (int*)&status, "myTestTable2", row1, -1);
     printTable(enclave_id, (int*)&status, "myTestTable2");
-    selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1);
+    selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
@@ -1358,14 +1447,14 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
     insertRow(enclave_id, (int*)&status, "myTestTable2", row1, -1);
     insertRow(enclave_id, (int*)&status, "myTestTable2", row1, -1);
     printTable(enclave_id, (int*)&status, "myTestTable2");
-    selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1);
+    selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
 
     //test group by
     //int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice)
-    selectRows(enclave_id, (int*)&status, "myTestTable", 1, condition1, 0, 3, -1);
+    selectRows(enclave_id, (int*)&status, "myTestTable", 1, condition1, 0, 3, -1, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
@@ -1374,7 +1463,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     createTestTable(enclave_id, (int*)&status, "myTestTable2", 50);
     insertRow(enclave_id, (int*)&status, "myTestTable2", row1, -1);
-    selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1);
+    selectRows(enclave_id, (int*)&status, "myTestTable2", -1, condition2, -1, -1, -1, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
@@ -1388,7 +1477,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
     joinTables(enclave_id, (int*)&status, "join1", "join2", 1, 1, -1, -1);
     printTable(enclave_id, (int*)&status, "JoinReturn");
     printTable(enclave_id, (int*)&status, "join2");
-    selectRows(enclave_id, (int*)&status, "JoinReturn", 1, condition3, 0, 3, -1);
+    selectRows(enclave_id, (int*)&status, "JoinReturn", 1, condition3, 0, 3, -1, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "JoinReturn");
@@ -1403,7 +1492,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
     //printTable(enclave_id, (int*)&status, "myTestIndex");
 
     //indexSelect(enclave_id, (int*)&status, "myTestIndex", 1, condition1, 0, 3, -1, 2, 250);
-    indexSelect(enclave_id, (int*)&status, "myTestIndex", -1, condition1, -1, -1, -1, 2, 250);
+    indexSelect(enclave_id, (int*)&status, "myTestIndex", -1, condition1, -1, -1, -1, 2, 250, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
@@ -1420,7 +1509,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
     deleteRows(enclave_id, (int*)&status, "myTestIndex", condition1, 2, 20);
     deleteRows(enclave_id, (int*)&status, "myTestIndex", condition1, 2, 20);
     deleteRows(enclave_id, (int*)&status, "myTestIndex", condition1, 2, 20);
-    indexSelect(enclave_id, (int*)&status, "myTestIndex", -1, noCondition, -1, -1, -1, 2, 270);
+    indexSelect(enclave_id, (int*)&status, "myTestIndex", -1, noCondition, -1, -1, -1, 2, 270, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
     //test join
@@ -1432,16 +1521,16 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
     deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
     deleteRows(enclave_id, (int*)&status, "jIndex", condition1, 2, 37);
 
-    indexSelect(enclave_id, (int*)&status, "jointestTable", -1, noCondition, -1, -1, -1, 0, 100);
+    indexSelect(enclave_id, (int*)&status, "jointestTable", -1, noCondition, -1, -1, -1, 0, 100, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
-    indexSelect(enclave_id, (int*)&status, "jIndex", -1, noCondition, -1, -1, -1, -1, 100);
+    indexSelect(enclave_id, (int*)&status, "jIndex", -1, noCondition, -1, -1, -1, -1, 100, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     joinTables(enclave_id, (int*)&status, "jointestTable", "jIndex", 1, 1, 2, 21);
     printTable(enclave_id, (int*)&status, "JoinReturn");
-    selectRows(enclave_id, (int*)&status, "JoinReturn", 1, noCondition, 0, 3, -1);
+    selectRows(enclave_id, (int*)&status, "JoinReturn", 1, noCondition, 0, 3, -1, 0);
     printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "JoinReturn");
@@ -1603,7 +1692,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
         			//do an aggregate
     				startTime = clock();
-    				selectRows(enclave_id, (int*)&status, "testTable", 1, condition1, 3, -1, -1);
+    				selectRows(enclave_id, (int*)&status, "testTable", 1, condition1, 3, -1, -1, 0);
     				endTime = clock();
     				linaggregateTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1611,7 +1700,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
         			//do a group by aggregate
     				startTime = clock();
-    				selectRows(enclave_id, (int*)&status, "testTable", 1, gapCond1, 3, 3, -1);
+    				selectRows(enclave_id, (int*)&status, "testTable", 1, gapCond1, 3, 3, -1, 0);
     				endTime = clock();
     				lingroupByTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        //printTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1619,7 +1708,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
         			//select
     				startTime = clock();
-    				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, -1);
+    				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, -1, 0);
     				endTime = clock();
     				linselectTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        //printTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1627,7 +1716,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
 
     				startTime = clock();
-    				selectRows(enclave_id, (int*)&status, "testTable", -1, condition2, -1, -1, 1);//continuous
+    				selectRows(enclave_id, (int*)&status, "testTable", -1, condition2, -1, -1, 1, 0);//continuous
     				endTime = clock();
     				lincontTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1638,7 +1727,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
     	//	        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     				startTime = clock();
-    				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, 3);//hash
+    				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, 3, 0);//hash
     				endTime = clock();
     				linhashTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1651,7 +1740,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
     		        //if(testRound >= numInnerTests - 3){
         				startTime = clock();
-        				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, 4);//almost all
+        				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, 4, 0);//almost all
         				endTime = clock();
         				linalmostAllTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1659,13 +1748,13 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
     		        //if(testSize < 1500){
         				startTime = clock();
-        				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, 2);//small
+        				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, 2, 0);//small
         				endTime = clock();
         				linsmallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
         				startTime = clock();
-        				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, 2, low, high);
+        				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, 2, low, high, 0);
         				endTime = clock();
         				smallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1680,7 +1769,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
         			//do an aggregate
     				startTime = clock();
-    				indexSelect(enclave_id, (int*)&status, tableName, 1, gapCond1, 3, -1, -1, low, high);
+    				indexSelect(enclave_id, (int*)&status, tableName, 1, gapCond1, 3, -1, -1, low, high, 0);
     				endTime = clock();
     				aggregateTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1688,14 +1777,14 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
         			//do a group by aggregate
     				startTime = clock();
-    				indexSelect(enclave_id, (int*)&status, tableName, 1, gapCond1, 3, 3, -1, low, high);
+    				indexSelect(enclave_id, (int*)&status, tableName, 1, gapCond1, 3, 3, -1, low, high, 0);
     				endTime = clock();
     				groupByTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
         			//select
     				startTime = clock();
-    				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, -1, low, high);
+    				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, -1, low, high, 0);
     				endTime = clock();
     				selectTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1735,7 +1824,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
             			//do an aggregate
         				startTime = clock();
-        				selectRows(enclave_id, (int*)&status, "testTable", 1, condition1, 3, -1, -1);
+        				selectRows(enclave_id, (int*)&status, "testTable", 1, condition1, 3, -1, -1, 0);
         				endTime = clock();
         				linaggregateTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1744,7 +1833,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
             			//do a group by aggregate
         				startTime = clock();
-        				selectRows(enclave_id, (int*)&status, "testTable", 1, condition1, 3, 3, -1);
+        				selectRows(enclave_id, (int*)&status, "testTable", 1, condition1, 3, 3, -1, 0);
         				endTime = clock();
         				lingroupByTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        //printTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1752,7 +1841,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
             			//select
         				startTime = clock();
-        				selectRows(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, -1);
+        				selectRows(enclave_id, (int*)&status, "testTable", -1, condition1, -1, -1, -1, 0);
         				endTime = clock();
         				linselectTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        //printTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1794,7 +1883,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
         		        //small select
         				startTime = clock();
-        				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, 2, low, high);
+        				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, 2, low, high, 0);
         				endTime = clock();
         				smallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1802,7 +1891,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
             			//do an aggregate
         				startTime = clock();
-        				indexSelect(enclave_id, (int*)&status, tableName, 1, condition1, 3, -1, -1, low, high);
+        				indexSelect(enclave_id, (int*)&status, tableName, 1, condition1, 3, -1, -1, low, high, 0);
         				endTime = clock();
         				aggregateTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -1810,14 +1899,14 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
             			//do a group by aggregate
         				startTime = clock();
-        				indexSelect(enclave_id, (int*)&status, tableName, 1, condition1, 3, 3, -1, low, high);
+        				indexSelect(enclave_id, (int*)&status, tableName, 1, condition1, 3, 3, -1, low, high, 0);
         				endTime = clock();
         				groupByTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
             			//select
         				startTime = clock();
-        				indexSelect(enclave_id, (int*)&status, tableName, -1, condition1, -1, -1, -1, low, high);
+        				indexSelect(enclave_id, (int*)&status, tableName, -1, condition1, -1, -1, -1, low, high, 0);
         				endTime = clock();
         				selectTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -2506,19 +2595,21 @@ int main(int argc, char* argv[])
 
 
         //real world query tests
+        //PICK EXPERIMENT TO RUN HERE
 
         //nasdaqTables(enclave_id, status); //2048
-        //complaintTables(enclave_id, status); //4096
+        complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //256
-        //BDB1(enclave_id, status);//512
-        //BDB1Baseline(enclave_id, status);//512
+        //BDB1Index(enclave_id, status);//512
+        //BDB1Linear(enclave_id, status);//512
         //BDB2(enclave_id, status, 0);//2048
         //BDB3(enclave_id, status, 0);//2048
         //BDB2(enclave_id, status, 1);//2048 (baseline)
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);
-        fabTests(enclave_id, status);
+        //fabTests(enclave_id, status);
 
+        //END
         /*
         //rename test
         createTestTable(enclave_id, (int*)&status, "table1", 10);

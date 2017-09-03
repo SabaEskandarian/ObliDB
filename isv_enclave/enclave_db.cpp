@@ -100,6 +100,9 @@ int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, i
 	if(BLOCK_DATA_SIZE/rowSize == 0) {//can't fit a row in a block of the data structure!
 		return 4;
 	}
+	if(PADDING > 0){
+		numberOfRows = PADDING;
+	}
 
 	if(type == TYPE_TREE_ORAM || type == TYPE_ORAM) numberOfRows = nextPowerOfTwo(numberOfRows+1) - 1; //get rid of the if statement to pad all tables to next power of 2 size
 	numberOfRows += (numberOfRows == 0);
@@ -394,9 +397,8 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 	int realRetStructId = -1;
 	int dummyVal = 0;
 
-	int size = 0;
-	if(numRows[structureId1] < numRows[structureId2]) size = numRows[structureId1];
-	else size = numRows[structureId2];
+	int size = JOINMAX;
+
 	//this may cause issues if the table returned is big. Table ordering matters on the input
 
 	//figure out joined table schema
@@ -434,8 +436,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
 		unsigned int index = 0;
 
-
-		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, oblivStructureSizes[structureId1]+oblivStructureSizes[structureId2], &realRetStructId);
+		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
 		//createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
 		//printf("table creation returned %d %d %d\n", retStructId, size, strlen(retTableName));
 
@@ -754,7 +755,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 	return 0;
 }
 
-extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end){
+extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end, int intermediate){
 	int structureId = getTableId(tableName);
 	node *root = (node*)malloc(sizeof(node));
 	if(bPlusRoots[structureId] != NULL){
@@ -821,6 +822,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 			int small = 0;
 			int contTemp = 0;
 			int dummyVar = 0;
+			int baseline = 0;
 			while (n != NULL) {//printf("here %d %d\n", n->num_keys, n->keys[i]);//printf("outer loop %d %d %d\n", n->num_keys, n->keys[i], key_end);
 				for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {
 					//printf("inner loop");
@@ -890,7 +892,13 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 				continuous = 0;
 				small = 0;
 				break;
+			case 5:
+				baseline = 1;
+				continuous = 0;
+				small = 0;
+				break;
 			}
+
 			//printf("%d %f\n",count,  oblivStructureSizes[structureId]*.01*PERCENT_ALMOST_ALL); //count and count needed for almost all
 
 			//create table to return
@@ -914,6 +922,8 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 			}
 
 			//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
+			if(intermediate) retNumRows = oblivStructureSizes[structureId];
+			if(PADDING) retNumRows = PADDING;
 			int out = createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
 			//printf("%d |\n", out);
 			if(count == 0) {
@@ -924,7 +934,58 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 				free(root);
 				return 0;
 			}
-			if(continuous){
+			if(baseline){
+				printf("BASELINE\n");
+				Oram_Block* oBlock = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+				int oramTableId = -1;
+				char* oramName = "tempOram";
+				createTable(&retSchema, oramName, strlen(oramName), TYPE_ORAM, retNumRows, &oramTableId);
+				memset(oBlock, 0, sizeof(Oram_Block));
+				opOramBlock(oramTableId, 0, oBlock, 1);
+
+				int dummyVar = 0;//NOTE: rowi left in for historical reasons; it should be replaced by i
+				int oramRows = 0;
+
+				memcpy(&n[0], &saveStart[0], sizeof(Oram_Block));
+				for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;//printf("i %d\n", i);
+				if (i == n->num_keys) return 0;
+				while (n != NULL) {//printf("outer loop\n");
+					for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {//printf("inner loop %d %d", n->keys[i], key_end);
+						opOramBlock(structureId, n->pointers[i], b, 0);
+						row = b->data;
+						//oBlock->data = ((Linear_Scan_Block*)(oBlock->data))->data;
+						int match = rowMatchesCondition(c, oBlock->data, schemas[structureId]) && oBlock->data[0] != '\0';
+						if(colChoice != -1){
+							memset(&oBlock->data[0], 'a', 1);
+							memmove(&oBlock->data[1], &row[colChoiceOffset], colChoiceSize);//row[0] will already be not '\0'
+						}
+						oBlock->actualAddr = oramRows;
+						if(match){
+							usedBlocks[oramTableId][oramRows]=1;
+							opOramBlock(oramTableId, oramRows, oBlock, 1);
+							oramRows++;
+						}
+						else{
+							dummyVar=1;
+							opOramBlock(oramTableId, 0, oBlock, 0);
+							dummyVar++;
+						}
+					}
+					if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
+					followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
+					//n = (node*)n->pointers[order - 1];
+					i = 0;
+				}
+
+				//copy back to linear structure
+				for(int i = 0; i < oramRows; i++){
+					opOramBlock(oramTableId, i, oBlock, 0);
+					opOneLinearScanBlock(retStructId, i, (Linear_Scan_Block*)(oBlock->data), 1);
+					numRows[retStructId]++;
+				}
+				free(oBlock);
+			}
+			else if(continuous){
 				printf("CONTINUOUS\n");
 				int rowi = -1, dummyVar = 0;//NOTE: rowi left in for historical reasons; it should be replaced by i
 
@@ -1107,6 +1168,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 
 		}
 		else{//aggregate without group
+			//no need to pad here, see equivalent segment of selectRows
 			printf("AGGREGATE\n");
 			if(colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER){
 				return 1;
@@ -1339,14 +1401,23 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 		retSchema.fieldSizes[0] = 1;
 		retSchema.fieldSizes[1] = 4;
 		retSchema.fieldSizes[2] = schemas[structureId].fieldSizes[groupCol];
-		createTable(&retSchema, retName, retNameLen, retType, numGroups, &retStructId);
-		for(int j = 0; j < numGroups; j++){
-			row[0] = 'a';
-			memcpy(&row[1], &groupStat[j], 4);
-			memcpy(&row[5], groups[j], schemas[structureId].fieldSizes[groupCol]);
-			opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
-			numRows[retStructId]++;
-			free(groups[j]);
+		int size = numGroups;
+		if(intermediate) size = oblivStructureSizes[structureId];
+		if(PADDING) size = MAX_GROUPS;
+		createTable(&retSchema, retName, retNameLen, retType, size, &retStructId);
+		for(int j = 0; j < size; j++){
+			if(j < numGroups){
+				row[0] = 'a';
+				memcpy(&row[1], &groupStat[j], 4);
+				memcpy(&row[5], groups[j], schemas[structureId].fieldSizes[groupCol]);
+				opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+				numRows[retStructId]++;
+				free(groups[j]);
+			}
+			else{
+				row[0] = '\0';
+				opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+			}
 		}
 	}
 	free(b);
@@ -1362,7 +1433,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 //groupCol = -1 means not to order or group by, aggregate = -1 means no aggregate, aggregate = 0 count, 1 sum, 2 min, 3 max, 4 mean
 //including algChoice in case I need to use it later to choose among algorithms
 //select column colNum; if colChoice = -1, select all columns
-int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice) {
+int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int intermediate) {
 	int structureId = getTableId(tableName);
 	Obliv_Type type = oblivStructureTypes[structureId];
 	int colChoiceSize = BLOCK_DATA_SIZE;
@@ -1481,6 +1552,9 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 					retSchema = schemas[structureId];
 				}
 
+
+				if(intermediate) retNumRows = oblivStructureSizes[structureId];
+				if(PADDING) retNumRows = PADDING;
 				//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
 				int out = createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
 				//printf("%d |\n", count);
@@ -1718,6 +1792,21 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 
 			}
 			else{//doing an aggregate with no group byprintf("here %d", structureId);
+				//query plan gives away that there's only one row to return, so padding doesn't hide anything extra
+
+				int baseline=0, baselineId;
+				char *tempName = "temp";
+				Oram_Block* oBlock;
+				if(intermediate == 2 || intermediate == 3){
+					baseline =1;
+					intermediate -=2;
+					oBlock = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+					memset(oBlock, 0, sizeof(Oram_Block));
+					createTable(&retSchema, tempName, strlen(tempName), TYPE_ORAM, MAX_GROUPS, &baselineId);
+					usedBlocks[baselineId][0] = 1;
+					opOramBlock(baselineId, 0, oBlock, 1);
+				}
+
 				if(colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER){
 					printf("aborting %d %d", colChoice == -1, schemas[structureId].fieldTypes[colChoice] != INTEGER);
 					return 1;
@@ -1740,6 +1829,9 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				}
 				int first = 0, dummyCount = 0;
 				for(int i = 0; i < oblivStructureSizes[structureId]; i++){
+					if(baseline){
+						opOramBlock(baselineId, 0, oBlock, 0);
+					}
 					opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 					row = ((Linear_Scan_Block*)row)->data;
 					if(rowMatchesCondition(c, row, schemas[structureId]) && row[0] != '\0'){
@@ -1811,9 +1903,34 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				//printf("stat is %d", stat);
 				opOneLinearScanBlock(retStructId, 0, (Linear_Scan_Block*)row, 1);
 				numRows[retStructId]++;
+
+				if(baseline){
+					free(oBlock);
+					deleteTable(tempName);
+				}
+
 			}
 		}
 		else{ //group by
+
+			//hack to simulate baseline where all these structures are in an oram.
+			//Just do extra oram ops every time there would be an access
+			//this will actually underestimate the number of oram calls needed
+			//since some more calls would be needed to make this really oblivious
+			//and I'm assuming all the structures are merged in the same block
+			int baseline=0, baselineId;
+			char *tempName = "temp";
+			Oram_Block* oBlock;
+			if(intermediate == 2 || intermediate == 3){
+				baseline =1;
+				intermediate -=2;
+				oBlock = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
+				memset(oBlock, 0, sizeof(Oram_Block));
+				createTable(&retSchema, tempName, strlen(tempName), TYPE_ORAM, MAX_GROUPS, &baselineId);
+				usedBlocks[baselineId][0] = 1;
+				opOramBlock(baselineId, 0, oBlock, 1);
+			}
+
 			if(aggregate == -1 || colChoice == -1 || schemas[structureId].fieldTypes[colChoice] != INTEGER) {
 				printf("aborting %d %d %d\n", aggregate == -1, colChoice == -1, schemas[structureId].fieldTypes[colChoice] != INTEGER);
 				return 1;
@@ -1830,7 +1947,6 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			}
 			//int bdb3 = (algChoice == 11); use algChoice for second aggregate col
 
-			//first pass, count number of groups
 			int numGroups = 0, dummyCounter = 0;
 			uint8_t* groupVal = (uint8_t*)malloc(schemas[structureId].fieldSizes[groupCol]);
 			int aggrVal = 0;
@@ -1849,7 +1965,15 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				memcpy(&aggrVal, &row[schemas[structureId].fieldOffsets[colChoice]], 4);
 				memcpy(&aggrVal2, &row[schemas[structureId].fieldOffsets[colChoice2]], 4);
 				row = ((Linear_Scan_Block*)row)->data;
-				if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy brach
+
+				//printf("numgroups: %d, groupval: %s %s %s\n", numGroups, groupVal, &row[schemas[structureId].fieldOffsets[2]], &row[schemas[structureId].fieldOffsets[11]]);
+
+				if(row[0] == '\0' || !rowMatchesCondition(c, row, schemas[structureId])) {//begin dummy branch
+
+					if(baseline){
+						for(int j = 0; j < numGroups; j++)
+							opOramBlock(baselineId, 0, oBlock, 0);
+					}
 					continue;
 					int foundAGroup = 0;
 					for(int j = 0; j < numGroups; j++){
@@ -1914,6 +2038,9 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				else{
 					int foundAGroup = 0;
 					for(int j = 0; j < numGroups; j++){//printf("here2\n");
+						if(baseline){
+							opOramBlock(baselineId, 0, oBlock, 0);
+						}
 						if(memcmp(groupVal, groups[j], substrX) == 0){
 							foundAGroup = 1;
 							groupCount[j]++;
@@ -1969,9 +2096,17 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				}
 			}
 			for(int j = 0; j < numGroups; j++){
+				if(baseline){
+					opOramBlock(baselineId, 0, oBlock, 0);
+				}
 				if(aggregate == 0) groupStat[j] = groupCount[j];
 				else if(aggregate == 4) groupStat[j] /= groupCount[j];
 			}
+
+			int size = numGroups;
+			if(intermediate) size = oblivStructureSizes[structureId];
+			if(PADDING) size = MAX_GROUPS;
+
 			if(!bdb2 && algChoice != -1){//bdb3
 				//create table and fill it with results
 				retSchema.numFields = 4;
@@ -1987,15 +2122,24 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				retSchema.fieldSizes[1] = 4;
 				retSchema.fieldSizes[2] = 4;
 				retSchema.fieldSizes[3] = substrX;
-				createTable(&retSchema, retName, retNameLen, retType, numGroups, &retStructId);
-				for(int j = 0; j < numGroups; j++){
-					row[0] = 'a';
-					memcpy(&row[1], &groupStat[j], 4);
-					memcpy(&row[5], &groupStat2[j], 4);
-					memcpy(&row[9], groups[j], substrX);
-					opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
-					numRows[retStructId]++;
-					free(groups[j]);
+				createTable(&retSchema, retName, retNameLen, retType, size, &retStructId);
+				for(int j = 0; j < size; j++){
+					if(baseline){
+						opOramBlock(baselineId, 0, oBlock, 0);
+					}
+					if(j<numGroups){
+						row[0] = 'a';
+						memcpy(&row[1], &groupStat[j], 4);
+						memcpy(&row[5], &groupStat2[j], 4);
+						memcpy(&row[9], groups[j], substrX);
+						opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+						numRows[retStructId]++;
+						free(groups[j]);
+					}
+					else{
+						row[0] = '\0';
+						opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+					}
 				}
 			}
 			else{
@@ -2010,15 +2154,29 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				retSchema.fieldSizes[0] = 1;
 				retSchema.fieldSizes[1] = 4;
 				retSchema.fieldSizes[2] = substrX;
-				createTable(&retSchema, retName, retNameLen, retType, numGroups, &retStructId);
-				for(int j = 0; j < numGroups; j++){
-					row[0] = 'a';
-					memcpy(&row[1], &groupStat[j], 4);
-					memcpy(&row[5], groups[j], substrX);
-					opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
-					numRows[retStructId]++;
-					free(groups[j]);
+				createTable(&retSchema, retName, retNameLen, retType, size, &retStructId);
+				for(int j = 0; j < size; j++){
+					if(baseline){
+						opOramBlock(baselineId, 0, oBlock, 0);
+					}
+					if(j<numGroups){
+						row[0] = 'a';
+						memcpy(&row[1], &groupStat[j], 4);
+						memcpy(&row[5], groups[j], substrX);
+						opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+						numRows[retStructId]++;
+						free(groups[j]);
+					}
+					else{
+						row[0] = '\0';
+						opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+					}
 				}
+			}
+
+			if(baseline){
+				free(oBlock);
+				deleteTable(tempName);
 			}
 		}
 		break;
@@ -2032,7 +2190,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 	free(row2);
 }
 
-int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice) {
+int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int intermediate) {
 	int structureId = getTableId(tableName);
 	Obliv_Type type = oblivStructureTypes[structureId];
 	int colChoiceSize = BLOCK_DATA_SIZE;
@@ -2229,14 +2387,23 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 		retSchema.fieldSizes[0] = 1;
 		retSchema.fieldSizes[1] = 4;
 		retSchema.fieldSizes[2] = substrX;
-		createTable(&retSchema, retName, retNameLen, retType, numGroups, &retStructId);
-		for(int j = 0; j < numGroups; j++){
-			row[0] = 'a';
-			memcpy(&row[1], &groupStat[j], 4);
-			memcpy(&row[5], groups[j], substrX);
-			opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
-			numRows[retStructId]++;
-			free(groups[j]);
+		int size = numGroups;
+		if(intermediate) size = oblivStructureSizes[structureId];
+		if(PADDING) size = MAX_GROUPS;
+		createTable(&retSchema, retName, retNameLen, retType, size, &retStructId);
+		for(int j = 0; j < size; j++){
+			if(j < numGroups){
+				row[0] = 'a';
+				memcpy(&row[1], &groupStat[j], 4);
+				memcpy(&row[5], groups[j], substrX);
+				opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+				numRows[retStructId]++;
+				free(groups[j]);
+			}
+			else{
+				row[0] = '\0';
+				opOneLinearScanBlock(retStructId, j, (Linear_Scan_Block*)row, 1);
+			}
 		}
 
 	free(row);

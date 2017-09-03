@@ -11,7 +11,7 @@
 #include "string.h"
 
 
-#define BLOCK_DATA_SIZE 512
+#define BLOCK_DATA_SIZE 4096
 #define NUM_BLOCKS_POW 10
 #define TEST_TYPE 1
 
@@ -23,6 +23,8 @@
 #define MAX_CONDITIONS 5
 #define ROWS_IN_ENCLAVE 5000
 #define PERCENT_ALMOST_ALL 90
+#define PADDING 0 //0 - normal, >1: pad to that many rows always
+#define JOINMAX 350000 //how big are we expecting joins to get
 #define MAX_GROUPS 350000
 //NUM_BLOCKS_ORAM is larger than the logical size of the oram;
 //within the oram, there will be a B+-tree in whose leaves we will store the actual data
