@@ -267,21 +267,27 @@ Since the structure of a B+ tree changes dynamically as rows are added and remov
 There are many parameters in \name/ that, set appropriately, could improve performance that we made no effort to optimize. Most importantly, we set the bucket size of the ORAM to 4 and used a binary tree for the tree structure of the PATH ORAM. We also set the maximum branching factor of the B+ tree to 20. We set the number of rows that can fit in the enclave for the ``Small'' selection strategy at 5,000, a number that we felt would allow for reasonably-sized rows without overflowing the memory available to the enclave. 
 
 \section{Evaluation}\label{eval}
-\begin{figure*}
+\begin{figure}
+\small
 \centering
-\begin{tabular}{p{2.2cm} l p{7cm} l l l} 
- \textbf{Data Set}& \textbf{Rows} & \textbf{Query}& \textbf{\name/} & \textbf{Baseline} & \textbf{Speedup}\\ \hline\rule{0pt}{2ex}
-NASDAQ & 3,300 &\texttt{SELECT Symbol FROM NASDAQ WHERE Sector="Technology" AND Last\_Sale$>$100 AND Last\_Sale$<$200} & 0.037s & 0.537s & 14.7$\times$ \\ \rule{0pt}{2ex}
-%NASDAQ & \texttt{SELECT AVG(Last\_Sale) FROM NASDAQ GROUP BY Sector}& .022 & 1.26\\\rule{0pt}{3ex}
-%CFPB & \texttt{SELECT COUNT(*) FROM CFPB WHERE Bank="Bank of America" AND (Product="Credit Card" OR Product="Mortgage") AND Timely\_Response="No" AND Date\_Received$>=$2013-05-01 AND Date\_Received$<=$2013-05-31 }& .683 & 1.95\\\rule{0pt}{3ex}
-SYNTH & 100,000& \texttt{DELETE FROM SYNTH WHERE class="a" AND id>1 AND id<900 LIMIT 1}& 0.350s& 0.404s& 1.2$\times$ \\\rule{0pt}{2ex} 
-SYNTH & 100,000& \texttt{INSERT INTO SYNTH (id, val, class, text) VALUES (100000, 1000, "a", "You would measure time the measureless and the immeasurable.")}& 0.077s& 0.348s& 4.5$\times$ \\\rule{0pt}{2ex} 
-CFPB & 107,000& \texttt{SELECT * FROM CFPB WHERE Date\_Received$>=$2013-05-06 AND Date\_Received$<=$2013-05-10 } & 1.45s & 61.79s & 42.7$\times$\\\rule{0pt}{2ex} 
-%FLIGHTS & \texttt{SELECT AVG(Price) FROM FLIGHTS WHERE Destination\_Id=12173 GROUP BY Origin\_Id}& 1.01 & .376\\\rule{0pt}{3ex}
-FLIGHTS & 250,000&\texttt{SELECT Price FROM FLIGHTS WHERE Destination\_Id=12173} & 0.765s & 45.13s & 59.0$\times$\\\rule{0pt}{2ex}
-USERVISITS & 350,000 & \texttt{SELECT SUBSTR(sourceIP, 1, X), SUM(adRevenue) FROM USERVISITS GROUP BY SUBSTR(sourceIP, 1, 8)}& 3.52s &205.79s & 58.5$\times$\\\rule{0pt}{2ex}
-RANKINGS & 360,000 & \texttt{SELECT pageURL, pageRank FROM RANKINGS WHERE pageRank > 1000 }& 0.109s & 54.19s& 498.6$\times$ \\\rule{0pt}{2ex}
-RANKINGS \\\ USERVISITS&  & \texttt{SELECT sourceIP, totalRevenue, avgPageRank
+\begin{tabular}{llp{3.1cm}}
+\textbf{Table Name} & \textbf{Rows} & \textbf{Notes} \\\hline\rule{0pt}{2ex}
+CFPB & 107,000 & Customer complaints to the US Consumer Financial Protection Bureau~\cite{CFPB}.\\
+USERVISITS & 350,000 & Server logs for many sites. Part of the Big Data Benchmark data set~\cite{BDB}.\\
+RANKINGS & 360,000 & URLs, PageRanks, and average visit durations for many sites. Part of the Big Data Benchmark data set~\cite{BDB}.\\
+\end{tabular}
+\caption{Tables with real data used in our evaluation and comparisons.}
+\end{figure}
+
+\begin{figure*}
+\small
+\centering
+\begin{tabular}{p{2.2cm} p{7cm} l l l} 
+ \textbf{Data Set}& \textbf{Query}& \textbf{\name/} & \textbf{Baseline} & \textbf{Speedup}\\ \hline\rule{0pt}{2ex}
+&\multicolumn{2}{c}{\textbf{Aggregates and Joins}}\\\rule{0pt}{2ex}
+CFPB & \texttt{SELECT COUNT(*) FROM CFPB WHERE (Product="Credit card" OR Product="Mortgage") AND Timely\_Response="No" GROUP BY Bank}& 0.72s & $>$1000s &  $>$1390$\times$\\\rule{0pt}{2ex}
+USERVISITS & \texttt{SELECT SUBSTR(sourceIP, 1, 8), SUM(adRevenue) FROM USERVISITS GROUP BY SUBSTR(sourceIP, 1, 8)}& 3.52s &$>$1000s & $>$284$\times$\\\rule{0pt}{2ex}
+RANKINGS \\\ USERVISITS  & \texttt{SELECT sourceIP, totalRevenue, avgPageRank
 FROM
   (SELECT sourceIP,
           AVG(pageRank) as avgPageRank,
@@ -290,9 +296,19 @@ FROM
     WHERE R.pageURL = UV.destURL
        AND UV.visitDate BETWEEN Date(`1980-01-01') AND Date(`1980-04-01')
     GROUP BY UV.sourceIP)
-  ORDER BY totalRevenue DESC LIMIT 1} & 15.20s & 131.30s& 8.6$\times$\\
+  ORDER BY totalRevenue DESC LIMIT 1} & 15.20s & $>$1000s& $>$65.8$\times$\\
+&\multicolumn{2}{c}{\textbf{Linear Selection}}\\\rule{0pt}{2ex}
+CFPB & \texttt{SELECT * FROM CFPB WHERE Date\_Received$=$2013-05-14}& 1.40s & 40.78s & 29.1$\times$\\\rule{0pt}{2ex} 
+RANKINGS & \texttt{SELECT pageURL, pageRank FROM RANKINGS WHERE pageRank > 1000 }& 3.03s & 57.51s& 19.0$\times$ \\\rule{0pt}{2ex}
+&\multicolumn{2}{c}{\textbf{Index Insertion/Deletion}}\\\rule{0pt}{2ex}
+CFPB & \texttt{INSERT INTO CFPB (Complaint\_id, Product, Issue, Date\_received, Company, Timely\_response, Consumer\_disputed) VALUES (4242, "Credit Card", "Rewards", 2017-09-01, "Bank of America", "Yes", "No")}& 0.20s& 0.99s& 5.0$\times$ \\\rule{0pt}{2ex} 
+CFPB & \texttt{DELETE FROM CFPB WHERE Bank="Bank of America" LIMIT 1}& 0.43s& 0.60s& 1.4$\times$ \\\rule{0pt}{2ex} 
+&\multicolumn{2}{c}{\textbf{Index Selection}}\\\rule{0pt}{2ex}
+CFPB & \texttt{SELECT * FROM CFPB WHERE Date\_Received$=$2013-05-14} & 0.63s & 0.80s & 1.3$\times$\\\rule{0pt}{2ex} 
+RANKINGS & \texttt{SELECT pageURL, pageRank FROM RANKINGS WHERE pageRank > 1000 }& 0.11s & 0.14s& 1.3$\times$ \\\rule{0pt}{2ex}
+
 \end{tabular}
-\caption{Comparison of \name/ and a baseline where a naive oblivious database implementation directly ports non-oblivious algorithms to their oblivious counterparts via ORAM (queries on SYNTH compare against a baseline B+ tree index implementation). Queries executed on real data sets of various sizes, including three realistic queries on real-world data~\cite{NASDAQ, CFPB, FLIGHT} and three queries from the Big Data Benchmark~\cite{BDB}. \name/ outperforms the baseline on all queries.}
+\caption{Comparison of \name/ and a baseline where a naive oblivious database implementation directly ports non-oblivious algorithms to their oblivious counterparts via ORAM. \name/ outperforms the baseline on all queries.}
 \label{figQueries}
 \end{figure*}
 
