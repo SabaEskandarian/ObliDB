@@ -288,7 +288,7 @@ void ocall_read_file(void *dest, int dsize){
 
 }
 
-void BDB1Index(sgx_enclave_id_t enclave_id, int status, int baseline){
+void BDB1Index(sgx_enclave_id_t enclave_id, int status){
 	//block size needs to be 512
 
 	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
@@ -574,7 +574,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status, int baseline){
 	//printTable(enclave_id, (int*)&status, "uservisits");
 	startTime = clock();
 	if(baseline == 1)
-		selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 2);
+		selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 0);
 	else
 		highCardLinGroupBy(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 0);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
@@ -2598,7 +2598,7 @@ int main(int argc, char* argv[])
         //PICK EXPERIMENT TO RUN HERE
 
         //nasdaqTables(enclave_id, status); //2048
-        complaintTables(enclave_id, status); //4096
+        //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //256
         //BDB1Index(enclave_id, status);//512
         //BDB1Linear(enclave_id, status);//512
@@ -2608,6 +2608,162 @@ int main(int argc, char* argv[])
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);
         //fabTests(enclave_id, status);
+
+/*
+	//test for sophos - linear
+	char* tn = "table";
+	int stid = -1;
+	Schema slimSchema;
+	slimSchema.numFields = 2;
+	slimSchema.fieldOffsets[0] = 0;
+	slimSchema.fieldOffsets[1] = 1;
+	slimSchema.fieldSizes[0] = 1;
+	slimSchema.fieldSizes[1] = 4;
+	slimSchema.fieldTypes[0] = CHAR;
+	slimSchema.fieldTypes[1] = INTEGER;
+	uint8_t* smallR = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	smallR[0] = 1;
+	createTable(enclave_id, (int*)&status, &slimSchema, tn, strlen(tn), TYPE_LINEAR_SCAN, 1400000, &stid);
+		printf("created table\n");
+	for(int c = 0; c < 1400000; c++){
+		memcpy(&smallR[1], &c, 4);
+		//insertIndexRowFast(enclave_id, (int*)&status, tn, smallR, c);
+		opOneLinearScanBlock(enclave_id, (int*)&status, stid, c, (Linear_Scan_Block*)smallR, 1);
+		incrementNumRows(enclave_id, (int*)&status, stid);
+		if(c % 100000 == 0) printf("pulse %d %d\n", smallR[1], c);
+	}
+	time_t startTime, endTime;
+	double elapsedTime;
+		
+	Condition cond;
+	cond.numClauses = 1;
+	cond.fieldNums[0] = 1;
+	cond.conditionType[0] = -1;
+	cond.values[0] = (uint8_t*)malloc(4);
+	cond.nextCondition = NULL;
+	int v = 1000000;
+	memcpy(cond.values[0], &v, 4);
+	
+
+	v = 1000;
+        startTime = clock();
+        selectRows(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 1, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 1000 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	v = 100;
+        startTime = clock();
+        selectRows(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 1, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 100 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	v = 10;
+        startTime = clock();
+        selectRows(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 1, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 10 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	v = 100000;
+        startTime = clock();
+        selectRows(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 1, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 100000 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	v = 10000;
+        startTime = clock();
+        selectRows(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 1, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 10000 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+*/	
+
+	//test for sophos
+	char* tn = "table";
+	int stid = -1;
+	Schema slimSchema;
+	slimSchema.numFields = 2;
+	slimSchema.fieldOffsets[0] = 0;
+	slimSchema.fieldOffsets[1] = 1;
+	slimSchema.fieldSizes[0] = 1;
+	slimSchema.fieldSizes[1] = 4;
+	slimSchema.fieldTypes[0] = CHAR;
+	slimSchema.fieldTypes[1] = INTEGER;
+	uint8_t* smallR = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	smallR[0] = 1;
+	createTable(enclave_id, (int*)&status, &slimSchema, tn, strlen(tn), TYPE_TREE_ORAM, 1400000, &stid);
+		printf("created table\n");
+	for(int c = 0; c < 1400000; c++){
+		memcpy(&smallR[1], &c, 4);
+		insertIndexRowFast(enclave_id, (int*)&status, tn, smallR, c);
+		//opOneLinearScanBlock(enclave_id, (int*)&status, stid, c, (Linear_Scan_Block*)smallR, 1);
+		//incrementNumRows(enclave_id, (int*)&status, stid);
+		if(c % 100000 == 0) printf("pulse %d %d\n", smallR[1], c);
+	}
+	time_t startTime, endTime;
+	double elapsedTime;
+		
+	Condition cond;
+	cond.numClauses = 1;
+	cond.fieldNums[0] = 1;
+	cond.conditionType[0] = -1;
+	cond.values[0] = (uint8_t*)malloc(4);
+	cond.nextCondition = NULL;
+	int v = 1000000;
+	memcpy(cond.values[0], &v, 4);
+	
+
+	v = 1000;
+        startTime = clock();
+        indexSelect(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 2, 0, v, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 1000 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	v = 100;
+        startTime = clock();
+        indexSelect(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 2, 0, v, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 100 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	v = 10;
+        startTime = clock();
+        indexSelect(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 2, 0, v, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 10 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	v = 100000;
+        startTime = clock();
+        indexSelect(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 2, 0, v, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 100000 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+	v = 10000;
+        startTime = clock();
+        indexSelect(enclave_id, (int*)&status, tn, 1, cond, -1, -1, 2, 0, v, 0);
+        endTime = clock();
+        elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        printf("query 10000 rt: %.5f\n", elapsedTime);	
+	fflush(stdout);
+	deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
         //END
         /*

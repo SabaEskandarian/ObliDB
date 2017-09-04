@@ -992,7 +992,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 				memcpy(&n[0], &saveStart[0], sizeof(Oram_Block));
 				for (i = 0; i < n->num_keys && n->keys[i] < key_start; i++) ;//printf("i %d\n", i);
 				if (i == n->num_keys) return 0;
-				while (n != NULL) {//printf("outer loop\n");
+				while (n != NULL) {//printf("outer loop %d\n", n->num_keys);
 					for ( ; i < n->num_keys && n->keys[i] <= key_end; i++) {//printf("inner loop %d %d", n->keys[i], key_end);
 						opOramBlock(structureId, n->pointers[i], b, 0);
 						row = b->data;
@@ -1013,7 +1013,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 							opOneLinearScanBlock(retStructId, rowi%count, (Linear_Scan_Block*)row2, 1);
 							dummyVar++;
 						}
-					}
+					}//printf("end inner loop\n");
 					if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
 					followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
 					//n = (node*)n->pointers[order - 1];
@@ -1420,6 +1420,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 			}
 		}
 	}
+	
 	free(b);
 	free(b2);
 	free(n);
@@ -1427,6 +1428,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 	free(root);
 	//free(row);
 	//free(row2);
+	//printf("here");
 	return num_found;
 }
 
@@ -1551,13 +1553,11 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				else{ //include whole selected row
 					retSchema = schemas[structureId];
 				}
-
-
 				if(intermediate) retNumRows = oblivStructureSizes[structureId];
 				if(PADDING) retNumRows = PADDING;
 				//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
 				int out = createTable(&retSchema, retName, retNameLen, retType, retNumRows, &retStructId);
-				//printf("%d |\n", count);
+				//printf("%d |\n", retNumRows);
 				//printf("%d %d %d %d %s %d %d\n", retNameLen, retNumRows, retStructId, retType, retName, retSchema.numFields, retSchema.fieldSizes[1]);
 				//printf("%s\n", tableNames[retStructId]);
 				//printTable("ReturnTable");
@@ -1922,12 +1922,24 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			char *tempName = "temp";
 			Oram_Block* oBlock;
 			if(intermediate == 2 || intermediate == 3){
+				
+				Schema slimSchema;
+				slimSchema.numFields = 2;
+				slimSchema.fieldOffsets[0] = 0;
+				slimSchema.fieldOffsets[1] = 1;
+				slimSchema.fieldSizes[0] = 1;
+				slimSchema.fieldSizes[1] = 4;
+				slimSchema.fieldTypes[0] = CHAR;
+				slimSchema.fieldTypes[1] = INTEGER;
+
 				baseline =1;
 				intermediate -=2;
 				oBlock = (Oram_Block*)malloc(getBlockSize(TYPE_ORAM));
 				memset(oBlock, 0, sizeof(Oram_Block));
-				createTable(&retSchema, tempName, strlen(tempName), TYPE_ORAM, MAX_GROUPS, &baselineId);
+				printf("hi\n");
+				createTable(&slimSchema, tempName, strlen(tempName), TYPE_ORAM, MAX_GROUPS, &baselineId);
 				usedBlocks[baselineId][0] = 1;
+				printf("hi\n");
 				opOramBlock(baselineId, 0, oBlock, 1);
 			}
 
