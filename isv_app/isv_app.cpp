@@ -743,20 +743,20 @@ void BDB3(sgx_enclave_id_t enclave_id, int status, int baseline){
 
 	startTime = clock();
 	if(baseline == 1){
-		selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 5, 1);
+		selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 5, 0);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "uvJ");
 		//printTable(enclave_id, (int*)&status, "uvJ");
 		joinTables(enclave_id, (int*)&status, "uvJ", "rankings",  2, 1, -1, -1);
 		//int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 		renameTable(enclave_id, (int*)&status, "JoinReturn", "jr");
 		//printTable(enclave_id, (int*)&status, "jr");
-		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4, 3);
+		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4, 2);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "last");
 		//printTable(enclave_id, (int*)&status, "last");
 		selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, 0, 0);
 	}
 	else{
-		selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2, 1);
+		selectRows(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2, 0);
 		//indexSelect(enclave_id, (int*)&status, "uservisits", -1, cond1, -1, -1, 2, l, h);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "uvJ");
 		//printTable(enclave_id, (int*)&status, "uvJ");
@@ -764,7 +764,7 @@ void BDB3(sgx_enclave_id_t enclave_id, int status, int baseline){
 		//int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 		renameTable(enclave_id, (int*)&status, "JoinReturn", "jr");
 		//printTable(enclave_id, (int*)&status, "jr");
-		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4, 1);
+		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4, 0);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "last");
 		//printTable(enclave_id, (int*)&status, "last");
 		selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, 0, 0);
@@ -2602,7 +2602,7 @@ int main(int argc, char* argv[])
         //flightTables(enclave_id, status); //256
         //BDB1Index(enclave_id, status);//512
         //BDB1Linear(enclave_id, status);//512
-        //BDB2(enclave_id, status, 0);//2048
+        BDB2(enclave_id, status, 0);//2048
         //BDB3(enclave_id, status, 0);//2048
         //BDB2(enclave_id, status, 1);//2048 (baseline)
         //BDB3(enclave_id, status, 1);//2048 (baseline)
@@ -2687,7 +2687,7 @@ int main(int argc, char* argv[])
 	fflush(stdout);
 	deleteTable(enclave_id, (int*)&status, "ReturnTable");
 */	
-
+/*
 	//test for sophos
 	char* tn = "table";
 	int stid = -1;
@@ -2764,8 +2764,7 @@ int main(int argc, char* argv[])
         printf("query 10000 rt: %.5f\n", elapsedTime);	
 	fflush(stdout);
 	deleteTable(enclave_id, (int*)&status, "ReturnTable");
-
-        //END
+*/
         /*
         //rename test
         createTestTable(enclave_id, (int*)&status, "table1", 10);
