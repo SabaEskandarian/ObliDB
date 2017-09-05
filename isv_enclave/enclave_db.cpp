@@ -1795,7 +1795,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			else{//doing an aggregate with no group byprintf("here %d", structureId);
 				//query plan gives away that there's only one row to return, so padding doesn't hide anything extra
 
-				int baseline=0, baselineId;
+				int baseline=0, baselineId=-1;
 				char *tempName = "temp";
 				Oram_Block* oBlock;
 				if(intermediate == 2 || intermediate == 3){
@@ -1919,7 +1919,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 			//this will actually underestimate the number of oram calls needed
 			//since some more calls would be needed to make this really oblivious
 			//and I'm assuming all the structures are merged in the same block
-			int baseline=0, baselineId;
+			int baseline=0, baselineId=-1;
 			char *tempName = "temp";
 			Oram_Block* oBlock;
 			if(intermediate == 2 || intermediate == 3){

@@ -574,7 +574,7 @@ void BDB2(sgx_enclave_id_t enclave_id, int status, int baseline){
 	//printTable(enclave_id, (int*)&status, "uservisits");
 	startTime = clock();
 	if(baseline == 1)
-		selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 0);
+		selectRows(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 2);
 	else
 		highCardLinGroupBy(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 0);
 	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
