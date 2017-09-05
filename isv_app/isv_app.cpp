@@ -1607,7 +1607,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 
 	//time to test performance of everything
 
-	int testSizes[] = {10000};
+	int testSizes[] = {100000};
 	int numTests = 1;
 	//int testSizes[] = {500};//for testing
 	//int numTests = 1;
@@ -1619,7 +1619,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 	int testSize = testSizes[0];
 	sprintf(tableName, "testTable%d", testSize);
     createTestTable(enclave_id, (int*)&status, "testTable", testSize);
-    createTestTableIndex(enclave_id, (int*)&status, tableName, testSize);
+    //createTestTableIndex(enclave_id, (int*)&status, tableName, testSize);
     //loadIndexTable(enclave_id, (int*)&status, testSize);
     printf("created tables\n");
 	for(int i = 0; i < numTests; i++){
@@ -1627,7 +1627,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 		printf("\n\n|Test Size %d:\n", testSize);
 
 		//first we'll do the read-only tests
-		int numInnerTests = 13;//how many points do we want along the line
+		int numInnerTests = 2;//how many points do we want along the line
 		for(int testRound = 0; testRound <= numInnerTests; testRound++){
 			//if(testRound > numInnerTests/6){
 			//	testRound = numInnerTests;
@@ -1672,7 +1672,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         	const char* text = "You would measure time the measureless and the immeasurable.";
 
     		for(int j = 0; j < 1; j++){ //want to average 5 trials
-    			testRound = numInnerTests;
+    			//testRound = numInnerTests;
     			if(testRound < numInnerTests){
     				//high = testSize/20*(testRound+1);
 				high = (testRound+1)*500;
@@ -1752,7 +1752,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         				endTime = clock();
         				linsmallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
-
+/*
         				startTime = clock();
         				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, 2, low, high, 0);
         				endTime = clock();
@@ -1796,7 +1796,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
     				//joinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         	        //deleteTable(enclave_id, (int*)&status, "JoinReturn");
 
-
+*/
     			}
     			else{
     				high = 900;

@@ -1499,6 +1499,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 				}
 				if(count < 5*ROWS_IN_ENCLAVE){
 					small = 1;
+					if(count < ROWS_IN_ENCLAVE && continuous == 1) continuous = 0;
 				}
 				//printf("%d %f\n",count,  oblivStructureSizes[structureId]*.01*PERCENT_ALMOST_ALL); //count and count needed for almost all
 
