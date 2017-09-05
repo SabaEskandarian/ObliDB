@@ -495,7 +495,7 @@ The most staggering speedups over the baseline appear in aggregation queries, wh
 \label{figOpaque} 
 \end{figure} 
 
-Figure~\ref{figOpaque} compares \name/ with Opaque's oblivious mode~\cite{ZDB+17} and Spark SQL~\cite{SparkSQL} on the first three queries of the Big Data Benchmark~\cite{BDB} on tables of 360,000 and 350,000 rows. We omit the benchmark's fourth query as neither \name/ nor Opaque support the external scripts needed for it. Opaque also centers its design on a secure SGX enclave and can be configured in either an ``encryption'' mode, which leaks access patterns but offers performance close to Spark SQL and an ``oblivious'' mode that hides access patterns to data by making sure to fit sensitive memory accesses inside the trusted enclave memory and achieving a security level similar to ours, albeit by very different means. Spark SQL provides no security guarantees and provides a measure of the performance achievable without any security concerns. Both Opaque and Spark SQL are run in a single node configuration on our device. 
+Figure~\ref{figOpaque} compares \name/ with Opaque's oblivious mode~\cite{ZDB+17} and Spark SQL~\cite{SparkSQL} on the first three queries of the Big Data Benchmark~\cite{BDB} on tables of 360,000 and 350,000 rows. We omit the benchmark's fourth query as neither \name/ nor Opaque support the external scripts needed for it. Opaque, like \name/, centers its design on a secure SGX enclave and can be configured in either an ``encryption'' mode, which leaks access patterns but offers performance close to Spark SQL and an ``oblivious'' mode that hides access patterns to data by making sure to fit sensitive memory accesses inside the trusted enclave memory and achieving a security level similar to ours, albeit by very different means. Spark SQL provides no security guarantees and provides a measure of the performance achievable without any security concerns. Both Opaque and Spark SQL are run in a single node configuration on our device. 
 
 \name/, when allowed to use indexes, outperforms Opaque on all three BDB queries, ranging from 1.2$\times$ speedup on query 2 to 20$\times$ speedup on query 1. The strong performance of \name/ compared to Opaque and Spark SQL on query 1 is due to \name/'s oblivious index, which allows it to only examine a small portion of the table whereas Opaque and Spark SQL, which aim to primarily handle analytic workloads, scan the entire table to satisfy the query. Even without using an index to speed up query 1, \name/ performs comparably to Opaque. Moreover, for queries 2 and 3, although \name/ is slower than Spark SQL, it is only 1.8$\times$ slower on query 2 and 2.1$\times$ slower on query 3, putting \name/ safely in the realm of tools whose performance is practical for real applications. 
 
@@ -538,15 +538,29 @@ Figure~\ref{figOpaque} compares \name/ with Opaque's oblivious mode~\cite{ZDB+17
 \label{figSophos}
 \end{figure}
 
-
+We compare the performance of \name/'s oblivious index to the searchable symmetric encryption (SSE) scheme Sophos~\cite{Bost16} in Figure~\ref{figSophos}. Sophos does not provide obliviousness guarantees, meaning it leaks access patterns to rows in a table, and it does not use hardware enclaves to achieve security. It does, however, offer a ``forward-secrecy'' property not found in many SSE schemes. As such, it provides a good point of comparison for the performance of our SGX-based oblivious Indexed tables with a non-SGX based, non-oblivious index that still provides reasonable privacy guarantees. Sophos only provides the ability to search for exact keyword matches via an inverted index, so we compare on simulated data. Specifically, we compare against the performance numbers reported in the original Sophos paper for a table of 1.4 million rows and measured using a much more powerful machine than ours: an Intel Core i7 4790K 4.00GHz CPU with 8 logical cores, 16GB of RAM, a 250 GB Samsung 850 EVO SSD, running on OS X.10. Despite the difference in hardware and the fact that the Sophos implementation is multithreaded, \name/ outperforms Sophos by 4.7-19$\times$ depending on the size of the number of rows returned by a query. We observe that the performance tipping point between Indexed and Linear tables in \name/ arrives between the $10^4$ and $10^5$ rows returned marks in this experiment, and \name/'s performance on larger queries beyond that point would remain constant. 
 
 \subsection{Padding Mode Overhead}
+\begin{figure}
+\small
+\centering
+\begin{tabular}{llll}
+\textbf{Query Type} & \textbf{No Padding} & \textbf{Padding} & \textbf{Slowdown} \\\hline
+Aggregate & 0.72s & 7.31s & 10.2$\times$\\
+Select (Linear) & 1.40s & 8.12s & 5.8$\times$\\
+Select (Index) & 0.63s & 2.35s & 3.7$\times$\\
+Insert (Index) & 0.20s & 0.25s & 1.3$\times$\\
+Delete (Index) & 0.43s & 0.49s & 1.1$\times$\\
+\end{tabular}
+\caption{Slowdown of \name/ in padding mode for queries in the CFPB table of 107,000 rows padded to 500,000 rows.}
+\label{figPad}
+\end{figure}
+
+In Figure~\ref{figPad}, we report on the overhead of using padding mode in \name/ to hide not only access patterns to data but also all information regarding the sizes of tables, whether they be at rest in the database, intermediate tables constructed in handling a query, or the results returned from a query. The table shows query results for the 107,000 row CFPB table padded up to 500,000 rows. 
+
+Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unimplemented. To our knowledge, no other comparable system exists with an implemented oblivious padding mode, so we are unable to compare our padding performance to prior work. The results do, however, represent reasonable slowdowns for inflating the size of a table by approximately 5$\times$. 
 
 \subsection{Microbenchmarks}
-
-We compare \name/ to a baseline oblivious database implementation that naively converts data structures and algorithms to their oblivious counterparts using ORAM, to Opaque's oblivious mode~\cite{ZDB+17} run on a single node, providing security guarantees comparable to \name/, and Spark SQL running on one core~\cite{SparkSQL}, which provides no security guarantees. \name/ dramatically outperforms the baseline and also performs better than Opaque while coming, at worst, within just over a factor of 2 of the performance of Spark SQL. 
-
-\subsection{Microbenchmarks: Effectiveness of Low-Leakage Optimization}
 \begin{figure*}
 \small
 \centering
@@ -685,33 +699,18 @@ We compare \name/ to a baseline oblivious database implementation that naively c
 \caption{Our optimizer picks the best algorithm for handling \texttt{SELECT} queries based on a preliminary scan that determines whether the data to be returned is small, large, or consists of a continuous set of rows in the table.} 
 \label{figC3}
 \end{figure}
+\noindent \textbf{Comparison of Linear and Indexed tables}.
+By providing both Indexed and Linear tables and optimizing queries based on information gained through a first pass over the data, \name/ to makes meaningful performance improvements for diverse queries. To this end, Figure~\ref{figC1} compares the performance of Linear and Indexed tables on \texttt{SELECT} (hash algorithm), \texttt{GROUP BY} (low-cardinality), \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. This finding contrasts claims in prior work~\cite{RLT15} that indicate linear scans always perform better than ORAM for oblivious memory access. In general, Indexed \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables. Indexed insertions complete faster than deletions and updates because insertions only need to find a place in the B+ tree, but deletions and updates need to scan forward from that point to find rows that need to be deleted/updated.
 
-By providing both Indexed and Linear tables and optimizing \texttt{SELECT} and \texttt{GROUP BY} queries based only on information from structureal leakage, \name/ to makes meaningful performance improvements for diverse queries. To this end, Figure~\ref{figC1} compares the performance of Linear and Indexed tables on \texttt{SELECT} (hash algorithm), \texttt{GROUP BY} (low-cardinality), \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. This finding contrasts claims in prior work~\cite{RLT15} that indicate linear scans always perform better than ORAM for oblivious memory access. In general, Indexed \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables.
-
-Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of the SYNTH. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small/large or a continuous set of rows) suffices to pick an algorithm that will perform much better in practice. Equally impressive gains appear in the choice of \texttt{GROUP BY} algorithm for real queries, as demonstrated by the query on the USERVISITS table in Figure~\ref{figQueries} -- the baseline algorithm uses only the low-cardinality \texttt{GROUP BY} algorithm whereas \name/ can use the more appropriate high-cardinality variant in this situation. 
-
-\subsection{Comparison to Baseline/Prior Work}
-
-\begin{figure}
-\small
-\centering
-\begin{tabular}{llll}
-\textbf{Query Type} & \textbf{No Padding} & \textbf{Padding} & \textbf{Slowdown} \\\hline\rule{0pt}{2ex}
-Aggregate & 0.72s & 7.31s & 10.2$\times$\\
-Select (Linear) & 1.40s & 8.12s & 5.8$\times$\\
-Select (Index) & 0.63s & 2.35s & 3.7$\times$\\
-Insert (Index) & 0.20s & 0.25s & 1.3$\times$\\
-Delete (Index) & 0.43s & 0.49s & 1.1$\times$\\
-\end{tabular}
-\caption{Slowdown of \name/ in padding mode for queries in the CFPB table of 107,000 rows padded to 500,000 rows.}
-\end{figure}
+\noindent \textbf{Effectiveness of Optimizer}. 
+Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of a fabricated 100,000 row table. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small/large or a continuous set of rows) suffices to pick an algorithm that will perform much better in practice. Equally impressive gains appear in the choice of \texttt{GROUP BY} algorithm for real queries: the high-cardinality aggregation algorithm used for the query on the USERVISITS table (shown in Figure~\ref{figQueries}) performs 58$\times$ better than the low-cardinality algorithm would on the same query. 
 
 \section{Related Work}\label{related}
 
 \name/ is related to a number of prior works involving cryptographically-protected databases and applications of trusted hardware.
 
   \noindent \textbf{Cryptographically-protected database search}. 
-A testament to the importance of the problem of search over encrypted data in databases lies in the extensive prior work on the subject, summarized and systematized by Fuller et al~\cite{FVY+17}. Perhaps the most widely known work in this area is CryptDB~\cite{PRZB12}, which implements a tradeoff between security and performance by encrypting each field in a table according to the type of operation expected to be used on the data in that field. Arx~\cite{PBP16}, a more recent system, keeps all data encrypted at the highest level of security and makes clever use of data structures to allow for efficient operations over data. Another common class of solutions are those which use an inverted index to allow searches on stored encrypted data, as exemplified by Demertzis et al~\cite{DPP+16}. These schemes rely on searchable symmetric encryption (SSE) as a primitive, a recent example of which is Sophos~\cite{Bost16}, which boasts forward security -- queries authorized in the past do not leak any new information when additional documents are added to an existing database. 
+A testament to the importance of the problem of search over encrypted data in databases lies in the extensive prior work on the subject, summarized and systematized by Fuller et al~\cite{FVY+17}. Perhaps the most widely known work in this area is CryptDB~\cite{PRZB12}, which implements a tradeoff between security and performance by encrypting each field in a table according to the type of operation expected to be used on the data in that field. Arx~\cite{PBP16}, a more recent system, keeps all data encrypted at the highest level of security and makes clever use of data structures to allow for efficient operations over data. Another common class of solutions are those which use an inverted index to allow searches on stored encrypted data, as exemplified by Demertzis et al~\cite{DPP+16}. These schemes rely on searchable symmetric encryption (SSE) as a primitive, a recent example of which is Sophos~\cite{Bost16}, which boasts forward security -- queries authorized in the past do not leak any new information when additional documents are added to an existing database. A very recent follow-up work to Sophos introduces a notion of backward-security and provides improved constructions \cite{BMO17}. 
 
 The diversity of security goals and varied use cases for which cryptographically protected databases have been designed have led to a plague of attacks which show that real-world applications of schemes proven secure in theoretical models can in fact leak far more data than would be expected from an initial examination of a system's security properties. Initiated by Islam et al~\cite{IKK12} and continuing with improved results such as those of Naveed et al~\cite{NKW15} and Cash et al~\cite{CGPR15} to name only a few, such attacks show that inference from known context of the data used, additional correlated public data, or even just the leakage inherent in a scheme itself, can be used to attack various schemes in ways not anticipated in their original security models. Zhang et al~\cite{ZKP16} show that even schemes with very little leakage are susceptible to attack. In hiding even the access patterns to data in our solution, we hope to minimize the extent to which \name/ is vulnerable to such techniques.   
 
@@ -725,7 +724,7 @@ In addition to general tools, applications to securely conduct data analytics or
 Trusted hardware assumption like those underlying SGX fundamentally differ from traditional mathematical assumptions in that, whereas the validity of a mathematical assumption cannot be challenged by the vicissitudes of succeeding implementations, attacks, and side-channels, the legitimacy of a hardware assumption relies directly on the ability of a piece of manufactured hardware to repel practical attacks. As such, the SGX literature includes a number of works that aim to reveal practical side channels in the implementation of SGX and develop techniques to obviate the risks presented by each known family of attacks. Xu et al~\cite{XCP15} use page faults and other ``controlled channel'' side channels to extract images and text documents from protected memory, and Lee et al~\cite{LSG+16} use the fact that SGX does not clear branch history when leaving an enclave to infer details of branches taken in protected code. In the multithreaded regime, Weichbrodt et al~\cite{WKPK16} compromise security by leveraging synchronization bugs. Defenses against such attacks include the work of Shinde et al~\cite{SCNS16} and Raccoon~\cite{RLT15} which close side channels by making the memory trace of a program oblivious or obfuscated. SGX-Shield~\cite{SLK+17} enables address space layout randomization for SGX, and, finally, T-SGX~\cite{SLKP17} protects against side-channel attacks by using another set of hardware features, Transactional Synchronization Extensions (TSX) to close side channels that could otherwise be exploited by a malicious OS. \name/ can be generically combined with any of these solutions to provide higher levels of confidence in the security of the enclave.  
 
 \section{Conclusion}\label{conclusion}
-We have presented \name/, a cryptographically-protected database system based on Intel SGX which leaks only structural information about data and queries. We have shown that \name/ handles practical data sets with performance surpassing prior work with similar security properties and comparable to other existing solutions with more permissive leakage functions. It is our hope that solutions like \name/ based on SGX and other techniques that leverage hardware-based advantages can enable rapid advances in the performance and security of solutions to difficult problems related to private databases and search over encrypted data. 
+We have presented \name/, a cryptographically-protected database system based on Intel SGX that leaks only table sizes and its query plan (and additionally offers a padding mode to hide even table sizes). We have shown that \name/ handles practical data sets with performance surpassing prior work with similar security properties as well as other existing solutions with more permissive leakage functions. It is our hope that solutions like \name/ based on SGX and other techniques that leverage hardware-based advantages can enable rapid advances in the performance and security of solutions to difficult problems related to private databases and search over encrypted data. 
 
 %\section*{Acknowledgements}
 
