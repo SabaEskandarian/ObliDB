@@ -332,6 +332,7 @@ We compare \name/ to a baseline oblivious database implementation that naively c
 
 \subsection{Microbenchmarks: Effectiveness of Low-Leakage Optimization}
 \begin{figure*}
+\small
 \centering
 \begin{tabular}{@{}l@{}l@{}l}
 \begin{tikzpicture}
@@ -420,11 +421,12 @@ We compare \name/ to a baseline oblivious database implementation that naively c
 \end{axis}
 \end{tikzpicture}\\
 \end{tabular}
-\caption{Comparison of Linear and Index versions of operators over SYNTH table. Linear scans do better when most of the data needs to be accessed, but Indexed structures perform far better for small queries. Operations involving modification of the database are far faster for indexed structures.}
+\caption{Comparison of Linear and Index versions of operators over 100,000 rows of fabricated data. Linear scans do better when most of the data needs to be accessed, but Indexed structures perform far better for small queries. Operations involving modification of the database are far faster for indexed structures.}
 \label{figC1}
 \end{figure*}
 
 \begin{figure}
+\small
 \centering
 \begin{tikzpicture}
 \centering
@@ -432,28 +434,34 @@ We compare \name/ to a baseline oblivious database implementation that naively c
 	width=6.5cm,
 	ybar interval=.7,
 	ylabel={\texttt{SELECT} Time [seconds]},
-    title={Effectiveness of Low-Leakage Optimization}, 
-	symbolic x coords={5\% of Table, 95\% of Table, 4},
-	legend style={at={(0.5,-0.17)},
-	anchor=north,legend columns=2},
+    title={Effectiveness of Optimizer}, 
+	symbolic x coords={5\% of Table Cont., 5\% of Table, 95\% of Table Cont., 95\% of Table, 4},
+	legend style={at={(0.5,-0.35)},
+	anchor=north,legend columns=4},
 	xtick=data,
-	x tick label style={
-		/pgf/number format/1000 sep=},
+	x tick label style={text width=1cm},
 	%%ylabel=Time (seconds),
 	enlargelimits=0.05,
     ]
 	
 \addplot 
-	coordinates {(5\% of Table, 9.31225) (95\% of Table, 10.69292) (4,1)}; %hash
+	coordinates {(5\% of Table Cont., 9.24) (5\% of Table, 9.24) (95\% of Table Cont., 10.6) (95\% of Table, 10.6) (4,1)}; %hash
 \addplot 
-	coordinates {(5\% of Table, .84819) (95\% of Table, 2.3543) (4,1)};	%small/large
+	coordinates {(5\% of Table Cont., .84) (5\% of Table, .84) (95\% of Table Cont., 8.77) (95\% of Table, 8.77) (4,1)};	%small
+	\addplot 
+	coordinates {(5\% of Table Cont., 0) (5\% of Table, 0) (95\% of Table Cont., 2.33) (95\% of Table, 2.33) (4,1)};	%large
 \addplot 
-	coordinates {(5\% of Table, 1.69821) (95\% of Table, 1.91123) (4,1)};	%cont
+	coordinates {(5\% of Table Cont., 1.63) (5\% of Table, 0) (95\% of Table Cont., 1.89) (95\% of Table, 0) (4,1)};	%cont
 
-\legend{No Optimization, Low-Leakage Opt., Continuous Opt.}
+\legend{Hash, Small, Large, Cont.}
+       \draw (37,12) node {\textasteriskcentered}; 
+       \draw (77,105) node {* Our Choice}; 
+       \draw (137,12) node {\textasteriskcentered}; 
+       \draw (287,22.5) node {\textasteriskcentered}; 
+       \draw (362.5,27.5) node {\textasteriskcentered}; 
 \end{axis}
 \end{tikzpicture}
-\caption{Comparison of \texttt{SELECT} algorithms on SYNTH Linear table. Low-leakage optimizations (small/large or continuous \texttt{SELECT} algorithms) improve performance over no optimization by 4.5-11$\times$.} 
+\caption{Our optimizer picks the best algorithm for handling \texttt{SELECT} queries based on a preliminary scan that determines whether the data to be returned is small, large, or consists of a continuous set of rows in the table.} 
 \label{figC3}
 \end{figure}
 
@@ -463,7 +471,9 @@ Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{
 
 \subsection{Comparison to Baseline/Prior Work}
 \begin{figure}
+\small
 \centering
+\ignore{
 \begin{tikzpicture}
 \centering
 \begin{semilogyaxis}[
@@ -493,15 +503,17 @@ Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{
 \end{semilogyaxis}
 \end{tikzpicture}
 \vskip .3cm
+}
+
 \centering
 \begin{tikzpicture}
-\begin{semilogyaxis}[
+\begin{axis}[
 	width=6.5cm,
 	ylabel={Improvement over Baseline},
-    title={Comparison to Opaque}, 
+    title={Comparison to Opaque - No Index}, 
 	symbolic x coords={BDB Q1, BDB Q2, BDB Q3, 4},
-	ytick={1,10,100,500},
-	yticklabels={1$\times$, 10$\times$, 100$\times$, 500$\times$},
+	ytick={0, 100, 200, 300, 400,500},
+	%yticklabels={1$\times$, 10$\times$, 100$\times$, 500$\times$},
 	x tick label style={
 		/pgf/number format/1000 sep=},
 	%%ylabel=Time (seconds),
@@ -512,29 +524,121 @@ Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{
 	ybar interval=0.7,
     ]
 \addplot %opaque obliv
-	coordinates {(BDB Q1,24.15) (BDB Q2,47.96) (BDB Q3,6.58) (4, 1)};
+	coordinates {(BDB Q1,25.6) (BDB Q2,233.06) (BDB Q3,50.08) (4, 510)}; 
 \addplot %us
-	coordinates {(BDB Q1,498.6) (BDB Q2, 58.46) (BDB Q3,8.64) (4,1)};
+	coordinates {(BDB Q1, 19) (BDB Q2, 284) (BDB Q3,65.8) (4,510)};
 %\addplot %spark sql
 %	coordinates {(BDB Q1,335.54) (BDB Q2,104.16) (BDB Q3,18.12) (4,1)};
 \addlegendimage{line legend,black,sharp plot,dashed}
-\coordinate (A) at (axis cs:BDB Q1,335.54);
-\coordinate (B) at (axis cs:BDB Q2,335.54);
-\coordinate (C) at (axis cs:BDB Q2,104.16);
-\coordinate (D) at (axis cs:BDB Q3,104.16);
-\coordinate (E) at (axis cs:BDB Q3,18.12);
-\coordinate (F) at (axis cs:4,18.12);
+\coordinate (A) at (axis cs:BDB Q1,356.1);
+\coordinate (B) at (axis cs:BDB Q2,356.1);
+\coordinate (C) at (axis cs:BDB Q2,506.1);
+\coordinate (D) at (axis cs:BDB Q3,506.1);
+\coordinate (E) at (axis cs:BDB Q3,137.97);
+\coordinate (F) at (axis cs:4,137.97);
  
 \draw [black,sharp plot,dashed] (A) -- (B);
 \draw [black,sharp plot,dashed] (C) -- (D);
 \draw [black,sharp plot,dashed] (E) -- (F); 
 
 %\legend{Opaque Oblivious, \name/, Spark SQL (No Security), NS}
-\end{semilogyaxis} 
+\end{axis} 
 \end{tikzpicture}
-\caption{\name/ outperforms Baseline and Opaque oblivious~\cite{ZDB+17} by 9-499$\times$ and 1.2-20$\times$ respectively and never runs more than 2.1$\times$ slower than Spark SQL~\cite{SparkSQL} on the Q1-Q3 of the Big Data Benchmark~\cite{BDB}.}  
+\vskip .3cm
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+	width=6.5cm,
+	ylabel={Improvement over Baseline},
+    title={Comparison to Opaque - Index Allowed}, 
+	symbolic x coords={BDB Q1, BDB Q2, BDB Q3, 4},
+	ytick={0, 100, 200, 300, 400,500},
+	%ytick={30,100, 300,500},
+	%yticklabels={30$\times$, 100$\times$, 500$\times$},
+	x tick label style={
+		/pgf/number format/1000 sep=},
+	%%ylabel=Time (seconds),
+	legend style={at={(0.5,-0.17)},
+	legend entries={Opaque Oblivious Mode, \name/, Spark SQL (No Security)},
+	anchor=north,legend columns=2},
+	enlargelimits=0.05,
+	ybar interval=0.7,
+    ]
+\addplot %opaque obliv
+	coordinates {(BDB Q1,25.6) (BDB Q2,233.06) (BDB Q3,50.08) (4, 510)}; 
+\addplot %us
+	coordinates {(BDB Q1, 522.8) (BDB Q2, 284) (BDB Q3,65.8) (4,510)};
+%\addplot %spark sql
+%	coordinates {(BDB Q1,335.54) (BDB Q2,104.16) (BDB Q3,18.12) (4,1)};
+\addlegendimage{line legend,black,sharp plot,dashed}
+\coordinate (A) at (axis cs:BDB Q1,356.1);
+\coordinate (B) at (axis cs:BDB Q2,356.1);
+\coordinate (C) at (axis cs:BDB Q2,506.1);
+\coordinate (D) at (axis cs:BDB Q3,506.1);
+\coordinate (E) at (axis cs:BDB Q3,137.97);
+\coordinate (F) at (axis cs:4,137.97);
+ 
+\draw [black,sharp plot,dashed] (A) -- (B);
+\draw [black,sharp plot,dashed] (C) -- (D);
+\draw [black,sharp plot,dashed] (E) -- (F); 
+
+%\legend{Opaque Oblivious, \name/, Spark SQL (No Security), NS}
+\end{axis} 
+\end{tikzpicture}
+\caption{\name/ outperforms Baseline and Opaque oblivious~\cite{ZDB+17} by 66-523$\times$ and 1.2-20$\times$ respectively and never runs more than 2.1$\times$ slower than Spark SQL~\cite{SparkSQL} on the Q1-Q3 of the Big Data Benchmark~\cite{BDB}. Even without use of an index, \name/ performs comparably to Opaque Oblivious and outperforms a baseline by one or more orders of magnitude.} 
 \label{figOpaque} 
 \end{figure} 
+
+\begin{figure}
+\small
+\centering
+\begin{tikzpicture}
+\begin{semilogxaxis}[
+    title style={align=center}, title={\name/ vs Sophos\\Select from 1.4 Million Row Table},
+    width=7cm,
+    xlabel={Number of Rows Returned},
+    ylabel={Time [seconds]},
+    xmin=5, xmax=10000,
+    ymin=0, ymax=80,
+    xtick={10,100,1000,10000},
+    ytick={0,10,20,30,40,50,60,70},
+    legend pos=north west,
+    ymajorgrids=true,
+    grid style=dashed,
+    ]
+    \addplot[
+    color=blue,
+    mark=square,
+    ]
+    coordinates {
+    (10,.2)(100,.8)(1000,7)(10000,69)
+    };
+    \addplot[
+    color=red,
+    mark=square,
+    ]
+    coordinates {
+    (10,.01053)(100,.07797)(1000,.73794)(10000,14.73558)
+    };
+    \legend{Sophos, \name/}
+\end{semilogxaxis}
+\end{tikzpicture}
+\caption{Comparison of \name/ to Sophos SSE scheme\cite{Bost16} on 1.4 million rows of data. \name/ outperforms Sophos by 19$\times$ when selecting 10 rows and by 4.7$\times$ when selecting 10,000 rows. Unlike \name/, Sophos does not use SGX but leaks access patterns to data.\ignore{make sure to mention in text that sophos numbers come from original paper and were gathered on a much more powerful computer and also used multithreading. Also, if we extrapolate the numbers to 100k rows retrieved, \name/ linear scan actual beats both \name/ index and sophos}} 
+\end{figure}
+
+\begin{figure}
+\small
+\centering
+\begin{tabular}{llll}
+\textbf{Query Type} & \textbf{No Padding} & \textbf{Padding} & \textbf{Slowdown} \\\hline\rule{0pt}{2ex}
+Aggregate & 0.72s & 7.31s & 10.2$\times$\\
+Select (Linear) & 1.40s & 8.12s & 5.8$\times$\\
+Select (Index) & 0.63s & 2.35s & 3.7$\times$\\
+Insert (Index) & 0.20s & 0.25s & 1.3$\times$\\
+Delete (Index) & 0.43s & 0.49s & 1.1$\times$\\
+\end{tabular}
+\caption{Slowdown of \name/ in padding mode for queries in the CFPB table of 107,000 rows padded to 500,000 rows.}
+\end{figure}
 
 \name/'s Indexed tables perform better than a baseline implementation (e.g. what could be achieved with a generic tool for converting legacy applications). The queries on the SYNTH table in Figure~\ref{figQueries} show comparisons on \texttt{INSERT} and \texttt{DELETE} operations between \name/ and a baseline solution where a database index is generically modified to provide obliviousness of data access patterns via an ORAM. Whereas \name/'s Indexed tables include a number of implementation optimizations to minimize the number of ORAM reads and writes needed in any query, our generic baseline makes an ORAM access every time a non-oblivious database would. The \texttt{INSERT} query runs much faster than \texttt{DELETE} because \texttt{INSERT} only needs to find one place in the tree to insert a row, whereas \texttt{DELETE} needs to find a position in the leaves of the B+ tree and then scan forward until it finds a row to delete. \name/ outperforms the baseline by 4.5$\times$ on insertions and 1.2$\times$ on deletions. As for queries on static data, Figure~\ref{figQueries} also shows that \name/ achieves an 8.6-498.6$\times$ speedup over the baseline on various real-world queries~\cite{BDB, NASDAQ, FLIGHT, CFPB}.
 
