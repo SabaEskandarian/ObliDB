@@ -47,7 +47,7 @@
 \newtheorem{theorem}{Theorem}
 \newtheorem{definition}[theorem]{Definition}
 \newcommand{\getsR}{\overset{\$}{\leftarrow}}  
-\def\name/{OblivDB}
+\def\name/{ObliDB}
 
 \pgfplotsset{width=6cm,compat=1.9} 
 
@@ -277,8 +277,13 @@ USERVISITS & 350,000 & Server logs for many sites. Part of the Big Data Benchmar
 RANKINGS & 360,000 & URLs, PageRanks, and average visit durations for many sites. Part of the Big Data Benchmark data set~\cite{BDB}.\\
 \end{tabular}
 \caption{Tables with real data used in our evaluation and comparisons.}
+\label{tabletable}
 \end{figure}
+In this section we evaluate \name/ on tables of up to 1.4 million rows and measure its performance against a baseline oblivious database implementation as well as existing private database systems built with and without secure enclaves. A summary of real-world data sets used in our experiments appears in Figure~\ref{tabletable}. We also measure the overhead of \name/'s padding mode and  demonstrate the effectiveness of \name/'s query optimizer as well as the efficacy of Linear and Indexed tables in different situations through a series of microbenchmarks. We evaluated \name/ on an Intel Nuc box with an 1.9 GHz Intel Core i5-6260U Dual-Core processor and 32GB of RAM running Ubuntu 16.04.2 and the SGX Linux SDK version 1.8~\cite{SGXRef}. 
 
+We conclude that \name/ dramatically outperforms a baseline implementation and can leverage its indexes to achieve order of magnitude performance improvements over previous private database systems regardless of whether or not they use secure enclaves in their design. 
+
+\subsection{Comparison to Baseline}
 \begin{figure*}
 \small
 \centering
@@ -306,177 +311,15 @@ FROM
        AND UV.visitDate BETWEEN Date(`1980-01-01') AND Date(`1980-04-01')
     GROUP BY UV.sourceIP)
   ORDER BY totalRevenue DESC LIMIT 1} & 15.20s & $>$1000s& $>$65.8$\times$\\
-
-
-
 \end{tabular}
 \caption{Comparison of \name/ and a baseline where a naive oblivious database implementation directly ports non-oblivious algorithms to their oblivious counterparts via ORAM. \name/ outperforms the baseline on all queries.}
 \label{figQueries}
 \end{figure*}
+\name/ outperforms a baseline implementation (i.e. what could be achieved with a generic tool for converting legacy applications) by as much as two orders of magnitude. Figure~\ref{figQueries} compares \name/ to a baseline oblivious database implementation where ORAM accesses naively replace memory accesses. \name/ achieves up to 29$\times$ speedup for \texttt{SELECT} queries and over 284$\times$ speedup for aggregates. \texttt{SELECT} queries over Linear tables enjoy much larger speedup than the same queries over Indexed tables because an oblivious B+ tree lookup takes most of time in the indexed \texttt{SELECT} queries, and we used the same algorithm for this lookup in both the baseline and actual implementations. We made this decision because a naive application of ORAM to a B+ tree search algorithm does not yield an oblivious B+ tree, as described in Section~\ref{oblivData}. Likewise, the relatively smaller -- although by no means inconsequential -- gains on insertion and deletion in indexes arise from the fact that most of the work of designing an oblivious index goes into achieving the obliviousness property in the first place. 
 
-We extensively evaluate \name/ to demonstrate that choices of data structures and algorithms offered by \name/ allow for meaningful optimizations in handling queries without increasing leakage. We also execute real queries on multiple data sets:
-\begin{itemize}[itemsep=0pt,parsep=0pt]
-\item NASDAQ~\cite{NASDAQ} consists of the last sale price and other related information for all approximately 3,200 stocks on the NASDAQ stock exchange.
+The most staggering speedups over the baseline appear in aggregation queries, where \name/ gains two orders of magnitude in performance. This arises from the need to hide data structures that keep statistics for each group without revealing when a row does not match with any known groups and needs to begin its own new group. The possibility of this occurrence necessitates, in the naive algorithm, an access to each group's data for each row. With the maximum number of groups set to the hundreds of thousands, such a query has little chance of completing within a reasonable time frame and may take well over the 1,000 seconds at which we cut off our experiments. The aggregation over the CFPB table completes in a shorter period of time because we used our prior knowledge of the number of banks to set the maximum number of groups to a lower threshold (200, in this case).
 
-\item CFPB~\cite{CFPB} contains individual complaints on financial products and services sent to the US consumer financial protection bureau and contains about 106,000 rows.
-
-\item FLIGHTS~\cite{FLIGHT}, a subset of the flight dataset used to evaluate Splinter~\cite{WYG+17}, contains data on arrival/departure points, flight numbers, ticket prices, and delays for 250,000 US domestic flights.
-
-\item RANKINGS~\cite{BDB}, a table from the Big Data Benchmark, contains 360,000 rows of URLs, PageRanks, and average visit durations.
-
-\item USERVISITS~\cite{BDB}, another Big Data Benchmark table of 350,000 rows, stores server logs for many web pages. 
-
-\item SYNTH contains synthesized data used for Microbenchmarks and varied in size from 100 to 500,000 rows during our experiments. We report results for 100,000 rows. 
-\end{itemize}
-A summary of queries executed on real-world data is shown in Figure~\ref{figQueries}. 
-
-We compare \name/ to a baseline oblivious database implementation that naively converts data structures and algorithms to their oblivious counterparts using ORAM, to Opaque's oblivious mode~\cite{ZDB+17} run on a single node, providing security guarantees comparable to \name/, and Spark SQL running on one core~\cite{SparkSQL}, which provides no security guarantees. \name/ dramatically outperforms the baseline and also performs better than Opaque while coming, at worst, within just over a factor of 2 of the performance of Spark SQL. 
-
-\subsection{Microbenchmarks: Effectiveness of Low-Leakage Optimization}
-\begin{figure*}
-\small
-\centering
-\begin{tabular}{@{}l@{}l@{}l}
-\begin{tikzpicture}
-\begin{axis}[
-    title={Linear vs Index Select},
-    	width=5.5cm,
-    xlabel={Percent of Table Retrieved},
-    ylabel={Time [seconds]},
-    xmin=5, xmax=20,
-    ymin=0, ymax=20,
-    xtick={5, 10, 15, 20},
-    ytick={0,5,10,15,20},
-    legend pos=south east,
-    ymajorgrids=true,
-    grid style=dashed,
-    ]
-    \addplot[
-    color=blue,
-    mark=square,
-    ]
-    coordinates {
-    (5,12.67146)(10,12.71014)(15,12.87276)(20,12.90335)
-    };
-    \addplot[
-    color=red,
-    mark=square,
-    ]
-    coordinates {
-    (5,4.10491)(10,8.22869)(15,12.44472)(20,16.44773)
-    };
-    \legend{Linear, Indexed}
-\end{axis}
-\end{tikzpicture}
-
-\begin{tikzpicture}
-\begin{axis}[
-    title={Linear vs Index Group By},
-        ylabel={Time [seconds]},
-        	width=5.5cm,
-    xlabel={Percent of Table Retrieved},
-    xmin=0, xmax=2,
-    ymin=0, ymax=.75,
-    xtick={0,.5,1,1.5,2},
-    ytick={0,.25,.5,.75,1},
-    legend pos=south east,
-    ymajorgrids=true,
-    grid style=dashed,
-    ]
-    \addplot[
-    color=blue,
-    mark=square,
-    ]
-    coordinates {
-    (.1,.40982)(.5,.41572)(1,.42153)(1.5,.41053)(2,.41103)
-    };
-    \addplot[
-    color=red,
-    mark=square,
-    ]
-    coordinates {
-    (.1,.03718)(.5,.17128)(1,.33852)(1.5,.50370)(2,.67299)
-    };
-    \legend{Linear, Indexed}
-\end{axis}
-\end{tikzpicture}
-&
-\begin{tikzpicture}
-\begin{axis}[
-	width=5.3cm,
-    title={Linear vs Index Operations},
-        ylabel={Time [seconds]},
-	symbolic x coords={Insert, Delete, Update, 4},
-	x tick label style={
-		/pgf/number format/1000 sep=},
-	%%ylabel=Time (seconds),
-	enlargelimits=0.05,
-	legend style={at={(0.5,-0.19)},
-	anchor=north,legend columns=-1},
-	ybar interval=0.7,
-    ]
-\addplot 
-	coordinates {(Insert,.83527) (Delete,.83431) (Update,.82696) (4, 1)};
-\addplot
-	coordinates {(Insert,.0772) (Delete,.35019) (Update,.57801) (4,1)};
-    \legend{Linear, Indexed}
-\end{axis}
-\end{tikzpicture}\\
-\end{tabular}
-\caption{Comparison of Linear and Index versions of operators over 100,000 rows of fabricated data. Linear scans do better when most of the data needs to be accessed, but Indexed structures perform far better for small queries. Operations involving modification of the database are far faster for indexed structures.}
-\label{figC1}
-\end{figure*}
-
-\begin{figure}
-\small
-\centering
-\begin{tikzpicture}
-\centering
-\begin{axis}[
-	width=7.5cm,
-	ybar interval=.7,
-	ylabel={\texttt{SELECT} Time [seconds]},
-    title={Effectiveness of Optimizer}, 
-	symbolic x coords={5\% of Table Cont., 5\% of Table, 95\% of Table Cont., 95\% of Table, 4},
-	legend style={at={(0.5,-0.35)},
-	anchor=north,legend columns=4},
-	xtick=data,
-	x tick label style={text width=1cm},
-	%%ylabel=Time (seconds),
-	enlargelimits=0.05,
-    ]
-	
-\addplot 
-	coordinates {(5\% of Table Cont., 9.24) (5\% of Table, 9.24) (95\% of Table Cont., 10.6) (95\% of Table, 10.6) (4,1)}; %hash
-\addplot 
-	coordinates {(5\% of Table Cont., .84) (5\% of Table, .84) (95\% of Table Cont., 8.77) (95\% of Table, 8.77) (4,1)};	%small
-	\addplot 
-	coordinates {(5\% of Table Cont., 0) (5\% of Table, 0) (95\% of Table Cont., 2.33) (95\% of Table, 2.33) (4,1)};	%large
-\addplot 
-	coordinates {(5\% of Table Cont., 1.63) (5\% of Table, 0) (95\% of Table Cont., 1.89) (95\% of Table, 0) (4,1)};	%cont
-
-\legend{Hash, Small, Large, Cont.}
-       \draw (37,12) node {\textasteriskcentered}; 
-       \draw (77,105) node {* Our Choice}; 
-       \draw (137,12) node {\textasteriskcentered}; 
-       \draw (287,22.5) node {\textasteriskcentered}; 
-       \draw (362.5,27.5) node {\textasteriskcentered}; 
-       \draw (63,2.5) node {\tiny{N/A}}; 
-       \draw (161,2.5) node {\tiny{N/A}}; 
-       \draw (187,2.5) node {\tiny{N/A}}; 
-       \draw (387,2.5) node {\tiny{N/A}}; 
-       
-\end{axis}
-\end{tikzpicture}
-\caption{Our optimizer picks the best algorithm for handling \texttt{SELECT} queries based on a preliminary scan that determines whether the data to be returned is small, large, or consists of a continuous set of rows in the table.} 
-\label{figC3}
-\end{figure}
-
-By providing both Indexed and Linear tables and optimizing \texttt{SELECT} and \texttt{GROUP BY} queries based only on information from structureal leakage, \name/ to makes meaningful performance improvements for diverse queries. To this end, Figure~\ref{figC1} compares the performance of Linear and Indexed tables on \texttt{SELECT} (hash algorithm), \texttt{GROUP BY} (low-cardinality), \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. This finding contrasts claims in prior work~\cite{RLT15} that indicate linear scans always perform better than ORAM for oblivious memory access. In general, Indexed \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables.
-
-Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of the SYNTH. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small/large or a continuous set of rows) suffices to pick an algorithm that will perform much better in practice. Equally impressive gains appear in the choice of \texttt{GROUP BY} algorithm for real queries, as demonstrated by the query on the USERVISITS table in Figure~\ref{figQueries} -- the baseline algorithm uses only the low-cardinality \texttt{GROUP BY} algorithm whereas \name/ can use the more appropriate high-cardinality variant in this situation. 
-
-\subsection{Comparison to Baseline/Prior Work}
+\subsection{Comparison to Opaque}
 \begin{figure}
 \small
 \centering
@@ -648,10 +491,15 @@ Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{
 \end{axis} 
 \end{tikzpicture}
 }
-\caption{\name/ outperforms Opaque oblivious~\cite{ZDB+17} by 1.2-20$\times$ and never runs more than 2.1$\times$ slower than Spark SQL~\cite{SparkSQL} on the Q1-Q3 of the Big Data Benchmark~\cite{BDB}. Even without use of an index, \name/ performs comparably to Opaque Oblivious.} 
+\caption{\name/ outperforms Opaque Oblivious~\cite{ZDB+17} by 1.2-20$\times$ and never runs more than 2.1$\times$ slower than Spark SQL~\cite{SparkSQL} on the Q1-Q3 of the Big Data Benchmark~\cite{BDB}. Even without use of an index, \name/ performs comparably to Opaque Oblivious.} 
 \label{figOpaque} 
 \end{figure} 
 
+Figure~\ref{figOpaque} compares \name/ with Opaque's oblivious mode~\cite{ZDB+17} and Spark SQL~\cite{SparkSQL} on the first three queries of the Big Data Benchmark~\cite{BDB} on tables of 360,000 and 350,000 rows. We omit the benchmark's fourth query as neither \name/ nor Opaque support the external scripts needed for it. Opaque also centers its design on a secure SGX enclave and can be configured in either an ``encryption'' mode, which leaks access patterns but offers performance close to Spark SQL and an ``oblivious'' mode that hides access patterns to data by making sure to fit sensitive memory accesses inside the trusted enclave memory and achieving a security level similar to ours, albeit by very different means. Spark SQL provides no security guarantees and provides a measure of the performance achievable without any security concerns. Both Opaque and Spark SQL are run in a single node configuration on our device. 
+
+\name/, when allowed to use indexes, outperforms Opaque on all three BDB queries, ranging from 1.2$\times$ speedup on query 2 to 20$\times$ speedup on query 1. The strong performance of \name/ compared to Opaque and Spark SQL on query 1 is due to \name/'s oblivious index, which allows it to only examine a small portion of the table whereas Opaque and Spark SQL, which aim to primarily handle analytic workloads, scan the entire table to satisfy the query. Even without using an index to speed up query 1, \name/ performs comparably to Opaque. Moreover, for queries 2 and 3, although \name/ is slower than Spark SQL, it is only 1.8$\times$ slower on query 2 and 2.1$\times$ slower on query 3, putting \name/ safely in the realm of tools whose performance is practical for real applications. 
+
+\subsection{Comparison to Sophos}
 \begin{figure}
 \small
 \centering
@@ -687,7 +535,162 @@ Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{
 \end{semilogxaxis}
 \end{tikzpicture}
 \caption{Comparison of \name/ to Sophos SSE scheme\cite{Bost16} on 1.4 million rows of data. \name/ outperforms Sophos by 19$\times$ when selecting 10 rows and by 4.7$\times$ when selecting 10,000 rows. Unlike \name/, Sophos does not use SGX but leaks access patterns to data.\ignore{make sure to mention in text that sophos numbers come from original paper and were gathered on a much more powerful computer and also used multithreading. Also, if we extrapolate the numbers to 100k rows retrieved, \name/ linear scan actual beats both \name/ index and sophos}} 
+\label{figSophos}
 \end{figure}
+
+
+
+\subsection{Padding Mode Overhead}
+
+\subsection{Microbenchmarks}
+
+We compare \name/ to a baseline oblivious database implementation that naively converts data structures and algorithms to their oblivious counterparts using ORAM, to Opaque's oblivious mode~\cite{ZDB+17} run on a single node, providing security guarantees comparable to \name/, and Spark SQL running on one core~\cite{SparkSQL}, which provides no security guarantees. \name/ dramatically outperforms the baseline and also performs better than Opaque while coming, at worst, within just over a factor of 2 of the performance of Spark SQL. 
+
+\subsection{Microbenchmarks: Effectiveness of Low-Leakage Optimization}
+\begin{figure*}
+\small
+\centering
+\begin{tabular}{@{}l@{}l@{}l}
+\begin{tikzpicture}
+\begin{axis}[
+    title={Linear vs Index Select},
+    	width=5.5cm,
+    xlabel={Percent of Table Retrieved},
+    ylabel={Time [seconds]},
+    xmin=5, xmax=20,
+    ymin=0, ymax=20,
+    xtick={5, 10, 15, 20},
+    ytick={0,5,10,15,20},
+    legend pos=south east,
+    ymajorgrids=true,
+    grid style=dashed,
+    ]
+    \addplot[
+    color=blue,
+    mark=square,
+    ]
+    coordinates {
+    (5,12.67146)(10,12.71014)(15,12.87276)(20,12.90335)
+    };
+    \addplot[
+    color=red,
+    mark=square,
+    ]
+    coordinates {
+    (5,4.10491)(10,8.22869)(15,12.44472)(20,16.44773)
+    };
+    \legend{Linear, Indexed}
+\end{axis}
+\end{tikzpicture}
+
+\begin{tikzpicture}
+\begin{axis}[
+    title={Linear vs Index Group By},
+        ylabel={Time [seconds]},
+        	width=5.5cm,
+    xlabel={Percent of Table Retrieved},
+    xmin=0, xmax=2,
+    ymin=0, ymax=.75,
+    xtick={0,.5,1,1.5,2},
+    ytick={0,.25,.5,.75,1},
+    legend pos=south east,
+    ymajorgrids=true,
+    grid style=dashed,
+    ]
+    \addplot[
+    color=blue,
+    mark=square,
+    ]
+    coordinates {
+    (.1,.40982)(.5,.41572)(1,.42153)(1.5,.41053)(2,.41103)
+    };
+    \addplot[
+    color=red,
+    mark=square,
+    ]
+    coordinates {
+    (.1,.03718)(.5,.17128)(1,.33852)(1.5,.50370)(2,.67299)
+    };
+    \legend{Linear, Indexed}
+\end{axis}
+\end{tikzpicture}
+&
+\begin{tikzpicture}
+\begin{axis}[
+	width=5.3cm,
+    title={Linear vs Index Operations},
+        ylabel={Time [seconds]},
+	symbolic x coords={Insert, Delete, Update, 4},
+	x tick label style={
+		/pgf/number format/1000 sep=},
+	%%ylabel=Time (seconds),
+	enlargelimits=0.05,
+	legend style={at={(0.5,-0.19)},
+	anchor=north,legend columns=-1},
+	ybar interval=0.7,
+    ]
+\addplot 
+	coordinates {(Insert,.83527) (Delete,.83431) (Update,.82696) (4, 1)};
+\addplot
+	coordinates {(Insert,.0772) (Delete,.35019) (Update,.57801) (4,1)};
+    \legend{Linear, Indexed}
+\end{axis}
+\end{tikzpicture}\\
+\end{tabular}
+\caption{Comparison of Linear and Index versions of operators over 100,000 rows of fabricated data. Linear scans do better when most of the data needs to be accessed, but Indexed structures perform far better for small queries. Operations involving modification of the database are far faster for indexed structures.}
+\label{figC1}
+\end{figure*}
+
+\begin{figure}
+\small
+\centering
+\begin{tikzpicture}
+\centering
+\begin{axis}[
+	width=7.5cm,
+	ybar interval=.7,
+	ylabel={\texttt{SELECT} Time [seconds]},
+    title={Effectiveness of Optimizer}, 
+	symbolic x coords={5\% of Table Cont., 5\% of Table, 95\% of Table Cont., 95\% of Table, 4},
+	legend style={at={(0.5,-0.35)},
+	anchor=north,legend columns=4},
+	xtick=data,
+	x tick label style={text width=1cm},
+	%%ylabel=Time (seconds),
+	enlargelimits=0.05,
+    ]
+	
+\addplot 
+	coordinates {(5\% of Table Cont., 9.24) (5\% of Table, 9.24) (95\% of Table Cont., 10.6) (95\% of Table, 10.6) (4,1)}; %hash
+\addplot 
+	coordinates {(5\% of Table Cont., .84) (5\% of Table, .84) (95\% of Table Cont., 8.77) (95\% of Table, 8.77) (4,1)};	%small
+	\addplot 
+	coordinates {(5\% of Table Cont., 0) (5\% of Table, 0) (95\% of Table Cont., 2.33) (95\% of Table, 2.33) (4,1)};	%large
+\addplot 
+	coordinates {(5\% of Table Cont., 1.63) (5\% of Table, 0) (95\% of Table Cont., 1.89) (95\% of Table, 0) (4,1)};	%cont
+
+\legend{Hash, Small, Large, Cont.}
+       \draw (37,12) node {\textasteriskcentered}; 
+       \draw (77,105) node {* Our Choice}; 
+       \draw (137,12) node {\textasteriskcentered}; 
+       \draw (287,22.5) node {\textasteriskcentered}; 
+       \draw (362.5,27.5) node {\textasteriskcentered}; 
+       \draw (63,2.5) node {\tiny{N/A}}; 
+       \draw (161,2.5) node {\tiny{N/A}}; 
+       \draw (187,2.5) node {\tiny{N/A}}; 
+       \draw (387,2.5) node {\tiny{N/A}}; 
+       
+\end{axis}
+\end{tikzpicture}
+\caption{Our optimizer picks the best algorithm for handling \texttt{SELECT} queries based on a preliminary scan that determines whether the data to be returned is small, large, or consists of a continuous set of rows in the table.} 
+\label{figC3}
+\end{figure}
+
+By providing both Indexed and Linear tables and optimizing \texttt{SELECT} and \texttt{GROUP BY} queries based only on information from structureal leakage, \name/ to makes meaningful performance improvements for diverse queries. To this end, Figure~\ref{figC1} compares the performance of Linear and Indexed tables on \texttt{SELECT} (hash algorithm), \texttt{GROUP BY} (low-cardinality), \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. This finding contrasts claims in prior work~\cite{RLT15} that indicate linear scans always perform better than ORAM for oblivious memory access. In general, Indexed \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables.
+
+Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of the SYNTH. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small/large or a continuous set of rows) suffices to pick an algorithm that will perform much better in practice. Equally impressive gains appear in the choice of \texttt{GROUP BY} algorithm for real queries, as demonstrated by the query on the USERVISITS table in Figure~\ref{figQueries} -- the baseline algorithm uses only the low-cardinality \texttt{GROUP BY} algorithm whereas \name/ can use the more appropriate high-cardinality variant in this situation. 
+
+\subsection{Comparison to Baseline/Prior Work}
 
 \begin{figure}
 \small
@@ -702,13 +705,6 @@ Delete (Index) & 0.43s & 0.49s & 1.1$\times$\\
 \end{tabular}
 \caption{Slowdown of \name/ in padding mode for queries in the CFPB table of 107,000 rows padded to 500,000 rows.}
 \end{figure}
-
-\name/'s Indexed tables perform better than a baseline implementation (e.g. what could be achieved with a generic tool for converting legacy applications). The queries on the SYNTH table in Figure~\ref{figQueries} show comparisons on \texttt{INSERT} and \texttt{DELETE} operations between \name/ and a baseline solution where a database index is generically modified to provide obliviousness of data access patterns via an ORAM. Whereas \name/'s Indexed tables include a number of implementation optimizations to minimize the number of ORAM reads and writes needed in any query, our generic baseline makes an ORAM access every time a non-oblivious database would. The \texttt{INSERT} query runs much faster than \texttt{DELETE} because \texttt{INSERT} only needs to find one place in the tree to insert a row, whereas \texttt{DELETE} needs to find a position in the leaves of the B+ tree and then scan forward until it finds a row to delete. \name/ outperforms the baseline by 4.5$\times$ on insertions and 1.2$\times$ on deletions. As for queries on static data, Figure~\ref{figQueries} also shows that \name/ achieves an 8.6-498.6$\times$ speedup over the baseline on various real-world queries~\cite{BDB, NASDAQ, FLIGHT, CFPB}.
-
-  \noindent \textbf{Comparison to Prior Work}. 
-Figure~\ref{figOpaque} compares \name/ with our baseline implementation, Opaque's oblivious mode~\cite{ZDB+17}, and Spark SQL~\cite{SparkSQL} on the first three queries of the Big Data Benchmark~\cite{BDB} on tables of 360,000 and 350,000 rows. The fourth query of the benchmark is omitted as neither \name/ nor Opaque support the external scripts needed for it. The baseline implementation makes use of the naive \texttt{SELECT} and low-cardinality \texttt{GROUP BY} algorithms described in Section~\ref{oblivOps}. Opaque can be configured in either an ``encryption'' mode, which leaks access patterns but offers performance close to Spark SQL (which is why it is omitted here) and an ``oblivious'' mode that hides access patterns to data by making sure to fit sensitive memory accesses inside the trusted enclave memory and achieving a security level comparable to ours, albeit by very different means. Spark SQL provides no security guarantees and provides a measure of the performance achievable without any security concerns. Both Opaque and Spark SQL are run in a single node configuration on our device. 
-
-\name/ outperforms Opaque on all three BDB queries, ranging from 1.2$\times$ speedup on query 2 to 20$\times$ speedup on query 1. The strong performance of \name/ compared to Opaque and Spark SQL on query 1 is due to \name/'s oblivious index, which allows it to only examine a small portion of the table whereas Opaque and Spark SQL scan the entire table to satisfy the query. For queries 2 and 3, although \name/ is slower than Spark SQL, it is only 1.8$\times$ slower on query 2 and 2.1$\times$ slower on query 3, putting \name/ safely in the realm of tools whose performance is practical for real applications. 
 
 \section{Related Work}\label{related}
 
