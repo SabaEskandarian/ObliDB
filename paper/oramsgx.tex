@@ -125,8 +125,8 @@ They therefore give a high level of protection from an attacker with no physical
 However, applications using enclaves to manage a large amount of data must still access it through the OS (e.g., to read new memory pages or access the disk), which makes them susceptible to access pattern attacks.
 For database workloads in particular, access patterns can reveal a great deal of information even when the data is encrypted~\cite{something}. % Maybe cite cryptdb attack papers
 Some recent systems, such as Opaque~\cite{opaque} and Cipherbase~\cite{cipherbase}, have proposed oblivious execution schemes that do not reveal access patterns, but these systems are limited to \emph{analytics} workloads that scan entire tables to answer a query.
-Specifically, Opaque and Cipherbase leverage oblivious sort operators that sort all the data.
-These systems would not be efficient for more general database workloads that also include transaction processing (point queries and updates to a few records)---the most common use case for databases such as MySQL and Postgres.
+Specifically, both systems use oblivious sort operators that sort all the data.
+These systems would not be efficient for more general database workloads that also include transaction processing (point queries and updates to a few records)---the most common use case for databases.
 
 This paper presents \name/, an oblivious SQL database that supports both transactional and analytical processing using hardware enclaves.
 The key idea in \name/ is to use techniques from Oblivious RAM (ORAM)~\cite{oram} to support fast lookups and updates to just part of the database, unlike previous systems that always scan the whole data.
