@@ -213,6 +213,42 @@ node * find_leaf(int structureId, node * root, int key) {
 	return c;
 }
 
+/* Traces the path from the root to a leaf, searching
+ * by key.
+ * Returns the node who is the parent of the node at actAddr
+ */
+node * find_parent(int structureId, node * root, int key, int actAddr) {
+	int i = 0;
+	node *prevC = (node*)malloc(sizeof(node));
+	node *c = (node*)malloc(sizeof(node));
+	if (root == NULL) {
+		return NULL;
+	}
+
+	memcpy(c, root, sizeof(node));
+	//c = root;
+	int tempCount = 0;
+	//printf("here in find_leaf %d\n", c->is_leaf);
+	while (!c->is_leaf) {//printf("find_leaf c: %d %d %d %d %d\n", c->actualAddr, c->num_keys, c->is_leaf, c->keys[0], c->pointers[0]);
+		//printf("here in find_leaf2\n");
+		i = 0;
+		while (i < c->num_keys) {	//printf("here in find_leaf3\n");
+			if (key >= c->keys[i]) i++;
+			else break;
+		}
+		tempCount++;
+		//printf("following link from block %d to block %d\n", c->actualAddr, c->pointers[i]);
+		//printf("i %d %d %d\n", i, positionMaps[structureId][c->pointers[i]], usedBlocks[structureId][c->pointers[i]]);
+		memcpy(prevC, c, sizeof(node));
+		followNodePointer(structureId, c, c->pointers[i]);
+		//printf("now in node %d, tempCount=%d \n", c->actualAddr, tempCount);
+		//c = (node *)c->pointers[i];
+		if(c->actualAddr == actAddr) break;
+	}
+	free(c);
+	return prevC;
+}
+
 
 /* Finds and returns the record to which
  * a key refers.
@@ -275,7 +311,7 @@ node * make_node(int structureId, int isLeaf) {
 
 	new_node->is_leaf = isLeaf;
 	new_node->num_keys = 0;
-	new_node->parentAddr = -1;
+	new_node->is_root = 0;
 	writeNode(structureId, new_node);
 	//printf("allocated node: %d", new_node->actualAddr);
 	return new_node;
@@ -371,7 +407,8 @@ node * insert_into_leaf_after_splitting(int structureId, node * root, node * lea
 	for (i = new_leaf->num_keys; i < order - 1; i++)
 		new_leaf->pointers[i] = -1;
 
-	new_leaf->parentAddr = leaf->parentAddr;
+	//new_leaf->parentAddr = leaf->parentAddr;
+	new_leaf->is_root = 0;
 	new_key = new_leaf->keys[0];
 
 	writeNode(structureId, leaf);//do this here because these may not be edited again
@@ -470,15 +507,16 @@ node * insert_into_node_after_splitting(int structureId, node * root, node * old
 	}
 	new_node->pointers[j] = temp_pointers[i];
 
-	new_node->parentAddr = old_node->parentAddr;
+	//new_node->parentAddr = old_node->parentAddr;
+	new_node->is_root = 0;
 	writeNode(structureId, new_node);
 	child = (node*)malloc(sizeof(node));
-	for (i = 0; i <= new_node->num_keys; i++) {
+	/*for (i = 0; i <= new_node->num_keys; i++) {
 		followNodePointer(structureId, child, new_node->pointers[i]);
 		//child = (node*)new_node->pointers[i];
 		child->parentAddr = new_node->actualAddr;
 		writeNode(structureId, child);
-	}
+	}*/
 	free(child);
 
 	/* Insert a new key into the parent of the two
@@ -504,13 +542,13 @@ node * insert_into_parent(int structureId, node * root, node * left, int key, no
 	int left_index;
 
 	/* Case: new root. */
-	if (left->parentAddr == -1){
+	if (left->is_root == 1){
 		return insert_into_new_root(structureId, left, key, right);
 
 	}
 
-	node * parent = (node*)malloc(sizeof(node));
-	followNodePointer(structureId, parent, left->parentAddr);
+	node * parent = find_parent(structureId, root, key, left->actualAddr);// = (node*)malloc(sizeof(node));
+	//followNodePointer(structureId, parent, left->parentAddr);
 	//parent = left->parent;
 
 	/* Case: leaf or node. (Remainder of
@@ -554,9 +592,9 @@ node * insert_into_new_root(int structureId, node * left, int key, node * right)
 	root->pointers[0] = left->actualAddr;
 	root->pointers[1] = right->actualAddr;
 	root->num_keys++;
-	root->parentAddr = -1;
-	left->parentAddr = root->actualAddr;
-	right->parentAddr = root->actualAddr;
+	root->is_root = 1;
+	left->is_root = 0;
+	right->is_root = 0;
 	writeNode(structureId, root);
 	writeNode(structureId, left);
 	writeNode(structureId, right);
@@ -577,7 +615,8 @@ node * start_new_tree(int structureId, int key, record * pointer) {
 	root->keys[0] = key;
 	root->pointers[0] = pointer->actualAddr;
 	root->pointers[order - 1] = -1;
-	root->parentAddr = -1;
+	//root->parentAddr = -1;
+	root->is_root = 1;
 	root->num_keys++;
 	writeNode(structureId, root);
 	return root;
@@ -658,12 +697,12 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
  * is the leftmost child), returns -1 to signify
  * this special case.
  */
-int get_neighbor_index(int structureId,  node * n ) {
+int get_neighbor_index(int structureId,  node * n, node * nParent ) {
 
 	int i;
-	if(n->parentAddr == -1){printf("something has gone wrong.\n");};
-	node *nParent = (node*)malloc(sizeof(node));
-	followNodePointer(structureId, nParent, n->parentAddr);
+	//if(n->parentAddr == -1){printf("something has gone wrong.\n");};
+	//node *nParent = (node*)malloc(sizeof(node));
+	//followNodePointer(structureId, nParent, n->parentAddr);
 	/* Return the index of the key to the left
 	 * of the pointer in the parent pointing
 	 * to n.
@@ -672,7 +711,7 @@ int get_neighbor_index(int structureId,  node * n ) {
 	 */
 	for (i = 0; i <= nParent->num_keys; i++){
 		if (nParent->pointers[i] == n->actualAddr){
-			free(nParent);
+			//free(nParent);
 			return i - 1;
 		}
 	}
@@ -759,7 +798,8 @@ node * adjust_root(int structureId, node * root) {
 		//new_root = (node*)root->pointers[0];
 		new_root = (node*)malloc(sizeof(node));
 		followNodePointer(structureId, new_root, root->pointers[0]);
-		new_root->parentAddr = -1;
+		//new_root->parentAddr = -1;
+		new_root->is_root = 1;
 		writeNode(structureId, new_root);
 	}
 
@@ -847,12 +887,12 @@ node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, i
 		/* All children must now point up to the same parent.
 		 */
 
-		for (i = 0; i < neighbor->num_keys + 1; i++) {
+		/*for (i = 0; i < neighbor->num_keys + 1; i++) {
 			followNodePointer(structureId, tmp, neighbor->pointers[i]);
 			//tmp = (node *)neighbor->pointers[i];
 			tmp->parentAddr = neighbor->actualAddr;
 			writeNode(structureId, tmp);
-		}
+		}*/
 	}
 
 	/* In a leaf, append the keys and pointers of
@@ -871,7 +911,9 @@ node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, i
 		writeNode(structureId, neighbor);
 	}
 
-	followNodePointer(structureId, tmp, n->parentAddr);
+	tmp = find_parent(structureId, root, n->keys[1], n->actualAddr);//n->keys[1] is a key that will lead to this node
+
+	//followNodePointer(structureId, tmp, n->parentAddr);
 	root = delete_entry(structureId, root, tmp, k_prime, n);//printf("past deletion\n");
 
 	freeBlock(structureId, n->actualAddr);
@@ -903,8 +945,8 @@ node * redistribute_nodes(int structureId, node * root, node * n, node * neighbo
 //printf("redistribute\n");
 	int i;
 	node * tmp = (node*)malloc(sizeof(node));
-	node *nParent = (node*)malloc(sizeof(node));
-	followNodePointer(structureId, nParent, n->parentAddr);
+	node *nParent = find_parent(structureId, root, n->keys[1], n->actualAddr);//(node*)malloc(sizeof(node));
+	//followNodePointer(structureId, nParent, n->parentAddr);
 
 	/* Case: n has a neighbor to the left.
 	 * Pull the neighbor's last key-pointer pair over
@@ -923,7 +965,8 @@ node * redistribute_nodes(int structureId, node * root, node * n, node * neighbo
 			n->pointers[0] = neighbor->pointers[neighbor->num_keys];
 			followNodePointer(structureId, tmp, n->pointers[0]);
 			//tmp = (node *)n->pointers[0];
-			tmp->parentAddr = n->actualAddr;
+			//tmp->parentAddr = n->actualAddr;
+			tmp-> is_root = 0;
 			neighbor->pointers[neighbor->num_keys] = -1;
 			n->keys[0] = k_prime;
 			nParent->keys[k_prime_index] = neighbor->keys[neighbor->num_keys - 1];
@@ -954,7 +997,8 @@ node * redistribute_nodes(int structureId, node * root, node * n, node * neighbo
 			n->pointers[n->num_keys + 1] = neighbor->pointers[0];
 			followNodePointer(structureId, tmp, n->pointers[n->num_keys + 1]);
 			//tmp = (node *)n->pointers[n->num_keys + 1];
-			tmp->parentAddr = n->actualAddr;
+			//tmp->parentAddr = n->actualAddr;
+			tmp->is_root = 0;
 			nParent->keys[k_prime_index] = neighbor->keys[0];
 			writeNode(structureId, tmp);
 		}
@@ -1049,10 +1093,10 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	//printf("finding neighbor\n");
 
 	neighbor = (node*)malloc(sizeof(node));
-	nParent = (node*)malloc(sizeof(node));
-	followNodePointer(structureId, nParent, n->parentAddr);
+	nParent = find_parent(structureId, root, key, n->actualAddr);//(node*)malloc(sizeof(node));
+	//followNodePointer(structureId, nParent, n->parentAddr);
 
-	neighbor_index = get_neighbor_index(structureId,  n );
+	neighbor_index = get_neighbor_index(structureId,  n, nParent);
 	k_prime_index = neighbor_index == -1 ? 0 : neighbor_index;
 	k_prime = nParent->keys[k_prime_index];
 

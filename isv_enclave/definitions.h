@@ -78,7 +78,8 @@ typedef struct node { //size 8*MAX_ORDER + 16 = currently 176, which wastes a lo
 	int pointers[MAX_ORDER];//let NULL be -1
 	int keys[MAX_ORDER];
 	//struct node * parent;
-	int parentAddr;
+	//int parentAddr; replaced by is_root
+	int is_root;
 	int num_keys;
 	uint8_t waste[BLOCK_DATA_SIZE - 8*MAX_ORDER - 8]; //to make all oram blocks the same size
 	//struct node * next; // Used for queue.
