@@ -11,27 +11,26 @@
 #include "string.h"
 
 
-#define BLOCK_DATA_SIZE 2048
-#define NUM_BLOCKS_POW 10
-#define TEST_TYPE 1
+#define BLOCK_DATA_SIZE 4096
 
-//made up parameters to use
+//these two are no longer used
+//#define NUM_BLOCKS_POW 10
+//#define TEST_TYPE 1
+
+//ORAM parameters
 #define BUCKET_SIZE 4
-#define NUM_STRUCTURES 10 //number of structures supported
-#define MAX_COLS 20
-#define EXTRA_STASH_SPACE 90
-#define MAX_CONDITIONS 5
-#define ROWS_IN_ENCLAVE 5000
-#define PERCENT_ALMOST_ALL 90
+#define EXTRA_STASH_SPACE 90 
+//database parameters
+#define NUM_STRUCTURES 10 //number of tables supported
+#define MAX_COLS 15
+#define MAX_CONDITIONS 3 //number of ORs allowed in one clause of a condition
+#define ROWS_IN_ENCLAVE 10000
+#define PERCENT_ALMOST_ALL 90 //when to switch to large strategy
 #define PADDING 0 //0 - normal, >1: pad to that many rows always
 #define JOINMAX 350000 //how big are we expecting joins to get
 #define MAX_GROUPS 350000
-//NUM_BLOCKS_ORAM is larger than the logical size of the oram;
-//within the oram, there will be a B+-tree in whose leaves we will store the actual data
-//so to match a linear scan structure with 16 blocks, we need 16 blocks of leaves in the B+-tree, meaning 31 nodes in the B+-tree
-//for 31 nodes in the B+-tree, we need
 
-#define MAX_ORDER 20
+#define MAX_ORDER 4
 
 typedef enum _Obliv_Type{
 	TYPE_LINEAR_SCAN,

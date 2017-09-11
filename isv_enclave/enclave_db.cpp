@@ -104,12 +104,12 @@ int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, i
 		numberOfRows = PADDING;
 	}
 
+	if(type == TYPE_TREE_ORAM){
+		numberOfRows = numberOfRows *1.3 -1; //need a larger memory, to store all the tree
+	}
 	if(type == TYPE_TREE_ORAM || type == TYPE_ORAM) numberOfRows = nextPowerOfTwo(numberOfRows+1) - 1; //get rid of the if statement to pad all tables to next power of 2 size
 	numberOfRows += (numberOfRows == 0);
 	int initialSize = numberOfRows;
-	if(type == TYPE_TREE_ORAM){
-		initialSize = initialSize *2 -1; //need a larger memory, to store all the tree
-	}
 	retVal = init_structure(initialSize, type, structureId);
 	if(retVal != SGX_SUCCESS) return 5;
 
