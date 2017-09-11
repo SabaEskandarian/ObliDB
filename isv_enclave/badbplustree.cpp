@@ -630,7 +630,7 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
 //printf("inserting...\n");
 	node * leaf;
 
-	maxPad = log((double)oblivStructureSizes[structureId])/log((double)order/2)*(13+10*order);
+	maxPad = log((double)numRows[structureId])/log((double)order/2)*(13+10*order);
 	currentPad = 0;
 	/* The current implementation ignores
 	 * duplicates.
@@ -1068,7 +1068,7 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	int k_prime_index, k_prime;
 	int capacity;
 
-	maxPad = log((double)oblivStructureSizes[structureId])/log((double)order/2)*(8+5*order/2);
+	maxPad = log((double)numRows[structureId])/log((double)order/2)*(8+5*order/2);
 	currentPad = 0;
 
 	//printf("delete_entry called on node at address %d\n", n->actualAddr);
