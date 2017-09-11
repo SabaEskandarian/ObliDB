@@ -214,6 +214,7 @@ int insertRow(char* tableName, uint8_t* row, int key) {//trust that the row is g
 	case TYPE_TREE_ORAM:
 		record *temp = make_record(structureId, row);
 		//printf("before insert %d", key);
+		currentPad = 0;
 		bPlusRoots[structureId] = insert(structureId, bPlusRoots[structureId], key, temp);
 		//printf("after insert\n");
 		if(bPlusRoots[structureId] == NULL) printf("bad news...\n");
@@ -298,6 +299,7 @@ int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
 			i = 0;
 		}
 
+		currentPad = 0;
 		if(markedFlag != -1){
 			bPlusRoots[structureId] = delete_entry(structureId, root, saveN, saveN->keys[markedFlag], saveB);
 			numRows[structureId]--;

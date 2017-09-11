@@ -24,13 +24,13 @@
 #define NUM_STRUCTURES 10 //number of tables supported
 #define MAX_COLS 15
 #define MAX_CONDITIONS 3 //number of ORs allowed in one clause of a condition
-#define ROWS_IN_ENCLAVE 10000
+#define ROWS_IN_ENCLAVE 7000
 #define PERCENT_ALMOST_ALL 90 //when to switch to large strategy
 #define PADDING 0 //0 - normal, >1: pad to that many rows always
 #define JOINMAX 350000 //how big are we expecting joins to get
 #define MAX_GROUPS 350000
 
-#define MAX_ORDER 40
+#define MAX_ORDER 60
 
 typedef enum _Obliv_Type{
 	TYPE_LINEAR_SCAN,

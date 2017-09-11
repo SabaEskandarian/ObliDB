@@ -131,13 +131,15 @@ node * start_new_tree(int structureId, int key, record * pointer);
 node * insert(int structureId,  node * root, int key, record *pointer );
 
 // Deletion.
-
-int get_neighbor_index(int structureId,  node * n );
+/* not referenced outside the cpp file and different in the two versions
+int get_neighbor_index(int structureId,  node * n, node * nParent );
 node * adjust_root(int structureId, node * root);
 node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor,
-                      int neighbor_index, int k_prime);
+                      int neighbor_index, int k_prime, node * nParent);
 node * redistribute_nodes(int structureId, node * root, node * n, node * neighbor,
                           int neighbor_index,
-		int k_prime_index, int k_prime);
+		int k_prime_index, int k_prime, node * nParent);
+*/
 node * delete_entry(int structureId,  node * root, node * n, int key, void * pointer );
 node* deleteKey(int structureId,  node* root, int key );
+

@@ -510,14 +510,14 @@ node * insert_into_node_after_splitting(int structureId, node * root, node * old
 	//new_node->parentAddr = old_node->parentAddr;
 	new_node->is_root = 0;
 	writeNode(structureId, new_node);
-	child = (node*)malloc(sizeof(node));
+	//child = (node*)malloc(sizeof(node));
 	/*for (i = 0; i <= new_node->num_keys; i++) {
 		followNodePointer(structureId, child, new_node->pointers[i]);
 		//child = (node*)new_node->pointers[i];
 		child->parentAddr = new_node->actualAddr;
 		writeNode(structureId, child);
 	}*/
-	free(child);
+	//free(child);
 
 	/* Insert a new key into the parent of the two
 	 * nodes resulting from the split, with
@@ -634,8 +634,10 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
 //printf("inserting...\n");
 	node * leaf;
 
-	maxPad = log((double)numRows[structureId])/log((double)order/2)*(7+2*order);
-	currentPad = 0;
+	int depth = log((double)numRows[structureId])/log((double)order/2);
+	maxPad = 3*depth;
+	for(; depth > 0; depth--) maxPad += depth;
+	//currentPad = 0;
 
 	/* The current implementation ignores
 	 * duplicates.
@@ -823,7 +825,7 @@ node * adjust_root(int structureId, node * root) {
  * can accept the additional entries
  * without exceeding the maximum.
  */
-node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, int neighbor_index, int k_prime) {
+node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, int neighbor_index, int k_prime, node * nParent) {
 //printf("coalesce\n");
 	int i, j, neighbor_insertion_index, n_end;
 	node * tmp;//= (node*)malloc(sizeof(node));
@@ -911,10 +913,10 @@ node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, i
 		writeNode(structureId, neighbor);
 	}
 
-	tmp = find_parent(structureId, root, n->keys[1], n->actualAddr);//n->keys[1] is a key that will lead to this node
+	//tmp = find_parent(structureId, root, n->keys[1], n->actualAddr);//n->keys[1] is a key that will lead to this node
 
 	//followNodePointer(structureId, tmp, n->parentAddr);
-	root = delete_entry(structureId, root, tmp, k_prime, n);//printf("past deletion\n");
+	root = delete_entry(structureId, root, nParent, k_prime, n);//printf("past deletion\n");
 
 	freeBlock(structureId, n->actualAddr);
 	if(n != NULL){
@@ -925,9 +927,9 @@ node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, i
 		free(neighbor);
 		neighbor = NULL;
 	}//printf("c2");
-	if(tmp != NULL){
+	if(nParent != NULL){
 		//free(tmp); removed to stop a segfault, probably introduces a leak somewhere
-		tmp = NULL;
+		nParent = NULL;
 	}
 	//printf("at end\n");
 	return root;
@@ -941,11 +943,11 @@ node * coalesce_nodes(int structureId, node * root, node * n, node * neighbor, i
  * maximum
  */
 node * redistribute_nodes(int structureId, node * root, node * n, node * neighbor, int neighbor_index,
-		int k_prime_index, int k_prime) {
+		int k_prime_index, int k_prime, node * nParent) {
 //printf("redistribute\n");
 	int i;
 	node * tmp = (node*)malloc(sizeof(node));
-	node *nParent = find_parent(structureId, root, n->keys[1], n->actualAddr);//(node*)malloc(sizeof(node));
+	//node *nParent = find_parent(structureId, root, n->keys[1], n->actualAddr);//(node*)malloc(sizeof(node));
 	//followNodePointer(structureId, nParent, n->parentAddr);
 
 	/* Case: n has a neighbor to the left.
@@ -1042,8 +1044,10 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	int neighbor_index;
 	int k_prime_index, k_prime;
 	int capacity;
-	maxPad = log((double)numRows[structureId])/log((double)order/2)*(8+2*order/2);
-	currentPad = 0;
+	int depth = log((double)numRows[structureId])/log((double)order/2);
+	maxPad = 3*depth;
+	for(; depth > 0; depth--) maxPad += depth;
+	//currentPad = 0;
 
 	//printf("delete_entry called on node at address %d\n", n->actualAddr);
 	//printf("pre-begin %d\n", key);
@@ -1112,7 +1116,7 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	//neighbor = neighbor_index == -1 ? (node*)n->parent->pointers[1] :
 	//	(node*)n->parent->pointers[neighbor_index];
 	capacity = n->is_leaf ? order : order - 1;
-	free(nParent);
+	//free(nParent);
 
 	//printf("found neighbor\n");
 
@@ -1121,14 +1125,14 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 
 	if (neighbor->num_keys + n->num_keys < capacity){
 		//printf("coalesce\n");
-		return coalesce_nodes(structureId, root, n, neighbor, neighbor_index, k_prime);
+		return coalesce_nodes(structureId, root, n, neighbor, neighbor_index, k_prime, nParent);
 	}
 
 	/* Redistribution. */
 
 	else{
 		//printf("redistribute");
-		return redistribute_nodes(structureId, root, n, neighbor, neighbor_index, k_prime_index, k_prime);
+		return redistribute_nodes(structureId, root, n, neighbor, neighbor_index, k_prime_index, k_prime, nParent);
 	}
 }
 
