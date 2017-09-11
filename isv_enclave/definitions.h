@@ -30,7 +30,7 @@
 #define JOINMAX 350000 //how big are we expecting joins to get
 #define MAX_GROUPS 350000
 
-#define MAX_ORDER 60
+#define MAX_ORDER 62 //biggest value such that a 512-byte block is always big enough to hold a node
 
 typedef enum _Obliv_Type{
 	TYPE_LINEAR_SCAN,

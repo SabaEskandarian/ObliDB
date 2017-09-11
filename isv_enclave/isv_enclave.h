@@ -72,6 +72,7 @@ extern int getTableId(char *tableName);
 extern int renameTable(char *oldTableName, char *newTableName);
 extern int insertRow(char* tableName, uint8_t* row, int key);
 extern int insertIndexRowFast(char* tableName, uint8_t* row, int key);
+extern int deleteRow(char* tableName, int key);
 extern int deleteRows(char* tableName, Condition c, int startKey, int endKey);
 extern int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int startKey, int endKey);
 extern int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int intermediate);

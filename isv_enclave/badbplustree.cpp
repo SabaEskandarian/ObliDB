@@ -631,7 +631,7 @@ node * insert(int structureId,  node * root, int key, record *pointer) {
 	node * leaf;
 
 	maxPad = log((double)numRows[structureId])/log((double)order/2)*(13+10*order);
-	currentPad = 0;
+	//currentPad = 0;
 	/* The current implementation ignores
 	 * duplicates.
 	 */
@@ -1069,7 +1069,7 @@ node * delete_entry(int structureId,  node * root, node * n, int key, void * poi
 	int capacity;
 
 	maxPad = log((double)numRows[structureId])/log((double)order/2)*(8+5*order/2);
-	currentPad = 0;
+	//currentPad = 0;
 
 	//printf("delete_entry called on node at address %d\n", n->actualAddr);
 	//printf("pre-begin %d\n", key);

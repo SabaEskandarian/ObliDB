@@ -975,7 +975,7 @@ void complaintTables(sgx_enclave_id_t enclave_id, int status){
 
 
 printf("here\n");fflush(stdout);
-	Condition cond0, cond1, cond2, cond3, cond4, condNone;
+	Condition cond0, cond1, cond2, cond3, cond4, condNone, cond5;
 	char* negative = "No";
 	char* ccc = "Credit card";
 	char* mmm = "Mortgage";
@@ -1016,6 +1016,14 @@ printf("here\n");fflush(stdout);
 	strcpy((char*)cond4.values[0], bank);
 	cond4.nextCondition = NULL;
 
+	int rowNumber = 20170817;
+	cond5.numClauses = 1;
+	cond5.fieldNums[0] = 13;
+	cond5.conditionType[0] = 0;
+	cond5.values[0] = (uint8_t*)malloc(4);
+	memcpy(cond5.values[0], &rowNumber, 4);
+	cond5.nextCondition = NULL;
+
 	char* tableNameIndex = "compTableIndex";
 	char* tableNameLinear = "compTableLinear";
 
@@ -1033,7 +1041,7 @@ printf("here\n");fflush(stdout);
 	file.getline(line, BLOCK_DATA_SIZE);//burn first line
 	row[0] = 'a';
 printf("here\n");fflush(stdout);
-	for(int i = 0; i < 106427; i++){
+	for(int i = 0; i < 106428; i++){
 	//for(int i = 0; i < 1000; i++){
 		memset(row, 'a', BLOCK_DATA_SIZE);
 		file.getline(line, BLOCK_DATA_SIZE);//get the field
@@ -1075,6 +1083,22 @@ printf("here\n");fflush(stdout);
 
 
 	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "compTableIndex", -1, cond5, -1, -1, 2, rowNumber-1, rowNumber+1, 0);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("point query index running time small: %.5f\n", elapsedTime);
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "compTableIndex", -1, cond5, -1, -1, 3, rowNumber-1, rowNumber+1, 0);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("point query index running time hash: %.5f\n", elapsedTime);
+	startTime = clock();
+	indexSelect(enclave_id, (int*)&status, "compTableIndex", -1, cond5, -1, -1, 1, rowNumber-1, rowNumber+1, 0);
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("point query index running time cont: %.5f\n", elapsedTime);
+
+	startTime = clock();
 	indexSelect(enclave_id, (int*)&status, "compTableIndex", -1, cond2, -1, -1, 2, l, h, 0);
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
@@ -1096,6 +1120,13 @@ printf("here\n");fflush(stdout);
 	//printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
+
+	startTime = clock();
+	deleteRow(enclave_id, (int*)&status, "compTableIndex", l);
+	//int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	printf("index single deletion running time: %.5f\n", elapsedTime);
 
 	startTime = clock();
 	deleteRows(enclave_id, (int*)&status, "compTableIndex", cond4, l, h);
@@ -2599,7 +2630,7 @@ int main(int argc, char* argv[])
 
         //nasdaqTables(enclave_id, status); //2048
         complaintTables(enclave_id, status); //4096
-        //flightTables(enclave_id, status); //256
+        //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)
         //BDB1Index(enclave_id, status);//512
         //BDB1Linear(enclave_id, status);//512
         //BDB2(enclave_id, status, 0);//2048

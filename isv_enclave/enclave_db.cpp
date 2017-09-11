@@ -104,12 +104,14 @@ int createTable(Schema *schema, char* tableName, int nameLen, Obliv_Type type, i
 		numberOfRows = PADDING;
 	}
 
+	if(type == TYPE_TREE_ORAM){
+		//this should be good assuming MAX_ORDER is big enough
+		//if max order gets too small, replace 1.1 with something bigger
+		numberOfRows = numberOfRows *1.1 -1; //need a larger memory, to store all the tree
+	}
 	if(type == TYPE_TREE_ORAM || type == TYPE_ORAM) numberOfRows = nextPowerOfTwo(numberOfRows+1) - 1; //get rid of the if statement to pad all tables to next power of 2 size
 	numberOfRows += (numberOfRows == 0);
 	int initialSize = numberOfRows;
-	if(type == TYPE_TREE_ORAM){
-		initialSize = initialSize *2 -1; //need a larger memory, to store all the tree
-	}
 	retVal = init_structure(initialSize, type, structureId);
 	if(retVal != SGX_SUCCESS) return 5;
 
@@ -230,6 +232,30 @@ int insertRow(char* tableName, uint8_t* row, int key) {//trust that the row is g
 	}
 	numRows[structureId]++;
 	free(tempRow);
+}
+
+int deleteRow(char* tableName, int key) {
+	int structureId = getTableId(tableName);
+	node *root = bPlusRoots[structureId];
+	Oram_Block* b = (Oram_Block*)malloc(sizeof(Oram_Block));
+	int i;
+	node * n = find_leaf(structureId, root, key);
+	if (n == NULL) return 0;
+	for (i = 0; i < n->num_keys && n->keys[i] < key; i++) ;
+	if (i == n->num_keys) return 0;
+	opOramBlock(structureId, n->pointers[i], b, 0);
+	bPlusRoots[structureId] = delete_entry(structureId, root, n, n->keys[i], b);
+	numRows[structureId]--;
+	
+	free(b);
+
+	currentPad = 0;
+	Oram_Block* oblock = (Oram_Block*)malloc(sizeof(Oram_Block));
+	while(currentPad < maxPad){
+		currentPad++;
+		opOramBlock(structureId, oblivStructureSizes[structureId]-1, oblock, 0);
+	}
+	free(oblock);
 }
 
 int deleteRows(char* tableName, Condition c, int startKey, int endKey) {
