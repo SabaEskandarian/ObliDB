@@ -10,6 +10,7 @@ Schema schemas[NUM_STRUCTURES] = {0};
 char* tableNames[NUM_STRUCTURES] = {0};
 int rowsPerBlock[NUM_STRUCTURES] = {0}; //let's make this always 1; helpful for security and convenience; set block size appropriately for testing
 int numRows[NUM_STRUCTURES] = {0};
+int lastInserted[NUM_STRUCTURES] = {0};
 
 int incrementNumRows(int structureId){
 	numRows[structureId]++;
@@ -187,6 +188,18 @@ int insertIndexRowFast(char* tableName, uint8_t* row, int key) {//trust that the
 
 	numRows[structureId]++;
 	free(tempRow);
+}
+
+int insertLinRowFast(char* tableName, uint8_t* row){
+	int structureId = getTableId(tableName);
+	int done = 0;
+	int dummyDone = 0;
+	if(numRows[structureId] == oblivStructureSizes[structureId]){
+		growStructure(structureId);//not implemented
+	}
+	int insertId = lastInserted[structureId];
+	opOneLinearScanBlock(structureId, insertId, (Linear_Scan_Block*)row, 1);
+	lastInserted[structureId]++;
 }
 
 
@@ -903,8 +916,12 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 			}
 			num_found = count;
 
-			if(count < ROWS_IN_ENCLAVE){
+			if(count > oblivStructureSizes[structureId]*.01*PERCENT_ALMOST_ALL && colChoice == -1){ //return almost all only if the whole row is selected (to make my life easier)
+				almostAll = 1;
+			}
+			if(count < 5*ROWS_IN_ENCLAVE){
 				small = 1;
+				if(count < ROWS_IN_ENCLAVE && continuous == 1) continuous = 0;
 			}
 
 			switch(algChoice){
@@ -2637,6 +2654,7 @@ int createTestTable(char* tableName, int numberOfRows){
 		rowi++;
 	}
 	free(row);
+	lastInserted[structureId] = numberOfRows;
 }
 
 int createTestTableIndex(char* tableName, int numberOfRows){

@@ -1568,6 +1568,149 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
 }
 
+void workloadTests(sgx_enclave_id_t enclave_id, int status){
+
+    Condition condition1, condition2, noCondition;
+    char a = 'a', b = 'b', c='c';
+    int low = 1, high = 100;
+
+    condition1.numClauses = 1;
+    condition1.fieldNums[0] = 1;
+    condition1.conditionType[0] = 1;
+    condition1.values[0] = (uint8_t*)&low;
+    condition1.nextCondition = &condition2;
+    condition2.numClauses = 1;
+    condition2.fieldNums[0] = 1;
+    condition2.conditionType[0] = -1;
+    condition2.values[0] = (uint8_t*)&high;
+    condition2.nextCondition = NULL;
+    noCondition.numClauses = 0;
+    noCondition.nextCondition = NULL;
+
+	Schema testSchema;
+	testSchema.numFields = 5;
+	testSchema.fieldOffsets[0] = 0;
+	testSchema.fieldOffsets[1] = 1;
+	testSchema.fieldOffsets[2] = 5;
+	testSchema.fieldOffsets[3] = 9;
+	testSchema.fieldOffsets[4] = 10;
+	testSchema.fieldSizes[0] = 1;
+	testSchema.fieldSizes[1] = 4;
+	testSchema.fieldSizes[2] = 4;
+	testSchema.fieldSizes[3] = 1;
+	testSchema.fieldSizes[4] = 255;
+	testSchema.fieldTypes[0] = CHAR;
+	testSchema.fieldTypes[1] = INTEGER;
+	testSchema.fieldTypes[2] = INTEGER;
+	testSchema.fieldTypes[3] = CHAR;
+	testSchema.fieldTypes[4] = TINYTEXT;
+
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	const char* text = "You would measure time the measureless and the immeasurable.";
+	int testSize = 100000;
+	row[0] = 'a';
+	memcpy(&row[1], &testSize, 4);
+	int temp = testSize/100;
+	memcpy(&row[5], &temp, 4);
+	if((testSize)%2 == 0) row[9] = 'a';
+	else if((testSize)%3 == 0) row[9] = 'b';
+	else row[9]= 'c';
+	memcpy(&row[10], text, strlen(text)+1);
+
+	time_t startOp, endOp;
+	double elapsedTime;
+	int i = 0;
+
+	//workload 1
+    createTestTable(enclave_id, (int*)&status, "Linear", 100000);
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    i = 0;
+    startOp = clock();
+    while(i<90){
+    	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 1 linear insertion time: %d\n", elapsedTime);
+    high = 3;
+    startOp = clock();
+    while(i<95){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 1 linear small read time: %d\n", elapsedTime);
+    high=5000;
+    startOp = clock();
+    while(i<100){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 1 linear large read time: %d\n", elapsedTime);
+    i = 0;
+    startOp = clock();
+    while(i<90){
+    	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 1 index insertion time: %d\n", elapsedTime);
+    high = 3;
+    startOp = clock();
+    while(i<95){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 1 index small read time: %d\n", elapsedTime);
+    high=5000;
+    startOp = clock();
+    while(i<100){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 1 index large read time: %d\n", elapsedTime);
+
+    deleteTable(enclave_id, (int*)&status, "Linear");
+    deleteTable(enclave_id, (int*)&status, "Index");
+
+	//workload 2
+    createTestTable(enclave_id, (int*)&status, "Linear", 100000);
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+
+
+	//workload 3
+    createTestTable(enclave_id, (int*)&status, "Linear", 100000);
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+
+
+	//workload 4
+    createTestTable(enclave_id, (int*)&status, "Linear", 100000);
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+
+
+	//workload 5
+    createTestTable(enclave_id, (int*)&status, "Linear", 100000);
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+
+
+
+
+    free(row);
+}
+
 void fabTests(sgx_enclave_id_t enclave_id, int status){
     //Tests for database functionalities here
 
@@ -1658,7 +1801,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 		printf("\n\n|Test Size %d:\n", testSize);
 
 		//first we'll do the read-only tests
-		int numInnerTests = 2;//how many points do we want along the line
+		int numInnerTests = 15;//how many points do we want along the line
 		for(int testRound = 0; testRound <= numInnerTests; testRound++){
 			//if(testRound > numInnerTests/6){
 			//	testRound = numInnerTests;
@@ -1751,11 +1894,11 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
     				endTime = clock();
     				lincontTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
-    	//			startTime = clock();
-    	//			indexSelect(enclave_id, (int*)&status, tableName, -1, condition2, -1, -1, 1, low, high);
-    	//			endTime = clock();
-    	//			contTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-    	//	        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    				startTime = clock();
+    				indexSelect(enclave_id, (int*)&status, tableName, -1, condition2, -1, -1, 1, low, high,0);
+    				endTime = clock();
+    				contTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+    		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     				startTime = clock();
     				selectRows(enclave_id, (int*)&status, "testTable", -1, gapCond1, -1, -1, 3, 0);//hash
@@ -1763,11 +1906,11 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
     				linhashTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
-    		//		startTime = clock();
-    		//		indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, 3, low, high);
-    		//		endTime = clock();
-    	//			hashTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-    	//	        deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    				startTime = clock();
+    				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, 3, low, high,0);
+    				endTime = clock();
+    				hashTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+    		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     		        //if(testRound >= numInnerTests - 3){
         				startTime = clock();
@@ -1783,13 +1926,13 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
         				endTime = clock();
         				linsmallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
-/*
+
         				startTime = clock();
         				indexSelect(enclave_id, (int*)&status, tableName, -1, gapCond1, -1, -1, 2, low, high, 0);
         				endTime = clock();
         				smallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
         		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
-
+/*
     	    			//join
     					//startTime = clock();
     			        //joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
@@ -1797,7 +1940,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
     					//linjoinTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     	    	        //deleteTable(enclave_id, (int*)&status, "JoinReturn");
     		        //}
-
+*/
         			//do an aggregate
     				startTime = clock();
     				indexSelect(enclave_id, (int*)&status, tableName, 1, gapCond1, 3, -1, -1, low, high, 0);
@@ -1819,7 +1962,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
     				endTime = clock();
     				selectTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
     		        deleteTable(enclave_id, (int*)&status, "ReturnTable");
-
+/*
         			//join
     				//startTime = clock();
     		        //joinTables(enclave_id, (int*)&status, "jIndex", tableName, 1, 1, low, high);
@@ -1953,21 +2096,40 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
             	        printf("inserting\n");
             			//do an insertion
         				startTime = clock();
-        				for(int q = 0; q < 10; q++){
+        				for(int q = 0; q < 5; q++){
             				insertRow(enclave_id, (int*)&status, tableName, row, testSize);
         				}
         				endTime = clock();
         				insertTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-        				insertTimes[j]/=10;
+        				insertTimes[j]/=5;
             	        printf("deleting\n");
             	        //delete rows
         				startTime = clock();
-        				for(int q = 0; q < 10; q++){//printf("del %d\n", q);
-            		        deleteRows(enclave_id, (int*)&status, tableName, condition1, low, high);
+        				for(int q = 0; q < 5; q++){//printf("del %d\n", q);
+            		        deleteRows(enclave_id, (int*)&status, tableName, noCondition, low, low+2);
         				}
         				endTime = clock();
         				deleteTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-        				deleteTimes[j]/=10;
+        				deleteTimes[j]/=5;
+        				//reuse linsmallTimes and linhashTimes for linear insert/delete times
+            	        printf("inserting\n");
+            			//do an insertion
+        				startTime = clock();
+        				for(int q = 0; q < 5; q++){
+            				insertLinRowFast(enclave_id, (int*)&status, "testTable", row);
+        				}
+        				endTime = clock();
+        				linsmallTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        				linsmallTimes[j]/=5;
+            	        printf("deleting\n");
+            	        //delete rows
+        				startTime = clock();
+        				for(int q = 0; q < 5; q++){//printf("del %d\n", q);
+            		        deleteRows(enclave_id, (int*)&status, "testTable", noCondition, low, high);
+        				}
+        				endTime = clock();
+        				linhashTimes[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+        				linhashTimes[j]/=5;
         				printf("end\n");
     			}
 

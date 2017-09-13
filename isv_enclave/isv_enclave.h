@@ -31,6 +31,7 @@ extern std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 extern int stashOccs[NUM_STRUCTURES];//stash occupancy, number of elements in stash
 extern int logicalSizes[NUM_STRUCTURES];
 extern node *bPlusRoots[NUM_STRUCTURES];
+extern int lastInserted[NUM_STRUCTURES];
 
 extern int maxPad;
 extern int currentPad;
@@ -71,6 +72,7 @@ extern int growStructure(int structureId);
 extern int getTableId(char *tableName);
 extern int renameTable(char *oldTableName, char *newTableName);
 extern int insertRow(char* tableName, uint8_t* row, int key);
+extern int insertLinRowFast(char* tableName, uint8_t* row);
 extern int insertIndexRowFast(char* tableName, uint8_t* row, int key);
 extern int deleteRow(char* tableName, int key);
 extern int deleteRows(char* tableName, Condition c, int startKey, int endKey);
