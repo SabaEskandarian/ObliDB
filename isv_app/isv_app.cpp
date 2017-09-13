@@ -767,7 +767,7 @@ void BDB3(sgx_enclave_id_t enclave_id, int status, int baseline){
 		selectRows(enclave_id, (int*)&status, "jr", 10, noCond, 4, 1, 4, 0);
 		renameTable(enclave_id, (int*)&status, "ReturnTable", "last");
 		//printTable(enclave_id, (int*)&status, "last");
-		selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, 0, 0);
+		selectRows(enclave_id, (int*)&status, "last", 2, noCond, 3, -1, -1, 0);
 		//select from index
 		//join
 		//fancy group by
@@ -777,7 +777,7 @@ void BDB3(sgx_enclave_id_t enclave_id, int status, int baseline){
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	printf("BDB3 running time: %.5f\n", elapsedTime);
-	printTable(enclave_id, (int*)&status, "ReturnTable");
+	//printTable(enclave_id, (int*)&status, "ReturnTable");
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
     deleteTable(enclave_id, (int*)&status, "uservisits");
@@ -2791,12 +2791,12 @@ int main(int argc, char* argv[])
         //PICK EXPERIMENT TO RUN HERE
 
         //nasdaqTables(enclave_id, status); //2048
-        complaintTables(enclave_id, status); //4096
+        //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)
         //BDB1Index(enclave_id, status);//512
         //BDB1Linear(enclave_id, status);//512
         //BDB2(enclave_id, status, 0);//2048
-        //BDB3(enclave_id, status, 0);//2048
+        BDB3(enclave_id, status, 0);//2048
         //BDB2(enclave_id, status, 1);//2048 (baseline)
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);
