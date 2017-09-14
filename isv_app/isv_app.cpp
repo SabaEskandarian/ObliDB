@@ -1570,7 +1570,7 @@ deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
 void workloadTests(sgx_enclave_id_t enclave_id, int status){
 
-    Condition condition1, condition2, noCondition;
+    Condition condition1, condition2, noCondition, neverCondition;
     char a = 'a', b = 'b', c='c';
     int low = 1, high = 100;
 
@@ -1586,6 +1586,12 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     condition2.nextCondition = NULL;
     noCondition.numClauses = 0;
     noCondition.nextCondition = NULL;
+
+    neverCondition.numClauses = 1;
+    neverCondition.fieldNums[0] = 1;
+    neverCondition.conditionType[0] = -1;
+    neverCondition.values[0] = (uint8_t*)&low;
+    neverCondition.nextCondition = NULL;
 
 	Schema testSchema;
 	testSchema.numFields = 5;
@@ -1622,6 +1628,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
 	int i = 0;
 
 	//workload 1
+	low = 1; high = 100;
     createTestTable(enclave_id, (int*)&status, "Linear", 100000);
     createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
     i = 0;
@@ -1653,10 +1660,11 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
     printf("workload 1 linear large read time: %d\n", elapsedTime);
+    //switch to index
     i = 0;
     startOp = clock();
     while(i<90){
-    	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
     	i++;
     }
     endOp = clock();
@@ -1665,7 +1673,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     high = 3;
     startOp = clock();
     while(i<95){
-    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high,0);
     	deleteTable(enclave_id, (int*)&status, "ReturnTable");
     	i++;
     }
@@ -1675,7 +1683,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     high=5000;
     startOp = clock();
     while(i<100){
-    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high,0);
     	deleteTable(enclave_id, (int*)&status, "ReturnTable");
     	i++;
     }
@@ -1684,26 +1692,323 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     printf("workload 1 index large read time: %d\n", elapsedTime);
 
     deleteTable(enclave_id, (int*)&status, "Linear");
-    deleteTable(enclave_id, (int*)&status, "Index");
+    //deleteTable(enclave_id, (int*)&status, "Index"); we'll reuse this
 
+    //
+    //
 	//workload 2
+	low = 1; high = 100;
     createTestTable(enclave_id, (int*)&status, "Linear", 100000);
-    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    //createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    i = 0;
+    startOp = clock();
+    high = 51;
+    while(i<90){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 2 linear select time: %d\n", elapsedTime);
+    startOp = clock();
+    while(i<99){
+    	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 2 linear insertion time: %d\n", elapsedTime);
+
+    low=5999; high = 6002;
+    startOp = clock();
+    while(i<100){
+    	deleteRows(enclave_id, (int*)&status, "Linear", condition1, low,high);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 2 linear deletion time: %d\n", elapsedTime);
+    //switch to index
+    i = 0;
+    low = 1;
+    high = 51;
+    startOp = clock();
+    while(i<90){
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 2 index select time: %d\n", elapsedTime);
+    startOp = clock();
+    while(i<99){
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 2 index insertion time: %d\n", elapsedTime);
+    low=5999; high = 6002;
+    startOp = clock();
+    while(i<100){
+    	deleteRows(enclave_id, (int*)&status, "Index", condition1, low, high);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 2 index deletion time: %d\n", elapsedTime);
+
+    deleteTable(enclave_id, (int*)&status, "Linear");
+    //deleteTable(enclave_id, (int*)&status, "Index");
 
 
+    //
 	//workload 3
+	low = 1; high = 100;
     createTestTable(enclave_id, (int*)&status, "Linear", 100000);
-    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    //createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    i = 0;
+    startOp = clock();
+    high = 3;
+    while(i<50){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 3 linear small select time: %d\n", elapsedTime);
+    high = 5000;
+    startOp = clock();
+    while(i<100){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 3 linear large select time: %d\n", elapsedTime);
+
+    //switch to index
+    i = 0;
+    high = 3;
+    startOp = clock();
+    while(i<50){
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 3 index small select time: %d\n", elapsedTime);
+    high = 5000;
+    startOp = clock();
+    while(i<100){
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 3 index large select time: %d\n", elapsedTime);
+
+    deleteTable(enclave_id, (int*)&status, "Linear");
+    //deleteTable(enclave_id, (int*)&status, "Index");
 
 
 	//workload 4
+	low = 1; high = 100;
     createTestTable(enclave_id, (int*)&status, "Linear", 100000);
-    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    //createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    i = 0;
+    startOp = clock();
+    high = 3;
+    while(i<45){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 4 linear small select time: %d\n", elapsedTime);
+    high = 5000;
+    startOp = clock();
+    while(i<90){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 4 linear large select time: %d\n", elapsedTime);
+    startOp = clock();
+    while(i<95){
+    	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 4 linear insertion time: %d\n", elapsedTime);
+
+    low=6000; high = 6003;
+    startOp = clock();
+    while(i<100){
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6001; high = 6004;
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6002; high = 6005;
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6003; high = 6006;
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6004; high = 6007;
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6005; high = 6008;
+    	i+=5;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 4 linear deletion time: %d\n", elapsedTime);
+
+    //switch to index
+    i = 0;
+    low = 1;
+    high = 3;
+    startOp = clock();
+    while(i<45){
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 4 index small select time: %d\n", elapsedTime);
+    high = 5000;
+    startOp = clock();
+    while(i<90){
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 4 index large select time: %d\n", elapsedTime);
+    startOp = clock();
+    while(i<95){
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 4 index insertion time: %d\n", elapsedTime);
+
+    low=6000; high = 6003;
+    startOp = clock();
+    while(i<100){
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6001; high = 6004;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6002; high = 6005;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6003; high = 6006;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6004; high = 6007;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6005; high = 6008;
+    	i+=5;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 4 index deletion time: %d\n", elapsedTime);
+    deleteTable(enclave_id, (int*)&status, "Linear");
+    //deleteTable(enclave_id, (int*)&status, "Index");
 
 
 	//workload 5
+	low = 1; high = 100;
     createTestTable(enclave_id, (int*)&status, "Linear", 100000);
-    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    //createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    i = 0;
+    startOp = clock();
+    high = 5000;
+    startOp = clock();
+    while(i<90){
+    	selectRows(enclave_id, (int*)&status, "Linear", -1, condition1, -1, -1, -1, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 5 linear large select time: %d\n", elapsedTime);
+    startOp = clock();
+    while(i<95){
+    	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 5 linear insertion time: %d\n", elapsedTime);
+
+    low=6006; high = 6009;
+    startOp = clock();
+    while(i<100){
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6007; high = 6010;
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6008; high = 6011;
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6009; high = 6012;
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	low = 6010; high = 6013;
+    	deleteRows(enclave_id, (int*)&status, "Linear", noCondition, low, high);
+    	i+=5;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 5 linear deletion time: %d\n", elapsedTime);
+
+    //switch to index
+    i = 0;
+    low = 1;
+    high = 5000;
+    startOp = clock();
+    while(i<90){
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 5 index large select time: %d\n", elapsedTime);
+    startOp = clock();
+    while(i<95){
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 5 index insertion time: %d\n", elapsedTime);
+
+    low=6006; high = 6009;
+    startOp = clock();
+    while(i<100){
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6007; high = 6010;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6008; high = 6011;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6009; high = 6012;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 6010; high = 6013;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	i+=5;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("workload 5 index deletion time: %d\n", elapsedTime);
+    deleteTable(enclave_id, (int*)&status, "Linear");
+    //deleteTable(enclave_id, (int*)&status, "Index");
 
 
 
@@ -2791,7 +3096,7 @@ int main(int argc, char* argv[])
         //PICK EXPERIMENT TO RUN HERE
 
         //nasdaqTables(enclave_id, status); //2048
-        complaintTables(enclave_id, status); //4096
+        //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)
         //BDB1Index(enclave_id, status);//512
         //BDB1Linear(enclave_id, status);//512
@@ -2799,8 +3104,9 @@ int main(int argc, char* argv[])
         //BDB3(enclave_id, status, 0);//2048
         //BDB2(enclave_id, status, 1);//2048 (baseline)
         //BDB3(enclave_id, status, 1);//2048 (baseline)
-        //basicTests(enclave_id, status);
-        //fabTests(enclave_id, status);
+        //basicTests(enclave_id, status);//512
+        //fabTests(enclave_id, status);//512
+        workloadTests(enclave_id, status);//512
 
 /*
 	//test for sophos - linear
