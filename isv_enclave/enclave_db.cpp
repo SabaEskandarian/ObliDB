@@ -197,7 +197,7 @@ int insertLinRowFast(char* tableName, uint8_t* row){
 	if(numRows[structureId] == oblivStructureSizes[structureId]){
 		growStructure(structureId);//not implemented
 	}
-	int insertId = lastInserted[structureId];
+	int insertId = lastInserted[structureId];	
 	opOneLinearScanBlock(structureId, insertId, (Linear_Scan_Block*)row, 1);
 	lastInserted[structureId]++;
 }
@@ -2627,7 +2627,7 @@ int createTestTable(char* tableName, int numberOfRows){
 	testSchema2.fieldTypes[3] = CHAR;
 	if(strcmp(tableName, "jTable") == 0 || strcmp(tableName, "jIndex") == 0) testSchema = testSchema2;
 	//create the table
-	createTable(&testSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, numberOfRows+10, &structureId);
+	createTable(&testSchema, tableName, strlen(tableName), TYPE_LINEAR_SCAN, numberOfRows+100, &structureId);
 	int rowi = 0;
 	for(int i = 0; i < numberOfRows; i++){
 		//put in a missed row to test handling of dummies
@@ -2694,7 +2694,7 @@ int createTestTableIndex(char* tableName, int numberOfRows){
 	testSchema2.fieldTypes[3] = CHAR;
 	if(strcmp(tableName, "jTable") == 0 || strcmp(tableName, "jIndex") == 0) testSchema = testSchema2;
 	//create the table
-	createTable(&testSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, numberOfRows+10, &structureId);
+	createTable(&testSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, numberOfRows+200, &structureId);
 
 	int rowi = 0;
 	for(int i = 0; i < numberOfRows; i++){//printf("in loop %d\n", i);

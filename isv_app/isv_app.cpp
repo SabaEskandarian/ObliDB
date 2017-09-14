@@ -1635,11 +1635,11 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     startOp = clock();
     while(i<90){
     	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
-    	i++;
+ 	i++;
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 1 linear insertion time: %d\n", elapsedTime);
+    printf("workload 1 linear insertion time: %.5f\n", elapsedTime);
     high = 3;
     startOp = clock();
     while(i<95){
@@ -1649,7 +1649,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 1 linear small read time: %d\n", elapsedTime);
+    printf("workload 1 linear small read time: %.5f\n", elapsedTime);
     high=5000;
     startOp = clock();
     while(i<100){
@@ -1659,7 +1659,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 1 linear large read time: %d\n", elapsedTime);
+    printf("workload 1 linear large read time: %.5f\n", elapsedTime);
     //switch to index
     i = 0;
     startOp = clock();
@@ -1669,7 +1669,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 1 index insertion time: %d\n", elapsedTime);
+    printf("workload 1 index insertion time: %.5f\n", elapsedTime);
     high = 3;
     startOp = clock();
     while(i<95){
@@ -1679,7 +1679,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 1 index small read time: %d\n", elapsedTime);
+    printf("workload 1 index small read time: %.5f\n", elapsedTime);
     high=5000;
     startOp = clock();
     while(i<100){
@@ -1689,7 +1689,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 1 index large read time: %d\n", elapsedTime);
+    printf("workload 1 index large read time: %.5f\n", elapsedTime);
 
     deleteTable(enclave_id, (int*)&status, "Linear");
     //deleteTable(enclave_id, (int*)&status, "Index"); we'll reuse this
@@ -1710,7 +1710,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 2 linear select time: %d\n", elapsedTime);
+    printf("workload 2 linear select time: %.5f\n", elapsedTime);
     startOp = clock();
     while(i<99){
     	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
@@ -1718,7 +1718,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 2 linear insertion time: %d\n", elapsedTime);
+    printf("workload 2 linear insertion time: %.5f\n", elapsedTime);
 
     low=5999; high = 6002;
     startOp = clock();
@@ -1728,7 +1728,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 2 linear deletion time: %d\n", elapsedTime);
+    printf("workload 2 linear deletion time: %.5f\n", elapsedTime);
     //switch to index
     i = 0;
     low = 1;
@@ -1741,7 +1741,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 2 index select time: %d\n", elapsedTime);
+    printf("workload 2 index select time: %.5f\n", elapsedTime);
     startOp = clock();
     while(i<99){
     	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
@@ -1749,7 +1749,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 2 index insertion time: %d\n", elapsedTime);
+    printf("workload 2 index insertion time: %.5f\n", elapsedTime);
     low=5999; high = 6002;
     startOp = clock();
     while(i<100){
@@ -1758,7 +1758,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 2 index deletion time: %d\n", elapsedTime);
+    printf("workload 2 index deletion time: %.5f\n", elapsedTime);
 
     deleteTable(enclave_id, (int*)&status, "Linear");
     //deleteTable(enclave_id, (int*)&status, "Index");
@@ -1779,7 +1779,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 3 linear small select time: %d\n", elapsedTime);
+    printf("workload 3 linear small select time: %.5f\n", elapsedTime);
     high = 5000;
     startOp = clock();
     while(i<100){
@@ -1789,7 +1789,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 3 linear large select time: %d\n", elapsedTime);
+    printf("workload 3 linear large select time: %.5f\n", elapsedTime);
 
     //switch to index
     i = 0;
@@ -1802,7 +1802,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 3 index small select time: %d\n", elapsedTime);
+    printf("workload 3 index small select time: %.5f\n", elapsedTime);
     high = 5000;
     startOp = clock();
     while(i<100){
@@ -1812,7 +1812,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 3 index large select time: %d\n", elapsedTime);
+    printf("workload 3 index large select time: %.5f\n", elapsedTime);
 
     deleteTable(enclave_id, (int*)&status, "Linear");
     //deleteTable(enclave_id, (int*)&status, "Index");
@@ -1832,7 +1832,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 4 linear small select time: %d\n", elapsedTime);
+    printf("workload 4 linear small select time: %.5f\n", elapsedTime);
     high = 5000;
     startOp = clock();
     while(i<90){
@@ -1842,7 +1842,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 4 linear large select time: %d\n", elapsedTime);
+    printf("workload 4 linear large select time: %.5f\n", elapsedTime);
     startOp = clock();
     while(i<95){
     	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
@@ -1850,7 +1850,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 4 linear insertion time: %d\n", elapsedTime);
+    printf("workload 4 linear insertion time: %.5f\n", elapsedTime);
 
     low=6000; high = 6003;
     startOp = clock();
@@ -1869,7 +1869,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 4 linear deletion time: %d\n", elapsedTime);
+    printf("workload 4 linear deletion time: %.5f\n", elapsedTime);
 
     //switch to index
     i = 0;
@@ -1883,7 +1883,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 4 index small select time: %d\n", elapsedTime);
+    printf("workload 4 index small select time: %.5f\n", elapsedTime);
     high = 5000;
     startOp = clock();
     while(i<90){
@@ -1893,7 +1893,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 4 index large select time: %d\n", elapsedTime);
+    printf("workload 4 index large select time: %.5f\n", elapsedTime);
     startOp = clock();
     while(i<95){
     	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
@@ -1901,7 +1901,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 4 index insertion time: %d\n", elapsedTime);
+    printf("workload 4 index insertion time: %.5f\n", elapsedTime);
 
     low=6000; high = 6003;
     startOp = clock();
@@ -1920,7 +1920,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 4 index deletion time: %d\n", elapsedTime);
+    printf("workload 4 index deletion time: %.5f\n", elapsedTime);
     deleteTable(enclave_id, (int*)&status, "Linear");
     //deleteTable(enclave_id, (int*)&status, "Index");
 
@@ -1940,7 +1940,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 5 linear large select time: %d\n", elapsedTime);
+    printf("workload 5 linear large select time: %.5f\n", elapsedTime);
     startOp = clock();
     while(i<95){
     	insertLinRowFast(enclave_id, (int*)&status, "Linear", row);
@@ -1948,7 +1948,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 5 linear insertion time: %d\n", elapsedTime);
+    printf("workload 5 linear insertion time: %.5f\n", elapsedTime);
 
     low=6006; high = 6009;
     startOp = clock();
@@ -1966,7 +1966,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 5 linear deletion time: %d\n", elapsedTime);
+    printf("workload 5 linear deletion time: %.5f\n", elapsedTime);
 
     //switch to index
     i = 0;
@@ -1980,7 +1980,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 5 index large select time: %d\n", elapsedTime);
+    printf("workload 5 index large select time: %.5f\n", elapsedTime);
     startOp = clock();
     while(i<95){
     	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
@@ -1988,7 +1988,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 5 index insertion time: %d\n", elapsedTime);
+    printf("workload 5 index insertion time: %.5f\n", elapsedTime);
 
     low=6006; high = 6009;
     startOp = clock();
@@ -2006,7 +2006,7 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     }
     endOp = clock();
     elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
-    printf("workload 5 index deletion time: %d\n", elapsedTime);
+    printf("workload 5 index deletion time: %.5f\n", elapsedTime);
     deleteTable(enclave_id, (int*)&status, "Linear");
     //deleteTable(enclave_id, (int*)&status, "Index");
 
