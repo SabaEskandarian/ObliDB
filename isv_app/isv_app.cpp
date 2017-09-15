@@ -2016,6 +2016,253 @@ void workloadTests(sgx_enclave_id_t enclave_id, int status){
     free(row);
 }
 
+void insdelScaling(sgx_enclave_id_t enclave_id, int status){
+
+    Condition condition1, condition2, noCondition, neverCondition;
+    char a = 'a', b = 'b', c='c';
+    int low = 1, high = 100;
+
+    condition1.numClauses = 1;
+    condition1.fieldNums[0] = 1;
+    condition1.conditionType[0] = 1;
+    condition1.values[0] = (uint8_t*)&low;
+    condition1.nextCondition = &condition2;
+    condition2.numClauses = 1;
+    condition2.fieldNums[0] = 1;
+    condition2.conditionType[0] = -1;
+    condition2.values[0] = (uint8_t*)&high;
+    condition2.nextCondition = NULL;
+    noCondition.numClauses = 0;
+    noCondition.nextCondition = NULL;
+
+    neverCondition.numClauses = 1;
+    neverCondition.fieldNums[0] = 1;
+    neverCondition.conditionType[0] = -1;
+    neverCondition.values[0] = (uint8_t*)&low;
+    neverCondition.nextCondition = NULL;
+
+	Schema testSchema;
+	testSchema.numFields = 5;
+	testSchema.fieldOffsets[0] = 0;
+	testSchema.fieldOffsets[1] = 1;
+	testSchema.fieldOffsets[2] = 5;
+	testSchema.fieldOffsets[3] = 9;
+	testSchema.fieldOffsets[4] = 10;
+	testSchema.fieldSizes[0] = 1;
+	testSchema.fieldSizes[1] = 4;
+	testSchema.fieldSizes[2] = 4;
+	testSchema.fieldSizes[3] = 1;
+	testSchema.fieldSizes[4] = 255;
+	testSchema.fieldTypes[0] = CHAR;
+	testSchema.fieldTypes[1] = INTEGER;
+	testSchema.fieldTypes[2] = INTEGER;
+	testSchema.fieldTypes[3] = CHAR;
+	testSchema.fieldTypes[4] = TINYTEXT;
+
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	const char* text = "You would measure time the measureless and the immeasurable.";
+	int testSize = 100000;
+	row[0] = 'a';
+	memcpy(&row[1], &testSize, 4);
+	int temp = testSize/100;
+	memcpy(&row[5], &temp, 4);
+	if((testSize)%2 == 0) row[9] = 'a';
+	else if((testSize)%3 == 0) row[9] = 'b';
+	else row[9]= 'c';
+	memcpy(&row[10], text, strlen(text)+1);
+
+	time_t startOp, endOp;
+	double elapsedTime;
+	int i = 0;
+
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 100);
+    //switch to index
+    low = 1;
+    high = 3;
+    startOp = clock();
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("100 row index point select time: %.5f\n", elapsedTime);
+    i = 0;
+    startOp = clock();
+    while(i<5){
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("100 row index insertion time: %.5f\n", elapsedTime);
+    low=10; high = 12;
+    startOp = clock();
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 11; high = 13;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 12; high = 14;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 13; high = 15;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 14; high = 16;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("100 row index deletion time: %.5f\n", elapsedTime);
+    deleteTable(enclave_id, (int*)&status, "Index");
+
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 1000);
+    //switch to index
+    low = 1;
+    high = 3;
+    startOp = clock();
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("1000 row index point select time: %.5f\n", elapsedTime);
+    i = 0;
+    startOp = clock();
+    while(i<5){
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("1000 row index insertion time: %.5f\n", elapsedTime);
+    low=10; high = 12;
+    startOp = clock();
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 11; high = 13;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 12; high = 14;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 13; high = 15;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 14; high = 16;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("1000 row index deletion time: %.5f\n", elapsedTime);
+    deleteTable(enclave_id, (int*)&status, "Index");
+
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 10000);
+    //switch to index
+    low = 1;
+    high = 3;
+    startOp = clock();
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("10000 row index point select time: %.5f\n", elapsedTime);
+    i = 0;
+    startOp = clock();
+    while(i<5){
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("10000 row index insertion time: %.5f\n", elapsedTime);
+    low=10; high = 12;
+    startOp = clock();
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 11; high = 13;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 12; high = 14;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 13; high = 15;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 14; high = 16;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("10000 row index deletion time: %.5f\n", elapsedTime);
+    deleteTable(enclave_id, (int*)&status, "Index");
+
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 100000);
+    //switch to index
+    low = 1;
+    high = 3;
+    startOp = clock();
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("100000 row index point select time: %.5f\n", elapsedTime);
+    i = 0;
+    startOp = clock();
+    while(i<5){
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("100000 row index insertion time: %.5f\n", elapsedTime);
+    low=10; high = 12;
+    startOp = clock();
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 11; high = 13;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 12; high = 14;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 13; high = 15;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 14; high = 16;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("100000 row index deletion time: %.5f\n", elapsedTime);
+    deleteTable(enclave_id, (int*)&status, "Index");
+
+    createTestTableIndex(enclave_id, (int*)&status, "Index", 1000000);
+    //switch to index
+    low = 1;
+    high = 3;
+    startOp = clock();
+    	indexSelect(enclave_id, (int*)&status, "Index", -1, condition1, -1, -1, -1, low, high, 0);
+    	deleteTable(enclave_id, (int*)&status, "ReturnTable");
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    printf("1000000 row index point select time: %.5f\n", elapsedTime);
+    i = 0;
+    startOp = clock();
+    while(i<5){
+    	insertRow(enclave_id, (int*)&status, "Index", row, 100000);
+    	i++;
+    }
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("1000000 row index insertion time: %.5f\n", elapsedTime);
+    low=10; high = 12;
+    startOp = clock();
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 11; high = 13;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 12; high = 14;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 13; high = 15;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    	low = 14; high = 16;
+    	deleteRows(enclave_id, (int*)&status, "Index", noCondition, low, high);
+    endOp = clock();
+    elapsedTime = (double)(endOp - startOp)/(CLOCKS_PER_SEC);
+    elapsedTime /=5;
+    printf("1000000 row index deletion time: %.5f\n", elapsedTime);
+    deleteTable(enclave_id, (int*)&status, "Index");
+
+    free(row);
+}
+
 void fabTests(sgx_enclave_id_t enclave_id, int status){
     //Tests for database functionalities here
 
@@ -3106,7 +3353,8 @@ int main(int argc, char* argv[])
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);//512
         //fabTests(enclave_id, status);//512
-        workloadTests(enclave_id, status);//512
+        //workloadTests(enclave_id, status);//512
+        insdelScaling(enclave_id, status);//512
 
 /*
 	//test for sophos - linear

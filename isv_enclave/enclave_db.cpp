@@ -2693,9 +2693,9 @@ int createTestTableIndex(char* tableName, int numberOfRows){
 	testSchema2.fieldTypes[2] = INTEGER;
 	testSchema2.fieldTypes[3] = CHAR;
 	if(strcmp(tableName, "jTable") == 0 || strcmp(tableName, "jIndex") == 0) testSchema = testSchema2;
+
 	//create the table
 	createTable(&testSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, numberOfRows+200, &structureId);
-
 	int rowi = 0;
 	for(int i = 0; i < numberOfRows; i++){//printf("in loop %d\n", i);
 		if(i % 500 == 0){
