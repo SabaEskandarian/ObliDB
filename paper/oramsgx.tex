@@ -73,7 +73,8 @@
     \renewcommand{\dblfloatpagefraction}{0.9}	% require fuller float pages
 
 	% remember to use [htp] or [htpb] for placement
-	\setlength{\abovecaptionskip}{0pt}
+	
+	\setlength{\abovecaptionskip}{2pt}
 	\setlength{\belowcaptionskip}{-13pt}
 	
 \begin{document}
@@ -375,45 +376,47 @@ Figure~\ref{figQueries} compares \name/ to the baseline oblivious database. \nam
 The most staggering speedups over the baseline appear in aggregation queries, where \name/ gains two orders of magnitude in performance. This arises from the need to hide data structures that keep statistics for each group without revealing when a row does not match with any known groups and needs to begin its own new group. The possibility of this occurrence necessitates, in the naive algorithm, an access to each group's data for each row. With the system-wide maximum number of groups set to the hundreds of thousands, such a query has little chance of completing within a reasonable time frame and may take well over the 1,000 seconds at which we cut off our experiments. The aggregation over the CFPB table completes in a shorter period of time because we used our prior knowledge of the number of banks to set the maximum number of groups to a lower threshold (200, in this case).
 
 \subsection{Comparison to Opaque}
-\begin{figure}
+
+\begin{figure*}
+\begin{minipage}{.64\textwidth}
 \small
 \centering
 \begin{tikzpicture}
 \centering
 \begin{semilogyaxis}[
 	log origin = infty,
-	width=6cm,
-	y label style={at={(axis description cs:-0.1,.5)},anchor=south},
+	width=5cm,
+	y label style={at={(axis description cs:-0.2,.5)},anchor=south},
 	ytick={.1,1,10},
 	ymin=.1,
 	ylabel={Time [seconds]},
-    title={Comparison to Opaque - No Index},
-	symbolic x coords={BDB Q1, BDB Q2, BDB Q3, 4},
+    title style={align=center},title={Comparison to Opaque\\No Index},
+	symbolic x coords={Q1, Q2, Q3, 4},
 	x tick label style={
 		/pgf/number format/1000 sep=},
 	%%ylabel=Time (seconds),
 	enlargelimits=0.05,
-	legend style={at={(0.5,-0.17)},
-	legend entries={Opaque Oblivious Mode, \name/, Spark SQL (No Security)},
-	anchor=north,legend columns=2},
+	legend style={at={(0.5,-0.22)},
+	legend entries={\small Opaque Oblivious Mode, \small \name/ (without Index), \small Spark SQL (No Security)},
+	anchor=north,legend columns=1},
 	ybar interval=.7,
     ]
 %\addplot %baseline
 %	coordinates {(BDB Q1, 54.18978) (BDB Q2, 205.78637) (BDB Q3, 131.29887) (4,1)};
 \addplot %opaque obliv
-	coordinates {(BDB Q1,1.54659) (BDB Q2,3.210607) (BDB Q3,17.26355) (4, 1)};
+	coordinates {(Q1,1.54659) (Q2,3.210607) (Q3,17.26355) (4, 1)};
 \addplot %us
-	coordinates {(BDB Q1,2.434) (BDB Q2, 3.0422) (BDB Q3,12.774) (4,1)};
+	coordinates {(Q1,2.434) (Q2, 3.0422) (Q3,12.774) (4,1)};
 %\addplot %spark sql
 %	coordinates {(BDB Q1,.1615) (BDB Q2,1.9757) (BDB Q3,7.2477) (4,1)};
     %\legend{Opaque Oblivious Mode,\name/, Spark SQL (No Security)}
 
 \addlegendimage{line legend,black,sharp plot,dashed}
-\coordinate (A) at (axis cs:BDB Q1,.11755);
-\coordinate (B) at (axis cs:BDB Q2,.11755);
-\coordinate (C) at (axis cs:BDB Q2,1.2848);
-\coordinate (D) at (axis cs:BDB Q3,1.2848);
-\coordinate (E) at (axis cs:BDB Q3,4.8357);
+\coordinate (A) at (axis cs:Q1,.11755);
+\coordinate (B) at (axis cs:Q2,.11755);
+\coordinate (C) at (axis cs:Q2,1.2848);
+\coordinate (D) at (axis cs:Q3,1.2848);
+\coordinate (E) at (axis cs:Q3,4.8357);
 \coordinate (F) at (axis cs:4,4.8357);
 
 \draw [black,sharp plot,dashed] (A) -- (B);
@@ -422,44 +425,45 @@ The most staggering speedups over the baseline appear in aggregation queries, wh
 
 \end{semilogyaxis}
 \end{tikzpicture}
-\vskip .3cm
 \begin{tikzpicture}
 \centering
 \begin{semilogyaxis}[
 	log origin = infty,
-	width=6cm,
-	y label style={at={(axis description cs:-0.1,.5)},anchor=south},
+	width=5cm,
+	y label style={at={(axis description cs:-0.2,.5)},anchor=south},
 	ylabel={Time [seconds]},
-    title={Comparison to Opaque - Index Allowed},
-	symbolic x coords={BDB Q1, BDB Q2, BDB Q3, 4},
+    title style={align=center},title={Comparison to Opaque\\Index Allowed},
+	symbolic x coords={Q1,  Q2,  Q3, 4},
 	x tick label style={
 		/pgf/number format/1000 sep=},
 	%%ylabel=Time (seconds),
 	enlargelimits=0.05,
-	legend style={at={(0.5,-0.17)},
-		legend entries={Opaque Oblivious Mode, \name/, Spark SQL (No Security)},
-	anchor=north,legend columns=2},
+	legend style={at={(0.5,-0.22)},
+		legend entries={\small Opaque Oblivious Mode, \small \name/ (Index Allowed), \small Spark SQL (No Security), \name/},
+	anchor=north,legend columns=1},
 	ybar interval=.7,
     ]
 %\addplot %baseline
-%	coordinates {(BDB Q1, 54.18978) (BDB Q2, 205.78637) (BDB Q3, 131.29887) (4,1)};
+%	coordinates {( Q1, 54.18978) ( Q2, 205.78637) ( Q3, 131.29887) (4,1)};
 \addplot %opaque obliv
-	coordinates {(BDB Q1,1.54659) (BDB Q2,3.210607) (BDB Q3,17.26355) (4, 1)};
+	coordinates {(Q1,1.54659) (Q2,3.210607) (Q3,17.26355) (4, 1)};
 \addplot %us
-	coordinates {(BDB Q1,.0824) (BDB Q2, 3.0422) (BDB Q3,12.774) (4,1)};
+	coordinates {(Q1,.0824) (Q2, 3.0422) (Q3,12.774) (4,1)};
 %\addplot %spark sql
-%	coordinates {(BDB Q1,.1615) (BDB Q2,1.9757) (BDB Q3,7.2477) (4,1)};
+%	coordinates {(Q1,.1615) (Q2,1.9757) (Q3,7.2477) (4,1)};
     %\legend{Opaque Oblivious Mode,\name/, Spark SQL (No Security)}
 
     \addlegendimage{line legend,black,sharp plot,dashed}
-\coordinate (A) at (axis cs:BDB Q1,.11755);
-\coordinate (B) at (axis cs:BDB Q2,.11755);
-\coordinate (C) at (axis cs:BDB Q2,1.2848);
-\coordinate (D) at (axis cs:BDB Q3,1.2848);
-\coordinate (E) at (axis cs:BDB Q3,4.8357);
+\coordinate (A) at (axis cs: Q1,.11755);
+\coordinate (B) at (axis cs: Q2,.11755);
+\coordinate (C) at (axis cs: Q2,1.2848);
+\coordinate (D) at (axis cs: Q3,1.2848);
+\coordinate (E) at (axis cs: Q3,4.8357);
 \coordinate (F) at (axis cs:4,4.8357);
-%\coordinate (G) at (axis cs:BDB Q1,2.434);
-%\coordinate (H) at (axis cs:BDB Q2,2.434);
+%\coordinate (G) at (60,-2);
+%\coordinate (H) at (90,-2);
+%\coordinate (I) at (60,-4);
+%\coordinate (J) at (90,-4);
 
 \draw [black,sharp plot,dashed] (A) -- (B);
 \draw [black,sharp plot,dashed] (C) -- (D);
@@ -467,31 +471,27 @@ The most staggering speedups over the baseline appear in aggregation queries, wh
 %\draw [red,sharp plot,solid] (G) -- (H);
 \end{semilogyaxis}
 \end{tikzpicture}
-\caption{\small \name/ outperforms Opaque Oblivious~\cite{ZDB+17} by 1.1-18.8$\times$ and never runs more than 2.6$\times$ slower than Spark SQL~\cite{SparkSQL} on the Q1-Q3 of the Big Data Benchmark~\cite{BDB}. Even without use of an index, \name/ performs comparably to Opaque Oblivious.}
-\label{figOpaque}
-\end{figure}
-
-Figure~\ref{figOpaque} compares \name/ with Opaque's oblivious mode~\cite{ZDB+17} and Spark SQL~\cite{SparkSQL} on the first three queries of the Big Data Benchmark~\cite{BDB} on tables of 360,000 and 350,000 rows. We omit the benchmark's fourth query as neither \name/ nor Opaque support the external scripts needed for it. Opaque, like \name/, centers its design on a secure SGX enclave and can be configured in either an ``encryption'' mode, which leaks access patterns but offers performance close to Spark SQL and an ``oblivious'' mode that hides access patterns to data by making sure to fit sensitive memory accesses inside the trusted enclave memory and achieving a security level similar to ours, albeit by very different means. Spark SQL provides no security guarantees and provides a measure of the performance achievable without any security concerns. Both Opaque and Spark SQL are run in a single node configuration on our device.
-
-\name/, when allowed to use indexes, outperforms Opaque on all three BDB queries, ranging from 1.1$\times$ speedup on query 2 to 18.8$\times$ speedup on query 1. The strong performance of \name/ compared to Opaque and Spark SQL on query 1 is due to \name/'s oblivious index, which allows it to only examine a small portion of the table whereas Opaque and Spark SQL, which aim to primarily handle analytic workloads, scan the entire table to satisfy the query. Even without using an index to speed up query 1, \name/ performs comparably to Opaque. Moreover, for queries 2 and 3, although \name/ is slower than Spark SQL, it is only 2.4$\times$ slower on query 2 and 2.6$\times$ slower on query 3, putting \name/ safely in the realm of tools whose performance is practical for real applications.
-
-\subsection{Comparison to Sophos}
-\begin{figure}
+\end{minipage}\hspace{.2cm}
+\begin{minipage}{.32\textwidth}
 \small
 \centering
 \begin{tikzpicture}
 \begin{loglogaxis}[
-    title style={align=center}, title={\name/ vs Sophos\\Select from 1.4 Million Row Table},
-    width=6.5cm,
-    xlabel={Number of Rows Returned},
-    ylabel={Time [seconds]},
-    xmin=5, xmax=10000,
-    ymin=0, ymax=80,
+    title style={align=center}, title={Comparison to Sophos\\Select from 1.4 Million Row Table},
+    width=5cm,
+    xlabel={Table Size (Rows)},
+	y label style={at={(axis description cs:-0.2,.5)},anchor=south},
+	ylabel={Time [seconds]},
+    xmin=5, xmax=15000,
+    ymin=0, ymax=130,
     xtick={10,100,1000,10000},
     %ytick={0,10,20,30,40,50,60,70},
-    legend pos=north west,
+    legend pos=south east,
     ymajorgrids=true,
     grid style=dashed,
+    	legend style={at={(0.5,-.4)},
+		legend entries={\small Sophos, \small \name/},
+	anchor=north,legend columns=2},
     ]
     \addplot[
     color=blue,
@@ -507,13 +507,25 @@ Figure~\ref{figOpaque} compares \name/ with Opaque's oblivious mode~\cite{ZDB+17
     coordinates {
     (10,.00885)(100,.07083)(1000,.69767)(10000,10.24335)
     };
-    \legend{Sophos, \name/}
-\end{loglogaxis}
-\end{tikzpicture}
-\caption{\small Comparison of \name/ to Sophos SSE scheme\cite{Bost16} on 1.4 million rows of data. \name/ outperforms Sophos by 22.6$\times$ when selecting 10 rows and by 24.6$\times$ when selecting 10,000 rows. Unlike \name/, Sophos does not use SGX but leaks access patterns to data.\ignore{make sure to mention in text that sophos numbers come from original paper and were gathered on a more powerful computer and also used multithreading. Also, if we extrapolate the Sophos numbers to 100k rows retrieved, \name/ linear scan beats both \name/ index and sophos}}
+    %\legend{\scriptsize Sophos, \scriptsize \name/}
+\end{loglogaxis} 
+\end{tikzpicture}\vspace{.3cm}
+\end{minipage}
+\begin{minipage}{.64\textwidth}
+\caption{\small \name/ outperforms Opaque Oblivious~\cite{ZDB+17} by 1.1-18.8$\times$ and never runs more than 2.6$\times$ slower than Spark SQL~\cite{SparkSQL} on Queries Q1-Q3 of the Big Data Benchmark~\cite{BDB}. Even without use of an index, \name/ performs comparably to Opaque Oblivious.}
+\label{figOpaque}
+\end{minipage}\hspace{.2cm}
+\begin{minipage}{.32\textwidth}
+\caption{\small Comparison to Sophos SSE scheme\cite{Bost16}. \name/ always outperforms Sophos by at least 22.6$\times$. Unlike \name/, Sophos leaks access patterns to data.}
 \label{figSophos}
-\end{figure}
+\end{minipage}
+\end{figure*}
 
+Figure~\ref{figOpaque} compares \name/ with Opaque's oblivious mode~\cite{ZDB+17} and Spark SQL~\cite{SparkSQL} on the first three queries of the Big Data Benchmark~\cite{BDB} on tables of 360,000 and 350,000 rows. We omit the benchmark's fourth query as neither \name/ nor Opaque support the external scripts needed for it. Opaque, like \name/, centers its design on a secure SGX enclave and can be configured in either an ``encryption'' mode, which leaks access patterns but offers performance close to Spark SQL and an ``oblivious'' mode that hides access patterns to data by making sure to fit sensitive memory accesses inside the trusted enclave memory and achieving a security level similar to ours, albeit by very different means. Spark SQL provides no security guarantees and provides a measure of the performance achievable without any security concerns. Both Opaque and Spark SQL are run in a single node configuration on our device.
+
+\name/, when allowed to use indexes, outperforms Opaque on all three BDB queries, ranging from 1.1$\times$ speedup on query 2 to 18.8$\times$ speedup on query 1. The strong performance of \name/ compared to Opaque and Spark SQL on query 1 is due to \name/'s oblivious index, which allows it to only examine a small portion of the table whereas Opaque and Spark SQL, which aim to primarily handle analytic workloads, scan the entire table to satisfy the query. Even without using an index to speed up query 1, \name/ performs comparably to Opaque. Moreover, for queries 2 and 3, although \name/ is slower than Spark SQL, it is only 2.4$\times$ slower on query 2 and 2.6$\times$ slower on query 3, putting \name/ safely in the realm of tools whose performance is practical for real applications.
+
+\subsection{Comparison to Sophos}
 We compare the performance of \name/'s oblivious index to the searchable symmetric encryption (SSE) scheme Sophos~\cite{Bost16} in Figure~\ref{figSophos}. Sophos does not provide obliviousness guarantees, meaning it leaks access patterns to rows in a table, and it does not use hardware enclaves to achieve security. It does, however, offer a ``forward-secrecy'' property not found in many SSE schemes. As such, it provides a good point of comparison for the performance of our SGX-based oblivious Indexed tables with a non-SGX based, non-oblivious index that still provides reasonable privacy guarantees. Sophos only provides the ability to search for exact keyword matches via an inverted index, so we compare on simulated data. Specifically, we compare against the performance numbers reported in the original Sophos paper for a table of 1.4 million rows and measured using a more powerful machine than ours: an Intel Core i7 4790K 4.00GHz CPU with 8 logical cores, 16GB of RAM, a 250 GB Samsung 850 EVO SSD, running on OS X.10. Despite the difference in hardware and the fact that the Sophos implementation is multithreaded, \name/ outperforms Sophos by 22.6-24.6$\times$ depending on the size of the number of rows returned by a query. We observe that the performance tipping point between Indexed and Linear tables in \name/ arrives between the $10^4$ and $10^5$ rows returned marks in this experiment, and \name/'s performance on larger queries beyond that point would remain constant.
 
 \subsection{Padding Mode Overhead}
@@ -532,14 +544,9 @@ Select (Index) & 0.003s & 0.76s & 253$\times$\\
 Insert (Index) & 0.011s & 0.013s & 1.2$\times$\\
 Delete (Index) & 0.015s & 0.018s & 1.2$\times$\\
 \end{tabular}
-\caption{\small Overhead of \name/ in padding mode for queries in the CFPB table of 107,000 rows padded to 200,000 rows.}
+\caption{\small Overhead of \name/ in padding mode for queries on the CFPB table of 107,000 rows padded to 200,000 rows.}
 \label{figPad}
 \end{figure}
-In Figure~\ref{figPad}, we report on the overhead of using padding mode in \name/ to hide not only access patterns to data but also all information regarding the sizes of tables, whether they be at rest in the database, intermediate tables constructed in handling a query, or the results returned from a query. The table shows query results for the 107,000 row CFPB table padded up to 200,000 rows.
-
-Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unimplemented. To our knowledge, no other comparable system exists with an implemented oblivious padding mode, so we are unable to compare our padding performance to prior work. The results do, however, represent reasonable slowdowns for inflating the size of a table by approximately 2$\times$. The larger slowdown for a \texttt{SELECT} query on a single record results from the fact that obliviously padding all results to a maximum size sacrifices the gains won by using an index to only read a small fraction of the table. 
-
-\subsection{Microbenchmarks}
 \begin{figure*}
 \small
 \centering
@@ -547,14 +554,14 @@ Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unim
 \begin{tikzpicture}
 \begin{axis}[
     title={Linear vs Index Select},
-    	width=5.5cm,
+    	width=5cm,
     xlabel={Percent of Table Retrieved},
     ylabel={Time [seconds]},
     xmin=0, xmax=2.5,
     ymin=0, ymax=1.5,
     xtick={0,.5,1,1.5,2, 2.5},
     %ytick={0,.25,.5,.75,1},
-    legend pos=south east,
+    legend pos=north west,
     ymajorgrids=true,
     grid style=dashed,
     ]
@@ -572,7 +579,7 @@ Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unim
     coordinates {
     (.1,.0556)(.5,.2732)(1,.5666)(1.5,.8177)(2,1.0866)(2.5,1.3544)
     };
-    \legend{Linear, Indexed}
+    \legend{\small Linear, \small Indexed}
 \end{axis}
 \end{tikzpicture}
 
@@ -580,13 +587,13 @@ Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unim
 \begin{axis}[
     title={Linear vs Index Group By},
         ylabel={Time [seconds]},
-        	width=5.5cm,
+        	width=5cm,
     xlabel={Percent of Table Retrieved},
     xmin=0, xmax=2.5,
     ymin=0, ymax=.75,
     xtick={0,.5,1,1.5,2, 2.5},
     ytick={0,.25,.5,.75},
-    legend pos=south east,
+    legend pos=north west,
     ymajorgrids=true,
     grid style=dashed,
     ]
@@ -604,36 +611,148 @@ Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unim
     coordinates {
     (.1,.0282)(.5,.1361)(1,.2816)(1.5,.4025)(2,.5365)(2.5,.6744)
     };
-    \legend{Linear, Indexed}
+    \legend{\small Linear, \small Indexed}
 \end{axis}
 \end{tikzpicture}
 &
 \begin{tikzpicture}
 \begin{semilogyaxis}[
 	log origin = infty,
-	width=5.3cm,
+	width=4.7cm,
     title={Linear vs Index Operations},
-        ylabel={Time [seconds]},
+        ylabel={Time [ms]},
 	symbolic x coords={Insert, Delete, Update, 4},
 	x tick label style={
 		/pgf/number format/1000 sep=},
 	%%ylabel=Time (seconds),
 	enlargelimits=0.05,
-	legend style={at={(0.5,-0.19)},
+	legend style={at={(0.5,-0.23)},
 	anchor=north,legend columns=-1},
 	ybar interval=0.7,
     ]
 \addplot
-	coordinates {(Insert,.00001) (Delete,.70634) (Update,.71077) (4, 1)};
+	coordinates {(Insert,.01) (Delete,706.34) (Update,710.77) (4, 1)};
 \addplot
-	coordinates {(Insert,.00424) (Delete,.00593) (Update,.00268) (4,1)};
+	coordinates {(Insert,004.24) (Delete,005.93) (Update,002.68) (4,1)};
     \legend{Linear, Indexed}
 \end{semilogyaxis}
 \end{tikzpicture}\\
 \end{tabular}
 \caption{\small Comparison of Linear and Index versions of operators over 100,000 rows of fabricated data. Linear scans do better when more of the data needs to be accessed, but Indexed structures perform far better for small queries.}
-\label{figC1}
+\label{figC1}\vspace{.5cm}
+    \centering
+    \begin{minipage}{.32\textwidth}
+        \centering
+\begin{tikzpicture}
+\begin{semilogxaxis}[
+    title={Point Queries on Indexes},
+        ylabel={Time [ms]},
+        	width=5.5cm,
+    xlabel={Size of Table (Rows)},
+    %xmin=0, xmax=2.5,
+    %ymin=0, ymax=.75,
+    xtick={100,1000,10000,100000,1000000},
+    %ytick={0,.25,.5,.75},
+    legend pos=north west,
+    ymajorgrids=true,
+    grid style=dashed,
+    ]
+    \addplot[
+    color=blue,
+    mark=square,
+    ]
+    coordinates {
+    (100,1.28)(1000, 1.54)(10000, 2.19)(100000,2.86)(1000000,3.58)
+    };
+    \addplot[
+    color=red,
+    mark=square,
+    ]
+    coordinates {
+    (100,.69)(1000, 1.68)(10000, 2.16)(100000,4.25)(1000000,8.29)
+    };
+    \addplot[
+    color=orange,
+    mark=square,
+    ]
+    coordinates {
+    (100,1.36)(1000, 2.26)(10000, 3.42)(100000,6.19)(1000000,9.36)
+    };
+    \legend{\footnotesize \texttt{SELECT},\footnotesize \texttt{INSERT},\footnotesize \texttt{DELETE}} 
+\end{semilogxaxis}
+\end{tikzpicture}
+    \end{minipage}
+    \hspace{.2cm}%
+    \begin{minipage}{0.64\textwidth}
+    \begin{minipage}{.5\textwidth}
+\begin{tikzpicture}
+\centering
+\begin{axis}[
+	width=5.15cm,
+	ybar interval=.7,
+	ylabel={Time [seconds]},
+    title={Impact of Table Type},
+	symbolic x coords={\ \ \ L1, \ \ \ L2,  \ \ \ L3,  \ \ \ L4,  \ \ \ L5, 4},
+	legend style={at={(0.5,-.25)},
+	anchor=north,legend columns=4},
+	xtick=data,
+	x tick label style={text width=1cm},
+	%%ylabel=Time (seconds),
+	enlargelimits=0.05,
+    ]
+\addplot
+	coordinates {(\ \ \ L1, 6.944) (\ \ \ L2, 61.670) (\ \ \ L3, 70.22698) (\ \ \ L4, 66.711) (\ \ \ L5, 67.27659) (4,1)};
+\addplot
+	coordinates {(\ \ \ L1, 14.122) (\ \ \ L2, 2.6639) (\ \ \ L3, 137.851) (\ \ \ L4, 124.121) (\ \ \ L5, 245.3216) (4,1)};
+\addplot[color=violet, fill=violet]
+	coordinates {(\ \ \ L1, 3.962) (\ \ \ L2, 3.36899) (\ \ \ L3, 36.165) (\ \ \ L4, 36.132) (\ \ \ L5, 67.3285) (4,1)};
+
+
+\legend{\footnotesize Linear, \footnotesize Indexed, \footnotesize Combined}
+\end{axis}
+\end{tikzpicture}
+\end{minipage}
+      \begin{minipage}{.5\textwidth}\vspace{.2cm}
+\centering
+\scriptsize
+\begin{tabular}{ll}
+\textbf{Workload} & \textbf{Queries} \\\hline\rule{0pt}{2.5ex}
+L1: Logging & 90 Insertions\\
+ & 5 Point Reads \\
+  & 5 Large Reads \\\rule{0pt}{2.5ex}
+L2: Social Media & 90 Small Reads\\
+ & 9 Insertions \\
+  & 1 Deletion \\\rule{0pt}{2.5ex}
+L3: Balanced, read-only & 50 Point Reads\\
+  & 50 Large Reads \\\rule{0pt}{2.5ex}
+L4: Balanced, read-heavy & 45 Point Reads \\
+  & 45 Large Reads\\
+  & 5 Insertions\\
+  & 5 Deletions\\\rule{0pt}{2.5ex}
+L5: Mostly large reads & 90 Large Reads \\
+  & 5 Insertions\\
+  & 5 Deletions\\
+\end{tabular}\end{minipage}
+    \end{minipage}
+    \begin{minipage}{.32\textwidth}
+    		\caption{\small Point queries for Indexed tables of various sizes. Query time grows polylogarithmically in table size.}
+		\label{figScaling}
+    \end{minipage}\hspace{.2cm}
+    \begin{minipage}{.64\textwidth}
+    \caption{\small Linear, Indexed, and combined representations of data performing on various workloads over a 100,000 row table. Point reads access 1 record, small reads access 50 records, and large reads access 5\% of the table.}
+\label{figworkload}
+    \end{minipage}
 \end{figure*}
+In Figure~\ref{figPad}, we report on the overhead of using padding mode in \name/ to hide not only access patterns to data but also all information regarding the sizes of tables, whether they be at rest in the database, intermediate tables constructed in handling a query, or the results returned from a query. The table shows query results for the 107,000 row CFPB table padded up to 200,000 rows.
+
+Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unimplemented. To our knowledge, no other comparable system exists with an implemented oblivious padding mode, so we are unable to compare our padding performance to prior work. The results do, however, represent reasonable slowdowns for inflating the size of a table by approximately 2$\times$. The larger slowdown for a \texttt{SELECT} query on a single record results from the fact that obliviously padding all results to a maximum size sacrifices the gains won by using an index to only read a small fraction of the table. 
+
+\subsection{Microbenchmarks}
+
+\noindent \textbf{Table Representation Choices}.
+By providing both Indexed and Linear tables and optimizing queries based on information gained through a first pass over the data, \name/ to makes meaningful performance improvements for diverse queries. To this end, Figure~\ref{figC1} compares the performance of Linear and Indexed tables on \texttt{SELECT} (hash algorithm), \texttt{GROUP BY} (low-cardinality), \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. This finding contrasts claims in prior work~\cite{RLT15} that indicate linear scans always perform better than ORAM for oblivious memory access. In general, Indexed \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables, but the fast Linear \texttt{INSERT} query -- the one measured in the figure -- outperforms the Indexed \texttt{INSERT}. The performance of linear tables (outside of fast insertions) degrades linearly with the size of the table, but point operations on Indexed tables take time only polylogarithmic in the table size. Figure~\ref{figScaling} shows the running time of insertions, point selections, and point deletions as the size of a table grows by factors of 10. This very gradual increase in running times enables the performance improvements \name/ enjoys over oblivious analytics systems on queries that admit efficacious use of an index. 
+
+In some situations, a combined table representation that maintains both an Indexed and Linear table for the same data proves effective. Although \name/ pays insertion and deletion costs for both types of tables to maintain a combined table, it can use the better representation for each query, an important benefit given that many real-world workloads rely heavily on different kinds of reads. Figure~\ref{figworkload} shows \name/ running various workloads with Linear, Indexed, or combined tables. Although there exist cases in which a Linear or Indexed table alone undisputedly perform best, a combined representation often performs comparably to or much better than either table type alone. 
 \begin{figure}
 \small
 \centering
@@ -641,65 +760,6 @@ Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unim
 \centering
 \begin{axis}[
 	width=7cm,
-	ybar interval=.7,
-	ylabel={Time [seconds]},
-    title={Effective Table Types for Different Workloads},
-	symbolic x coords={Load 1, Load 2, Load 3, Load 4, Load 5, 4},
-	legend style={at={(0.5,-.13)},
-	anchor=north,legend columns=4},
-	xtick=data,
-	x tick label style={text width=1cm},
-	%%ylabel=Time (seconds),
-	enlargelimits=0.05,
-    ]
-
-\addplot
-	coordinates {(Load 1, 6.944) (Load 2, 61.670) (Load 3, 70.22698) (Load 4, 66.711) (Load 5, 67.27659) (4,1)};
-\addplot
-	coordinates {(Load 1, 14.122) (Load 2, 2.6639) (Load 3, 137.851) (Load 4, 124.121) (Load 5, 245.3216) (4,1)};
-\addplot[color=violet, fill=violet]
-	coordinates {(Load 1, 3.962) (Load 2, 3.36899) (Load 3, 36.165) (Load 4, 36.132) (Load 5, 67.3285) (4,1)};
-
-
-\legend{Linear, Indexed, Combined}
-\end{axis}
-\end{tikzpicture}
-\caption{\small Linear, Indexed, and combined representations of data performing on various workloads over a 100,000 row table.}
-\label{figworkloadgraph}
-\end{figure}
-
-\begin{figure}
-\small
-\centering
-\begin{tabular}{ll}
-\textbf{Workload} & \textbf{Queries} \\\hline\rule{0pt}{2.5ex}
-1: Logging & 90 Insertions\\
- & 5 Point Reads \\
-  & 5 Large Reads \\\rule{0pt}{2.5ex}
-2: Social Media & 90 Small Reads\\
- & 9 Insertions \\
-  & 1 Deletion \\\rule{0pt}{2.5ex}
-3: Balanced read-only & 50 Point Reads\\
-  & 50 Large Reads \\\rule{0pt}{2.5ex}
-4: Balanced, mostly reads & 45 Point Reads \\
-  & 45 Large Reads\\
-  & 5 Insertions\\
-  & 5 Deletions\\\rule{0pt}{2.5ex}
-5: Mostly large reads & 90 Large Reads \\
-  & 5 Insertions\\
-  & 5 Deletions\\
-\end{tabular}
-\caption{\small Workloads for evaluating comparative performance of table representations. Point reads access 1 record, small reads access 50 records, and large reads access 5\% of the table.}
-\label{figworkloadtable}
-\end{figure}
-
-\begin{figure}
-\small
-\centering
-\begin{tikzpicture}
-\centering
-\begin{axis}[
-	width=7.5cm,
 	ybar interval=.7,
 	ylabel={\texttt{SELECT} Time [seconds]},
     title={Effectiveness of Optimizer},
@@ -711,7 +771,6 @@ Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unim
 	%%ylabel=Time (seconds),
 	enlargelimits=0.05,
     ]
-
 \addplot
 	coordinates {(5\% of Table Cont., 7.973) (5\% of Table, 7.973) (95\% of Table Cont., 9.123) (95\% of Table, 9.123) (4,1)}; %hash
 \addplot
@@ -737,10 +796,6 @@ Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unim
 \caption{\small Our optimizer picks the best algorithm for handling \texttt{SELECT} queries based on a preliminary scan that determines whether the data to be returned is small, large, or consists of a continuous set of rows in the table.}
 \label{figC3}
 \end{figure}
-\noindent \textbf{Table Representation Choices}.
-By providing both Indexed and Linear tables and optimizing queries based on information gained through a first pass over the data, \name/ to makes meaningful performance improvements for diverse queries. To this end, Figure~\ref{figC1} compares the performance of Linear and Indexed tables on \texttt{SELECT} (hash algorithm), \texttt{GROUP BY} (low-cardinality), \texttt{INSERT}, \texttt{DELETE}, and \texttt{UPDATE} queries. Linear scans perform better as the amount of data retrieved from a table increases since the cost of the scan is amortized over more rows, but smaller queries perform significantly better using an index. This finding contrasts claims in prior work~\cite{RLT15} that indicate linear scans always perform better than ORAM for oblivious memory access. In general, Indexed \texttt{DELETE}, and \texttt{UPDATE} queries significantly outperform Linear tables, but the fast Linear \texttt{INSERT} query --the one used measured in the figure-- outperforms the Indexed \texttt{INSERT}.
-
-In some situations, a combined table representation that maintains both an Indexed and Linear table for the same data proves effective. Although \name/ pays insertion and deletion costs for both types of tables to maintain a combined table, it can use the better representation for each query, an important benefit given that many real-world workloads rely heavily on different kinds of reads. Figure~\ref{figworkloadgraph} shows \name/ performing on each of the workloads of Figure~\ref{figworkloadtable} with Linear, Indexed, or combined tables. Although there exist cases in which a Linear or Indexed table alone undisputedly perform best, a combined representation often performs comparably to or much better than either table type alone. 
 
 \noindent \textbf{Effectiveness of Optimizer}.
 Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of a fabricated 100,000 row table. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small/large or a continuous set of rows) suffices to pick an algorithm that will perform much better in practice. Equally impressive gains appear in the choice of \texttt{GROUP BY} algorithm for real queries: the high-cardinality aggregation algorithm used for the query on the USERVISITS table (shown in Figure~\ref{figQueries}) performs 168$\times$ better than the low-cardinality algorithm would on the same query.
