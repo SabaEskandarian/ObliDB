@@ -218,7 +218,7 @@ Let $A(\overrightarrow{y})$ denote the (possibly randomized) sequence of accesse
 \end{enumerate}
 \end{definition}
 
-The scope of the security guarantees provided by ORAM create important consequences for oblivious data structures and algorithms built on top of ORAM. ORAM only makes guarantees of indistinguishability for access patterns of the same length. This means that oblivious algorithms using ORAM must always make the same number of memory accesses or risk leaking access pattern data.
+The scope of the security guarantees provided by ORAM create important consequences for oblivious data structures and algorithms built on top of it. ORAM only makes guarantees of indistinguishability for access patterns of the same length. This means that oblivious algorithms using ORAM must always make the same number of memory accesses or risk leaking access patterns.
 
 Although other, older schemes have recently received attention due their practical efficiency in certain practical parameter settings~\cite{ZWR+16}, the most efficient ORAM scheme known is the Path ORAM~\cite{SDS+13}. Path ORAM belongs to a family of schemes known as tree-based ORAMs, which operate by storing the blocks of the oblivious memory in a tree structure. Each block is associated with a leaf in the tree in a position map that guarantees the block will be found somewhere on the path to that leaf. An access to the ORAM involves reading a path down the tree from the root to the leaf corresponding to the desired block. After retrieving the desired block, a second pass is made on the same path where each block is re-encrypted with new randomness and the retrieved block is assigned a new leaf, remaining stored in a small ``stash'' if the path does not allow space for it to be written back on the path to its new assigned leaf. Although it is not always necessary in practice, the position map holding the assigned leaves for each block of the ORAM can be recursively stored in its own ORAM to reduce the trusted processor memory required by this scheme to a constant.
 
@@ -388,16 +388,6 @@ In this section we evaluate \name/ on tables of up to 1.4 million rows and measu
 
 We find that \name/ dramatically outperforms a baseline implementation and can leverage its indexes to achieve order of magnitude performance improvements over previous private database systems. In particular, \name/ matches Opaque~\cite{ZDB+17} for scan-based queries but can outperform it by 18.8x when it uses an index. \name/ also performs 22.6-24.6$\times$ faster than Sophos~\cite{Bost16}, a recent index-based searchable encryption scheme.
 
-\subsection{Comparison to Baseline}
-
-\name/ outperforms a baseline implementation (i.e. what could be achieved with a generic tool for converting legacy applications) by as much as two orders of magnitude.  Since a direct translation of the memory accesses of a non-oblivious data structure to an ORAM does not guarantee obliviousness, we modified its data structures and algorithms as little as possible to achieve an oblivious version, always erring on the side of stronger performance. Our baseline uses the same data structure as \name/ for Linear tables but uses a naive B+ tree implementation that does not take advantage of the ORAM-related optimizations discussed in Section~\ref{oblivData}. The baseline also uses the naive varieties of operators as described in Section~\ref{oblivOps}.
-
-Figure~\ref{figQueries} compares \name/ to the baseline oblivious database. \name/ achieves up to 29$\times$ speedup for \texttt{SELECT} queries and over 328$\times$ speedup for aggregates. For comparison to an insecure system, a point selection query in \name/ performs only 7.9$\times$ slower than the same query run on mysql over a table stored in memory. \texttt{SELECT} queries over Linear tables enjoy much larger speedup over the baseline than the same queries over Indexed tables because an oblivious B+ tree lookup takes most of time in the indexed \texttt{SELECT} queries, and we used the same algorithm for this lookup in both the baseline and actual implementations. We made this decision because a naive application of ORAM to a B+ tree search algorithm does not yield an oblivious B+ tree, as described in Section~\ref{oblivData}.
-
-The most staggering speedups over the baseline appear in aggregation queries, where \name/ gains two orders of magnitude in performance. This arises from the need to hide data structures that keep statistics for each group without revealing when a row does not match with any known groups and needs to begin its own new group. The possibility of this occurrence necessitates, in the naive algorithm, an access to each group's data for each row. With the system-wide maximum number of groups set to the hundreds of thousands, such a query has little chance of completing within a reasonable time frame and may take well over the 1,000 seconds at which we cut off our experiments. The aggregation over the CFPB table completes in a shorter period of time because we used our prior knowledge of the number of banks to set the maximum number of groups to a lower threshold (200, in this case).
-
-\subsection{Comparison to Opaque}
-
 \begin{figure*}
 \begin{minipage}{.64\textwidth}
 \small
@@ -542,34 +532,19 @@ The most staggering speedups over the baseline appear in aggregation queries, wh
 \end{minipage}
 \end{figure*}
 
+\subsection{Comparison to Baseline}
+
+\name/ outperforms a baseline implementation (i.e. what could be achieved with a generic tool for converting legacy applications) by as much as two orders of magnitude.  Since a direct translation of the memory accesses of a non-oblivious data structure to an ORAM does not guarantee obliviousness, we modified its data structures and algorithms as little as possible to achieve an oblivious version, always erring on the side of stronger performance. Our baseline uses the same data structure as \name/ for Linear tables but uses a naive B+ tree implementation that does not take advantage of the ORAM-related optimizations discussed in Section~\ref{oblivData}. The baseline also uses the naive varieties of operators as described in Section~\ref{oblivOps}.
+
+Figure~\ref{figQueries} compares \name/ to the baseline oblivious database. \name/ achieves up to 29$\times$ speedup for \texttt{SELECT} queries and over 328$\times$ speedup for aggregates. For comparison to an insecure system, a point selection query in \name/ performs only 7.9$\times$ slower than the same query run on mysql over a table stored in memory. \texttt{SELECT} queries over Linear tables enjoy much larger speedup over the baseline than the same queries over Indexed tables because an oblivious B+ tree lookup takes most of time in the indexed \texttt{SELECT} queries, and we used the same algorithm for this lookup in both the baseline and actual implementations. We made this decision because a naive application of ORAM to a B+ tree search algorithm does not yield an oblivious B+ tree, as described in Section~\ref{oblivData}.
+
+The most staggering speedups over the baseline appear in aggregation queries, where \name/ gains two orders of magnitude in performance. This arises from the need to hide data structures that keep statistics for each group without revealing when a row does not match with any known groups and needs to begin its own new group. The possibility of this occurrence necessitates, in the naive algorithm, an access to each group's data for each row. With the system-wide maximum number of groups set to the hundreds of thousands, such a query has little chance of completing within a reasonable time frame and may take well over the 1,000 seconds at which we cut off our experiments. The aggregation over the CFPB table completes in a shorter period of time because we used our prior knowledge of the number of banks to set the maximum number of groups to a lower threshold (200, in this case).
+
+\subsection{Comparison to Opaque}
+
 Figure~\ref{figOpaque} compares \name/ with Opaque's oblivious mode~\cite{ZDB+17} and Spark SQL~\cite{SparkSQL} on the first three queries of the Big Data Benchmark~\cite{BDB} on tables of 360,000 and 350,000 rows. We omit the benchmark's fourth query as neither \name/ nor Opaque support the external scripts needed for it. Opaque, like \name/, centers its design on a secure SGX enclave and can be configured in either an ``encryption'' mode, which leaks access patterns but offers performance close to Spark SQL and an ``oblivious'' mode that hides access patterns to data by making sure to fit sensitive memory accesses inside the trusted enclave memory and achieving a security level similar to ours, albeit by very different means. Spark SQL provides no security guarantees and provides a measure of the performance achievable without any security concerns. Both Opaque and Spark SQL are run in a single node configuration on our device.
 
 \name/, when allowed to use indexes, outperforms Opaque on all three BDB queries, ranging from 1.1$\times$ speedup on query 2 to 18.8$\times$ speedup on query 1. The strong performance of \name/ compared to Opaque and Spark SQL on query 1 is due to \name/'s oblivious index, which allows it to only examine a small portion of the table whereas Opaque and Spark SQL, which aim to primarily handle analytic workloads, scan the entire table to satisfy the query. Indexes do not provide a speedup on queries 2 and 3 because those queries require scanning larger segments of the input tables. Even without using an index to speed up query 1, \name/ performs comparably to Opaque. Moreover, for queries 2 and 3, although \name/ is slower than Spark SQL, it is only 2.4$\times$ slower on query 2 and 2.6$\times$ slower on query 3, putting \name/ safely in the realm of tools with practical performance for real applications.
-
-\subsection{Comparison to Sophos}
-We compare the performance of \name/'s oblivious index to the searchable symmetric encryption (SSE) scheme Sophos~\cite{Bost16} in Figure~\ref{figSophos}. Sophos does not provide obliviousness guarantees, meaning it leaks access patterns to rows in a table, and it does not use hardware enclaves to achieve security. It does, however, offer a ``forward-secrecy'' property not found in many SSE schemes. As such, it provides a good point of comparison for the performance of our SGX-based oblivious Indexed tables with a non-SGX based, non-oblivious index that still provides reasonable privacy guarantees. Sophos only provides the ability to search for exact keyword matches via an inverted index, so we compare on simulated data. Specifically, we compare against the performance numbers reported in the original Sophos paper for a table of 1.4 million rows and measured using a more powerful machine than ours: an Intel Core i7 4790K 4.00GHz CPU with 8 logical cores, 16GB of RAM, a 250 GB Samsung 850 EVO SSD, running on OS X.10. Despite the difference in hardware and the fact that the Sophos implementation is multithreaded, \name/ outperforms Sophos by 22.6-24.6$\times$ depending on the size of the number of rows returned by a query. We observe that the performance tipping point between Indexed and Linear tables in \name/ arrives between the $10^4$ and $10^5$ rows returned marks in this experiment, and \name/'s performance on larger queries beyond that point would remain constant.
-
-\subsection{Padding Mode Overhead}
-\ignore{
-\begin{figure}
-\small
-\centering
-\begin{tabular}{llll}
-\textbf{Query Type} & \textbf{Obliv} & \textbf{Pad} & \textbf{Overhead} \\\hline
-\textbf{Analytic Queries}\\
-Aggregate & 0.60s & 2.66s & 4.4$\times$\\%*
-Select (Linear) & 1.19s & 2.80s & 2.4$\times$\\%*
-Select (Index) & 0.47s & 1.49s & 3.2$\times$\\
-Delete (Index) & 0.22s & 0.26s & 1.2$\times$\\
-\textbf{Point Queries}\\
-Select (Index) & 0.003s & 0.76s & 253$\times$\\
-Insert (Index) & 0.011s & 0.013s & 1.2$\times$\\
-Delete (Index) & 0.015s & 0.018s & 1.2$\times$\\
-\end{tabular}
-\caption{\small Overhead of \name/ in padding mode for queries on the CFPB table of 107,000 rows padded to 200,000 rows.}
-\label{figPad}
-\end{figure}
-}
 \begin{figure*}
 \small
 \centering
@@ -761,6 +736,31 @@ Delete (Index) & 0.015s & 0.018s & 1.2$\times$\\
 \label{figworkload}
     \end{minipage}
 \end{figure*}
+\subsection{Comparison to Sophos}
+We compare the performance of \name/'s oblivious index to the searchable symmetric encryption (SSE) scheme Sophos~\cite{Bost16} in Figure~\ref{figSophos}. Sophos does not provide obliviousness guarantees, meaning it leaks access patterns to rows in a table, and it does not use hardware enclaves to achieve security. It does, however, offer a ``forward-secrecy'' property not found in many SSE schemes. As such, it provides a good point of comparison for the performance of our SGX-based oblivious Indexed tables with a non-SGX based, non-oblivious index that still provides reasonable privacy guarantees. Sophos only provides the ability to search for exact keyword matches via an inverted index, so we compare on simulated data. Specifically, we compare against the performance numbers reported in the original Sophos paper for a table of 1.4 million rows and measured using a more powerful machine than ours: an Intel Core i7 4790K 4.00GHz CPU with 8 logical cores, 16GB of RAM, a 250 GB Samsung 850 EVO SSD, running on OS X.10. Despite the difference in hardware and the fact that the Sophos implementation is multithreaded, \name/ outperforms Sophos by 22.6-24.6$\times$ depending on the size of the number of rows returned by a query. We observe that the performance tipping point between Indexed and Linear tables in \name/ arrives between the $10^4$ and $10^5$ rows returned marks in this experiment, and \name/'s performance on larger queries beyond that point would remain constant.
+
+\subsection{Padding Mode Overhead}
+\ignore{
+\begin{figure}
+\small
+\centering
+\begin{tabular}{llll}
+\textbf{Query Type} & \textbf{Obliv} & \textbf{Pad} & \textbf{Overhead} \\\hline
+\textbf{Analytic Queries}\\
+Aggregate & 0.60s & 2.66s & 4.4$\times$\\%*
+Select (Linear) & 1.19s & 2.80s & 2.4$\times$\\%*
+Select (Index) & 0.47s & 1.49s & 3.2$\times$\\
+Delete (Index) & 0.22s & 0.26s & 1.2$\times$\\
+\textbf{Point Queries}\\
+Select (Index) & 0.003s & 0.76s & 253$\times$\\
+Insert (Index) & 0.011s & 0.013s & 1.2$\times$\\
+Delete (Index) & 0.015s & 0.018s & 1.2$\times$\\
+\end{tabular}
+\caption{\small Overhead of \name/ in padding mode for queries on the CFPB table of 107,000 rows padded to 200,000 rows.}
+\label{figPad}
+\end{figure}
+}
+
 \name/'s padding mode hides not only access patterns to data but also all information regarding the sizes of tables, whether they be at rest in the database, intermediate tables constructed in handling a query, or the results returned from a query. We evaluated the performance cost of this mode by running queries on the CFPB table of 107,000 rows padded up to 200,000 rows. We found that our aggregate query over a Linear table had a 4.4$\times$ slowdown and a select had a 2.4$\times$ slowdown. The larger slowdown for aggregates results from the padding algorithm padding to the maximum supported number of groups for aggregates -- in this case, 350,000. We did not evaluate the padding mode for Indexed tables because the entire benefit of Indexed tables results from the knowledge of the selectivity of a query, the exact information padding removes by hiding table sizes. 
 
 Opaque~\cite{ZDB+17} describes an oblivious pad mode, but this mode remains unimplemented. To our knowledge, no other comparable system exists with an implemented oblivious padding mode, so we are unable to compare our padding performance to prior work. The results do, however, represent reasonable slowdowns for inflating the size of a table by approximately 2$\times$. 
@@ -818,27 +818,23 @@ Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{
 
 \section{Related Work}\label{related}
 
-\name/ is related to a number of prior works involving cryptographically-protected databases and applications of trusted hardware.
-
   \noindent \textbf{Cryptographically-protected database search}.
-A testament to the importance of the problem of search over encrypted data in databases lies in the extensive prior work on the subject, summarized and systematized by Fuller et al~\cite{FVY+17}. Perhaps the most widely known work in this area is CryptDB~\cite{PRZB12}, which implements a tradeoff between security and performance by encrypting each field in a table according to the type of operation expected to be used on the data in that field. Arx~\cite{PBP16}, a more recent system, keeps all data encrypted at the highest level of security and makes clever use of data structures to allow for efficient operations over data. Another common class of solutions are those which use an inverted index to allow searches on stored encrypted data, as exemplified by Demertzis et al~\cite{DPP+16}. These schemes rely on searchable symmetric encryption (SSE) as a primitive, recent examples of which include Sophos, Janus, and Diana~\cite{Bost16, BMO17}.
+Fuller et al~\cite{FVY+17} summarize and systematize prior work on cryptographically-protected database search. The widely-known CryptDB~\cite{PRZB12} implements a tradeoff between security and performance by encrypting each field according to the security needs of that column. Arx~\cite{PBP16}, a more recent system, keeps all data encrypted at the highest level of security and makes clever use of data structures to allow for efficient operations over data. Another common class of solutions are those which use an inverted index to allow searches on stored encrypted data, as exemplified by Demertzis et al~\cite{DPP+16}. These schemes rely on searchable symmetric encryption (SSE) as a primitive, recent examples of which include Sophos, Janus, and Diana~\cite{Bost16, BMO17}.
 
-Cryptographically protected databases have been subject to many attacks~\cite{IKK12, NKW15, CGPR15, ZKP16} which show that inference from known context of data used, additional correlated public data, or even just the leakage inherent in a scheme itself can be used to attack various schemes in ways not anticipated in their original security models. In hiding even the access patterns to data in our solution, we hope to minimize the extent to which \name/ is vulnerable to such techniques.
+Cryptographically protected databases have been subject to attacks~\cite{IKK12, NKW15, CGPR15, ZKP16} showing that inference from known context or leakage can compromise schemes in ways not covered by their original security models.
 
   \noindent \textbf{Trusted hardware}.
-Trusted hardware can be used to achieve security properties that are difficult, impractical, or potentially impossible with traditional cryptographic assumptions. For example, a number of hardware or hardware/software based solutions exist with the explicit goal of rendering programs' memory traces oblivious~\cite{CLD16, LHM+15, MLS+13}. Intel SGX has been used to implement practical functional encryption~\cite{FVBG16} and obfuscation~\cite{NFR+17}, both functionalities which can currently only be constructed using heavy cryptographic machinery.
+A number of generic tools provide legacy applications the heightened security available from SGX~\cite{BPH15, STTS17, ATG+16, HZX+16}. \ignore{Haven~\cite{BPH15} shields execution of legacy programs from a malicious OS. Panoply and SCONE~\cite{STTS17, ATG+16} provide SGX-protected Linux OS and container abstractions. In the distributed setting, Ryoan~\cite{HZX+16} is a sandbox for computation on secret data.}
+In addition to general tools, many works implement variations of existing tools and services rendered secure via SGX. M2R~\cite{DSC+15} and VC3~\cite{SCF+15} provide MapReduce and cloud data analytics functionalities, respectively, and Opaque~\cite{ZDB+17} provides secure support for Spark SQL. Like Opaque, Cipherbase~\cite{cipherbase} provides a secure and optionally oblivious variant of Microsoft's SQL Server. SecureKeeper~\cite{BWG+16} uses SGX to build a confidential version of Apache's ZooKeeper (\url{zookeeper.apache.org}). HardIDX~\cite{FBB+17} builds a database index in SGX, and ZeroTrace~\cite{SGF17} provides oblivious memory primitives based on ORAM.
 
-In recent years, a number of generic tools have been designed to provide legacy applications the heightened security available from SGX. Haven~\cite{BPH15} shields execution of legacy programs from a malicious OS. Panoply and SCONE~\cite{STTS17, ATG+16} provide SGX-protected Linux OS and container abstractions. In the distributed setting, Ryoan~\cite{HZX+16} is a sandbox for computation on secret data.
+Side channel attacks on SGX make use of page faults~\cite{XCP15, BMD+17}, branch history~\cite{LSG+16}, thread scheduling~\cite{WKPK16}, and other ``controlled channel'' side channels, where an attacker uses its control of the system to learn more about the enclave's behavior than it should know. Recently, Schwarz et al~\cite{SWG+17} show how malicious code running inside an enclave can attack other enclaves. Shinde et al~\cite{SCNS16} and Raccoon~\cite{RLT15} close side channels by making the memory trace of a program oblivious or obfuscated. SGX-Shield~\cite{SLK+17} enables address space layout randomization for SGX, and, finally, T-SGX~\cite{SLKP17} protects against side-channel attacks by using Transactional Synchronization Extensions (TSX) to close side channels.
 
-In addition to general tools, applications to securely conduct data analytics or handle data in the cloud represent a compelling practical use case for SGX hardware. In this vein, many works implement variations of existing tools and services rendered secure via SGX. M2R~\cite{DSC+15} and VC3~\cite{SCF+15} provide MapReduce and cloud data analytics functionalities, respectively, and Opaque~\cite{ZDB+17} provides secure support for Spark SQL. Like Opaque, Cipherbase~\cite{cipherbase} provides a secure and optionally oblivious variant of Microsoft's SQL Server. SecureKeeper~\cite{BWG+16} uses SGX to build a confidential version of Apache's ZooKeeper (\url{zookeeper.apache.org}). More fundamental primitives for databases and oblivious computation in general are provided by HardIDX~\cite{FBB+17}, a database index in SGX, and ZeroTrace~\cite{SGF17} which provides oblivious memory primitives based on ORAM as well as an analysis of parameter optimizations for using an ORAM controller in SGX for data storage. None of the solutions above, with the exception of ZeroTrace, use ORAM to hide memory access patterns. Instead, they either make use of memory-oblivious algorithms suited to the tasks they undertake or remain vulnerable to side-channel attacks targeting memory access patterns.
-
-The SGX literature includes a number of works that aim to reveal practical side channels in the implementation of SGX. Among these are attacks that make use of page faults~\cite{XCP15, BMD+17}, branch history~\cite{LSG+16}, thread scheduling~\cite{WKPK16}, and other ``controlled channel'' side channels, where an attacker uses its control of the system to learn more about the enclave's behavior than it should know. Recently, Schwarz et al~\cite{SWG+17} show how malicious code running inside an enclave can attack other enclaves. Defenses against such attacks include the work of Shinde et al~\cite{SCNS16} and Raccoon~\cite{RLT15} which close side channels by making the memory trace of a program oblivious or obfuscated. SGX-Shield~\cite{SLK+17} enables address space layout randomization for SGX, and, finally, T-SGX~\cite{SLKP17} protects against side-channel attacks by using another set of hardware features, Transactional Synchronization Extensions (TSX) to close side channels. \name/ can be generically combined with any of these solutions to provide higher levels of confidence in the security of the enclave.
+Intel SGX has been used to implement practical functional encryption~\cite{FVBG16} and obfuscation~\cite{NFR+17}, neither of which could be constructed efficiently previously. Outside SGX, there exist other hardware solutions that render programs' memory traces oblivious~\cite{CLD16, LHM+15, MLS+13}.  
  
-\medskip
-Outside the setting of trusted hardware, some prior work customizes ORAMs to different applications and use cases, as in our oblivious B+ trees. Wang et al.~\cite{WNL+14} develop several general data structures that can be used on top of ORAM to enable better performance than a naive composition of ORAM and known data structures. Dealing with the more specific goal of a map data structure with a ``history independence'' property, Roche et al.~\cite{RAC16} design a custom data structure called a HIRB tree that they build on top of vORAM, an ORAM variant that offers variable-sized blocks.
+  \noindent \textbf{Data Structures over ORAM}. Wang et al.~\cite{WNL+14} develop several general data structures that can be used efficiently on top of ORAM. Desiring a map data structure with a history independence property, Roche et al.~\cite{RAC16} design a ``HIRB tree'' that they build on top of vORAM, an ORAM variant that offers variable-sized blocks.
 
 \section{Conclusion}\label{conclusion}
-We have presented \name/, a cryptographically-protected database system based on Intel SGX that leaks only table sizes and its query plan (and additionally offers a padding mode to hide even table sizes). We have shown that \name/ handles practical data sets with performance surpassing prior work with similar security properties as well as other existing solutions with more permissive leakage functions. It is our hope that solutions like \name/ based on SGX and other techniques that leverage hardware-based advantages can enable rapid advances in the performance and security of solutions to difficult problems related to private databases and search over encrypted data.
+We have presented \name/, a cryptographically-protected database system based on Intel SGX that leaks only table sizes and its query plan (and even hides table sizes in pad mode). We have shown that \name/ handles practical data sets with performance surpassing prior work that had similar or weaker security properties. It is our hope that solutions like \name/ based on SGX and other techniques that leverage hardware-based advantages can enable rapid advances in the performance and security of solutions to difficult problems related to private databases and search over encrypted data.
 
 %\section*{Acknowledgements}
 
