@@ -819,7 +819,7 @@ In some situations, a combined table representation that maintains both an Index
 \label{figC3}
 \end{figure}
 
-\subsection{Effectiveness of Optimizer}
+\subsection{Impact of Optimizer}
 Figure~\ref{figC3} demonstrates the effectiveness of \name/'s choice of \texttt{SELECT} algorithms, comparing our various algorithms on queries that retrieve 5\% and 95\% percent of a fabricated 100,000 row table. Although the ``Hash'' algorithm performs the best asymptotically, the figure demonstrates that knowledge gleaned only from \name/'s intended leakage about the results of a query (whether it is small/large or a continuous set of rows) suffices to pick an algorithm that will perform much better in practice. Equally impressive gains appear in the choice of \texttt{GROUP BY} algorithm for real queries: the high-cardinality aggregation algorithm used for the query on the USERVISITS table (shown in Figure~\ref{figQueries}) performs 168$\times$ better than the low-cardinality algorithm would on the same query.
 
 \section{Related Work}\label{related}
@@ -831,7 +831,7 @@ Several attacks~\cite{IKK12, NKW15, CGPR15, ZKP16} show that inference from cont
 
   \noindent \textbf{Trusted hardware}.
 A number of generic tools provide legacy applications the heightened security available from SGX~\cite{BPH15, STTS17, ATG+16, HZX+16}.
-Many works also implement variations of existing systems secured via SGX. M2R~\cite{DSC+15} and VC3~\cite{SCF+15} provide MapReduce and cloud data analytics functionalities, respectively, and Opaque~\cite{ZDB+17} provides secure support for Spark SQL. Like Opaque, Cipherbase~\cite{cipherbase} provides a secure and optionally oblivious variant of Microsoft's SQL Server. SecureKeeper~\cite{BWG+16} uses SGX to build a confidential version of Apache's ZooKeeper (\url{zookeeper.apache.org}). HardIDX~\cite{FBB+17} builds a database index in SGX, and ZeroTrace~\cite{SGF17} provides oblivious memory primitives based on ORAM.
+Many works also implement variations of existing systems secured via SGX. M2R~\cite{DSC+15} and VC3~\cite{SCF+15} provide MapReduce and cloud data analytics functionalities, respectively, and Opaque~\cite{ZDB+17} provides secure support for Spark SQL. Like Opaque, Cipherbase~\cite{cipherbase} provides a secure and optionally oblivious variant of Microsoft's SQL Server. SecureKeeper~\cite{BWG+16} uses SGX to build a confidential version of Apache's ZooKeeper (\url{zookeeper.apache.org}). HardIDX~\cite{FBB+17} builds a key-value index in SGX but is not oblivious, and ZeroTrace~\cite{SGF17} provides oblivious memory primitives based on ORAM.
 
 Side channel attacks on SGX make use of page faults~\cite{XCP15, BMD+17}, branch history~\cite{LSG+16}, and thread scheduling~\cite{WKPK16} to learn private information. Recently, Schwarz et al~\cite{SWG+17} run malicious code inside an enclave to attack other enclaves. Other work~\cite{SCNS16, RLT15} closes side channels by making memory traces oblivious or obfuscated. SGX-Shield~\cite{SLK+17} enables address space layout randomization for SGX, and T-SGX~\cite{SLKP17} uses Transactional Synchronization Extensions (TSX) to close side channels.
 
