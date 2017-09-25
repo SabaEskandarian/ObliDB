@@ -88,9 +88,9 @@
 %make title bold and 14 pt font (Latex default is non-bold, 16 pt)
 %\title{\Large \bf \name/: A Cloud Database with Access Pattern Leakage Protection}
 %\title{\Large \bf \name/: An Oblivious SQL Database for Cloud Computing}
-\title{\Large \bf An Oblivious General-Purpose SQL Database for Cloud Computing\vspace{-0.1cm}}
+\title{\Large \bf An Oblivious General-Purpose SQL Database for the Cloud\vspace{-0.1cm}}
 
-\author{\emph{Paper \# XXX}}
+\author{\emph{Paper \# 320}}
 
 \ignore{
 %for single author (just remove % characters)
@@ -116,49 +116,58 @@ Second Institution
 
 \subsection*{Abstract}
 We present \name/, a secure SQL database for the public cloud that supports both transactional and analytics workloads and protects against access pattern leakage.
-With many database workloads moving to the cloud, there is significant interest in securing them.
-Hardware enclaves offer a strong practical foundation towards this goal by providing encryption and secure execution, but they still suffer from access pattern leaks that can reveal a great deal of information.
-%In database workloads, this can reveal a great deal of information.
+With databases being a critical component in many applications, there is significant
+interest in outsourcing them securely.
+Hardware enclaves offer a strong practical foundation towards this goal by providing encryption and secure execution, but they still suffer from \emph{access pattern leaks} that can reveal a great deal of information.
 The na\"ive way to address this issue---using generic Oblivious RAM (ORAM) primitives beneath a database---adds prohibitive overhead.
 Instead, \name/ co-designs both its data structures (e.g., oblivious B+ trees) and query operators to accelerate SQL processing, giving up to 329$\times$ speedup over na\"ive ORAM.
 %\name/ supports a broad range of SQL queries, including aggregation, joins, inserts, deletes and point queries, %and key data structures used to accelerate database workloads, such as indexes.
 On analytics workloads, \name/ ranges from competitive to 19$\times$ faster than systems designed \emph{only} for analytics, such as Opaque, and comes within 2.6$\times$ of Spark SQL.
-Moreover, \name/ also supports point queries, insertions, and deletions on tables of 1 million rows in 3.6-9.4ms, making it usable for transactional workloads too. To our knowledge, \name/ is the first oblivious database that supports both transactional and analytic workloads.
+Moreover, \name/ also supports point queries, insertions, and deletions with latencies of 1--10ms, making it usable for transactional workloads too. To our knowledge, \name/ is the first oblivious database that supports both transactional and analytic workloads.
 
 \section{Introduction}
 
-Relational databases are a lynchpin of modern computer applications, ranging from low-volume services inside a business to global social applications such as Facebook.
-With the advent of cloud computing, there is considerable interest in running databases securely in the cloud, protecting their sensitive content from both network attackers and insiders at the cloud provider (e.g., a hacker who breaches the cloud provider's security~\cite{yahoo-hack}).
-Researchers have proposed approaches including property-preserving encryption~\cite{PRZB12,mylar,FVY+17}, secure hardware~\cite{cipherbase,ZDB+17}, and algorithms to execute specific computations on encrypted data~\cite{WZPM16,NWI+13}, offering various tradeoffs between security, generality and performance.
+Relational databases are a linchpin of modern computer applications, ranging from low-volume services inside an enterprise to global applications like Facebook.
+With the advent of cloud computing, there is considerable interest in running databases securely in the cloud, protecting their sensitive content from both network attackers and insiders at the cloud provider (e.g., a hacker who breaches the provider's security~\cite{yahoo-hack}).
+Researchers have proposed approaches including property-preserving encryption~\cite{PRZB12,mylar,FVY+17}, trusted hardware~\cite{cipherbase,ZDB+17}, and algorithms to run specific computations securely~\cite{WZPM16,NWI+13,WYG+17}, giving various tradeoffs between security, generality and performance.
 
 One of the most promising practical approaches to increase security is hardware enclaves such as Intel SGX~\cite{CD16}.
-These enclaves provide an environment where a remotely verifiable piece of code can run without interference from the OS, accessing a small amount of enclave memory and making upcalls to the the OS when needed.
+These enclaves provide an environment where a remotely verifiable piece of code can execute without interference from the OS, accessing a small amount of enclave memory and making upcalls to the the OS when needed.
 However, applications using enclaves to manage a large amount of data must still access it through the OS (e.g., to read new memory pages or access the disk), which makes them susceptible to access pattern attacks.
-For database workloads in particular, access patterns can reveal a great deal of information even when the data is encrypted~\cite{IKK12,XCP15}. % Maybe cite cryptdb attack papers
-Some recent systems, such as Opaque~\cite{ZDB+17} and Cipherbase~\cite{cipherbase}, have proposed oblivious execution schemes that do not reveal access patterns, but these systems are limited to \emph{analytics} workloads that scan entire tables to answer a query.
+For database workloads in particular, access patterns can reveal a great deal of information even when the data is encrypted~\cite{IKK12,XCP15,mr-leakage}. % Maybe cite cryptdb attack papers
+Some recent systems, such as Opaque~\cite{ZDB+17} and Cipherbase~\cite{cipherbase}, have proposed oblivious execution schemes that do not reveal access patterns, but these schemes are limited to \emph{analytics} workloads that scan entire tables to answer a query.
 Specifically, both systems use oblivious sort operators that sort all the data.
-These systems would not be efficient for more general database workloads that also include transaction processing (point queries and updates to a few records)---the most common use case for databases.
+These systems would not be efficient for more general database workloads that also include transaction processing (point queries and updates to just a few records)---one of the most common use cases for databases.
 
-This paper presents \name/, an oblivious SQL database that supports both transactional and analytical processing using hardware enclaves. Unlike previous systems, \name/ supports \emph{two storage methods}---a linear one that must always be scanned, and \emph{oblivious B+ trees} that allow efficient indexed access. Each table can be stored using one or both methods to achieve higher performance on the desired query workload.
+This paper presents \name/, an oblivious SQL database that supports both transactional and analytical processing using hardware enclaves.
+\name/ goes beyond prior work by providing new \emph{storage methods} (e.g., oblivious B+ trees) and new \emph{operators} that can efficiently support transactional queries, in addition to analytics on the same data.
+Together, these contributions make \name/ the first system to support---and achieve acceptable performance on---both transactional and analytics workloads.
 
-The key idea in \name/'s oblivious B+ trees is to use techniques from Oblivious RAM (ORAM)~\cite{SDS+13} to support fast lookups and updates to just part of the database, unlike previous systems that always scan the whole data.
-However, na\"ively applying ORAM to a database engine (e.g., using a platform like ObliVM~\cite{oblivm} that changes every memory access to use ORAM) results in prohibitively high overheads.
-Instead, \name/ revisits tradeoffs inherent in the design of database indexes and optimizes for the oblivious setting, carefully co-designing both the data structures used to hold records and the processing algorithms for SQL operators to perform several orders of magnitude faster than na\"ive ORAM.
+Unlike previous systems, \name/ supports two \emph{storage methods} for its tables: a linear one where the table is encrypted as a contiguous file and always scanned (as in Opaque and Cipherabase), as well as an \emph{oblivious B+ tree} for efficient indexed access.
+Each table can be stored using either one or both methods.
+The key idea in \name/'s oblivious B+ trees is to use techniques from Oblivious RAM (ORAM)~\cite{SDS+13} to support fast lookups and updates to just part of the database.
+However, na\"ively applying ORAM under a standard database B+ tree (e.g., using a platform like ObliVM~\cite{oblivm} that changes every memory access in an application to use ORAM) would give prohibitively high overheads.
+Instead, \name/ designs an oblivious B+ tree tailored for ORAM, and operators on it that perform orders of magnitude better than a na\"ive implementation.
+For example, an oblivious system needs every tree operation (e.g., node insertion) to take the \emph{worst-case} time, or an attacker would observe information about the inserted node; however, standard tree implementations do not aim to minimize this worst case.
+\name/'s B+ tree addresses this and other performance issues.
 
-The new data structures present in \name/ allow new and diverse algorithms for SQL operators. \name/ provides multiple versions of each operator based on the input and output representations, as well as on data properties such as output sizes.
-Finally, \name/ can select the fastest implementation of each operator based on data statistics at runtime.
+The new storage methods in \name/ also require new implementations of other SQL operators, such as selections and joins.
+\name/ provides multiple versions of each operator based on the input and output storage methods, as well as other properties, such as data sizes.
+It also provides a query optimizer to automatically select the best operator implementations for a query at runtime.
 
-Together, these properties allow \name/ to support a wide range of queries efficiently while not leaking any information beyond intermediate result sizes and the chosen query plan (the same security level as Opaque's oblivious mode).\footnote{
-    \name/ also supports padding intermediate and final results, similar to Opaque's pad mode, if desired.
+Together, these features allow \name/ to support a wide range of queries efficiently while not leaking any information beyond intermediate result sizes and the chosen query plan (the same security level as Opaque's oblivious mode).\footnote{
+    \name/ also supports padding intermediate and final results to a fixed size, similar to Opaque's pad mode, if desired.
 }
-\name/ supports selections, aggregations and joins similar to other analytics systems~\cite{ZDB+17,cipherbase}, as well as efficient low-cardinality operations, such as point lookups, insertions, deletions and updates.
+\name/ supports selections, aggregations and joins similar to other analytics systems~\cite{ZDB+17,cipherbase}, as well as eficient point lookups, insertions, deletions and updates.
 
-We implement a prototype of \name/ and evaluate it on real and synthetic datasets of various sizes.
+We evaluate a prototype of \name/ on diverse applications and find that \name/ performs acceptably, both in absolute terms and relative to other secure systems.
 We first compare \name/ to a baseline implementation where a database index is generically modified to run over ORAM, and show that \name/ outperforms it by up to 329$\times$.
-For analytics workloads, we compare \name/ to Opaque's oblivious mode~\cite{ZDB+17} on the Big Data Benchark\cite{BDB} and find that \name/ is competitive with Opaque on most queries, but can also outperform Opaque by 19$\times$ on queries that can leverage indexes.
-\name/ also comes within 2.6$\times$ of Spark SQL~\cite{SparkSQL}, which provides no security or privacy guarantees.
-For transactional workloads, \name/ outperforms the recent Sophos encrypted search scheme~\cite{Bost16} that does not hide access patterns by over 22$\times$. Point \texttt{SELECT} operations on a real data set of 107,000 rows take 2.7ms, coming within 7.9$\times$ the performance of MySQL tables stored in memory, which do not provide any of our security guarantees.
-Finally, we show that the choices of oblivious data structures and algorithms available in \name/ enable meaningful optimizations during the query planning process.
+For analytics workloads, we compare \name/ to Opaque~\cite{ZDB+17} on the Big Data Benchark\cite{BDB} and find that \name/ is competitive with Opaque on most queries, but can also outperform Opaque by 19$\times$ on queries that can leverage indexes.
+\name/ also comes within 2.6$\times$ of Spark SQL~\cite{SparkSQL}, which provides no security guarantees.
+For transactional workloads, \name/ outperforms the recent Sophos encrypted search scheme that does not hide access patterns~\cite{Bost16} by over 22$\times$.
+Moreover, point inserts, deletions and selects on a 1M row dataset take 3.6--9.4ms,
+which is less than the network latency in many applications.
+Finally, we show that the choice of oblivious operators available in \name/ enables meaningful optimizations during the query planning process.
 
 %The rest of this paper is organized as follows: Section~\ref{model} gives an overview of \name/ and our security model. Section~\ref{background} gives background on relevant tools used in \name/, and Sections~\ref{oblivData} and~\ref{oblivOps} detail \name/'s design. Sections~\ref{imp} and~\ref{eval} describe our implementation and evaluation respectively, and Section~\ref{related} discusses related work before concluding in Section~\ref{conclusion}.
 
@@ -170,7 +179,7 @@ We assume an attacker with full control of the operating system (OS) running \na
 
 We assume the security of the trusted hardware platform in that the enclave hides the contents of its protected memory pages from an attacker with control of the operating system. While some side-channel attacks based on abusing page faults and branching history have been demonstrated against Intel SGX~\cite{LSG+16,XCP15}, a number of standard mitigations exist to handle these attacks~\cite{SCNS16,RLT15,SLK+17,SLKP17}, and other hardware enclave designs avoid the pitfalls that leave SGX vulnerable~\cite{CLD16, LHM+15, MLS+13}.
 
-Furthermore, we also assume a secure channel exists through which an outside user can send messages to the enclave. A client can establish such a connection, e.g. through TLS. \ignore{ (this is fairly straightforward with SGX), but we did not implement this for our tests, as it is not directly related to the functionality provided by \name/.}
+Furthermore, we also assume a secure channel exists through which a user can send messages to the enclave. A client can establish such a connection, e.g., through TLS. \ignore{ (this is fairly straightforward with SGX), but we did not implement this for our tests, as it is not directly related to the functionality provided by \name/.}
 
 \subsection{Security Goals}
 We primarily concern ourselves with protecting against access pattern attacks \cite{IKK12}. Although encryption can hide the exact text of data, information about what portions of memory have been accessed and when can reveal a great deal of sensitive information. For example, consider an alphabetical list of student records. Knowledge of which position in a table has been read directly reveals the identity of the subject of the query. Another example is a database of information on diseases: correlating the frequency with which particular rows are accessed with the known incidence of diseases can reveal the malady from which a patient suffers. Opaque \cite{ZDB+17} discusses an attack similar to the latter example.
@@ -188,7 +197,7 @@ We additionally make the integrity guarantee that \name/ catches and reports any
 \end{figure}
 Figure~\ref{arch} shows an overview of the \name/ architecture. \name/ consists of a trusted code base inside an enclave that provides an interface for users to create, modify, and query tables. \name/ supports two \emph{storage methods} for each table: Linear and Indexed. It stores tables, encrypted, in unprotected memory and obliviously accesses them as needed by the various supported operators. The Indexed method consists of an ORAM with a B+ tree stored inside, whereas the Linear method requires scanning the whole table on each query to ensure obliviousness.
 
-  \name/ supports oblivious versions of the SQL operators \texttt{SELECT}, \texttt{INSERT}, \texttt{UPDATE}, \texttt{DELETE}, \texttt{GROUP BY} and \texttt{JOIN} as well as the aggregates \texttt{COUNT}, \texttt{SUM}, \texttt{MIN}, \texttt{MAX}, and \texttt{AVG}. Each operator is implemented for both storage methods. Finally, ObliDB includes a query optimizer that can choose the right operator plan for each query. For example, for selection queries, the optimizer first determines the size of the selection and then executes the best-performing \texttt{SELECT} algorithm for the data to be returned. Choices include algorithms that take advantage of the possibility of caching small results inside the enclave or quickly handling very large return sets by making a copy of the original table and returning it whole with the few missing rows obliviously erased. \name/ also provides a padding mode that pads all tables to a chosen size. Optimization decisions based on query selectivity do not make sense in this setting, so padding mode excludes them. 
+  \name/ supports oblivious versions of the SQL operators \texttt{SELECT}, \texttt{INSERT}, \texttt{UPDATE}, \texttt{DELETE}, \texttt{GROUP BY} and \texttt{JOIN} as well as the aggregates \texttt{COUNT}, \texttt{SUM}, \texttt{MIN}, \texttt{MAX}, and \texttt{AVG}. Each operator is implemented for both storage methods. Finally, ObliDB includes a query optimizer that can choose the right operator plan for each query. For example, for selection queries, the optimizer first determines the size of the selection and then executes the best-performing \texttt{SELECT} algorithm for the data to be returned. Choices include algorithms that take advantage of the possibility of caching small results inside the enclave or quickly handling very large return sets by making a copy of the original table and returning it whole with the few missing rows obliviously erased. \name/ also provides a padding mode that pads all tables to a chosen size. Optimization decisions based on query selectivity do not make sense in this setting, so this mode excludes them.
 
 \subsection{Limitations}
 \name/ provides strong privacy guarantees with practical performance for a broad range of applications but was not designed as a distributed database system. Although this may render it unsuitable for certain high-performance settings, the vast majority of web applications only require a single-server database solution with the ability to efficiently handle diverse queries. This constitutes the target population \name/ hopes to entice as users in order to bring heightened privacy to everyday web users.
@@ -196,7 +205,7 @@ Figure~\ref{arch} shows an overview of the \name/ architecture. \name/ consists 
 We note in this vein that however secure the properties of a database management system, an application interacting with it can leak additional information and must be secured as well. For example, if a web application using \name/ makes a second query to a database based on the results of a first query, observing the size of the response to the second query may leak additional information about the first query or its response. This direct, if unexpected, consequence of size leakage requires that application developers consider performance goals against the ramifications of such leakage in their design process.
 
 \section{Background}\label{background}
-In this section we give a basic overview of hardware enclaves and ORAM, the primary tools used in \name/, providing only sufficient detail for the subsequent sections.
+In this section we give a basic overview of hardware enclaves and ORAM, the primary tools used in \name/, providing only sufficient detail for the later sections.
 
 \subsection{Enclaves and Intel SGX}
 
@@ -233,15 +242,15 @@ The Linear storage method simply stores rows in a series of adjacent blocks with
 \subsection{Indexed Storage Method}
 The Indexed storage method makes use of both an ORAM and a B+ tree in order to provide better performance without losing obliviousness for large data sets. It consists of an ORAM that holds a B+ tree where the actual data of the table resides, with each node of the B+ tree corresponding to one block of the ORAM. The security properties of ORAM guarantee that two access transcripts of the same length will be indistinguishable from each other, but we must ensure that the total number of accesses or the timing gaps between accesses do not leak any private data. The property of B+ trees that all data resides in the leaves of the tree, always at the same depth, means that any search in the tree will make the same number of accesses to intermediate nodes before finding the desired data. Using a different data structure that does not exhibit such a property would compromise the obliviousness of operators in our Indexed storage method.
 
-The main contributions of our oblivious B+ tree are as follows:
+The main contributions of our oblivious B+ tree are:
 \begin{enumerate}
 \setlength\itemsep{0pt}
-\item Insights into new tradeoffs in parameter selection in the ORAM setting
-\item Optimizing for the necessity induced by obliviousness of every operation having worst-case runtime 
-\item Managing dynamic memory over ORAM
+\item Insights into new tradeoffs in parameter selection for the ORAM setting
+\item Optimizing for the necessity induced by obliviousness of every operation having \emph{worst-case} runtime
+\item Managing dynamic memory over ORAM.
 \end{enumerate}
 
-\noindent \textbf{New Tradeoffs}. The key insight in making this method efficient is that an ORAM underneath the B+ tree alters the usual performance tradeoffs inherent in B+ trees in unexpected ways. For example, in a typical B+ tree, the choice of maximum degree of nodes in the tree depends on a balance between achieving low depth overall and not having too many pointers to examine and update within a single node. ORAM upsets the balance on which this intuition relies by increasing the cost of following or updating pointers between nodes(each of which requires an ORAM lookup) to the point where many operations scanning child keys within a single node become almost free by comparison to following a pointer. As such, the degree of a node can become even bigger than usual well before the cost of operations within a node reaches parity with the cost of an ORAM operation. On the other hand, ORAM presents another constraint too: increasing the degree beyond a certain point requires ORAM blocks to become larger, reducing the performance of the underlying ORAM. We compromise by making the degree of our trees as high as possible without artificially inflating the size of ORAM blocks to accommodate pointers to additional children.
+\noindent \textbf{Parameter Tradeoffs}. The key insight in making this method efficient is that an ORAM underneath the B+ tree alters the usual performance tradeoffs inherent in B+ trees in unexpected ways. For example, in a typical B+ tree, the choice of maximum degree of nodes in the tree depends on a balance between achieving low depth overall and not having too many pointers to examine and update within a single node. ORAM upsets the balance on which this intuition relies by increasing the cost of following or updating pointers between nodes(each of which requires an ORAM lookup) to the point where many operations scanning child keys within a single node become almost free by comparison to following a pointer. As such, the degree of a node can become even bigger than usual well before the cost of operations within a node reaches parity with the cost of an ORAM operation. On the other hand, ORAM presents another constraint too: increasing the degree beyond a certain point requires ORAM blocks to become larger, reducing the performance of the underlying ORAM. We compromise by making the degree of our trees as high as possible without artificially inflating the size of ORAM blocks to accommodate pointers to additional children.
 
 \noindent \textbf{Optimizing Worst-Case Performance}. Since we wish to preserve obliviousness in all queries, every B+ tree operation takes on its worst-case running time every time it runs, and the costs of usually uncommon splits and merges of nodes must be paid on every insertion or deletion. To help mitigate the impact of this average case to worst case conversion incurred by obliviousness, \name/ reduces the number of writes needed to the ORAM for each B+ tree operation, operating on a lazy write-back principle where it does not write changes to the ORAM until the last possible moment.
 
@@ -336,7 +345,7 @@ Operations for the Indexed storage method behave similarly to the Linear method,
   Standard insertion and deletion operations for B+ trees leak information about the internal structure of the tree because they involve splitting and merging nodes when they reach fixed threshold numbers of children.
   Instead, our insertions and deletions pad the number of operations made on the underlying ORAM so no information can be leaked about the internal structure of the B+ tree. As discussed in Section~\ref{oblivData}, this means every B+ tree operation has worst-case running time and that design decisions involved in constructing the trees and operations on them differ from the traditional setting without ORAM. Updates on segments of a table behave similarly to the Linear storage method.
 
-  \noindent \textbf{Select, Aggregates, \& Group By}. 
+  \noindent \textbf{Select, Aggregates, \& Group By}.
 We handle selection, aggregation, and grouping algorithms as before, with the major difference that we use an index to find the correct part of a table to scan. The Large strategy for selection does not apply to the Indexed storage method because the strategy of copying the whole table is not as applicable where a query aims at a small fraction of the table and the data are not stored in consecutive blocks but across multiple nested tree-based data structures.
 
   \noindent \textbf{Join}.
