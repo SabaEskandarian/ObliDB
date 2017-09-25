@@ -35,6 +35,7 @@ extern int lastInserted[NUM_STRUCTURES];
 
 extern int maxPad;
 extern int currentPad;
+extern Oram_Bucket linOramCache;
 
 
 //isv_enclave.cpp
