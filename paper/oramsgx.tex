@@ -193,7 +193,7 @@ We additionally make the integrity guarantee that \name/ catches and reports any
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figure_revised.pdf}
-\caption{\small \name/ provides an interface to a secure enclave with control over encrypted tables stored in untrusted memory. It stores tables either as an oblivious B+ tree index, a linear scan data structure or both to perform efficient oblivious queries.}
+\caption{\small \name/ provides an interface to a secure enclave with control over encrypted tables stored in untrusted memory. It stores tables either as an oblivious B+ tree index, a linear scan data structure, or both to perform efficient oblivious queries.}
 \label{arch}
 \end{figure}
 Figure~\ref{arch} shows an overview of the \name/ architecture. \name/ consists of a trusted code base inside an enclave that provides an interface for users to create, modify, and query tables. \name/ supports two \emph{storage methods} for each table: Linear and Indexed. It stores tables, encrypted, in unprotected memory and obliviously accesses them as needed by the various supported operators. The Indexed method consists of an ORAM with a B+ tree stored inside, whereas the Linear method requires scanning the whole table on each query to ensure obliviousness.
@@ -267,19 +267,19 @@ Another example of where ORAM changes implementation decisions for oblivious B+ 
 Method&Linear&Index&Combined\\\hline
 Space &$N$&\textasciitilde$4N$&\textasciitilde$5N$\\
 Point Read&$O(N)$&$O(log^2N)$&$O(log^2N)$\\
-Large Read&$O(N)$&$O(NlogN)$&$O(N)$\\
+Large Read&$O(N)$&$O(N)$&$O(N)$\\
 Insertion&$O(1)$&$O(log^4N)$&$O(log^4N)$\\
 Deletion&$O(N)$&$O(log^4N)$&O(N)\\
 \end{tabular}
 \caption{\small Asymptotic performance of each storage method.}
 \label{asymTables}
 \end{figure}
-Figure~\ref{asymTables} compares the asymptotic operations of standard read, insertion, and deletion operations on each table type. The Indexed method performs best on small reads that access one or a few rows of a table, whereas queries which expect to return large segments of a table should use the Linear method. Using both, while incurring the cost of both for insertions and deletions, proves effective when queries of diverse selectivities must run on the same data.
+Figure~\ref{asymTables} compares the asymptotic operations of standard read, insertion, and deletion operations on each table type. The Indexed method performs best on small reads that access one or a few rows of a table, whereas queries which expect to return large segments of a table should use the Linear method,  which performs faster than a linear scan over the contents of an index despite equal asymptotic runtimes. Using both storage methods, while incurring the cost of both for insertions and deletions, proves effective when queries of diverse selectivities run on the same data.
 
 \subsection{Data Integrity}
 Although encryption and oblivious data structures/algorithms ensure the privacy of data in \name/, additional protections make certain that an attacker does not tamper with data. Such tampering could take the form of editing within rows of a table, addition/removal of rows, shuffling the contents of a table, or rollbacks to an old system state. \name/ protects against such attacks and reports any attempt to tamper with data.
 
-\name/ MACs and encrypts every block of data stored outside the enclave, preventing the OS from modifying rows or adding new rows to tables. This leaves the possibility of duplicating/removing rows, shuffling rows, or rolling back the system state. Included in each block of MACed data is a record of which row the block contains and its current ``revision number,'' a copy of which \name/ also stores inside the enclave. Any attempt to duplicate, shuffle, or remove rows within a data structure will be caught when an operator discovers that the row number of data it has requested does not exist or does not correspond to that which it has received. Spoofing a fake revision number requires either breaking the security of the MACs used or breaking the security of the enclave to modify the stored copy, neither of which lies within the power of an attacker in our model. Rollbacks of system state are caught when the revision numbers of rows in a table do not match the last revision numbers for those rows recorded in the enclave. These lightweight protections suffice to discover and block any malicious tampering of data in \name/.
+\name/ MACs and encrypts every block of data stored outside the enclave, preventing the OS from modifying rows or adding new rows to tables. This leaves the possibility of duplicating/removing rows, shuffling rows, or rolling back the system state. Included in each block of MACed data is a record of which row the block contains and its current ``revision number,'' a copy of which \name/ also stores inside the enclave. Any attempt to duplicate, shuffle, or remove rows within a data structure will be caught when an operator discovers that the row number of data it has requested does not exist or does not correspond to that which it has received. Spoofing a fake revision number requires either breaking the security of the MACs used or breaking the security of the enclave to modify the stored copy, neither of which lies within the power of an attacker in our model. Rollbacks of system state are caught when the revision numbers of rows in a table do not match the last revision numbers for those rows recorded in the enclave. These lightweight protections suffice to discover and block any malicious tampering with data in \name/.
 
 \section{Oblivious Operators}\label{oblivOps}
 In this section we describe the various oblivious operator algorithms used in \name/. \name/ provides support for a large subset of SQL, including insertions, updates, deletions, joins, aggregates (count, sum, max, min, average), groupings, and selection with conditions composed of arbitrary logical combinations of equality or range queries. Moreover, depending on known information about the size of a response to a query, \name/ can choose which algorithm to use in order to maximize performance in each situation. We will begin by discussing algorithms for the Linear storage method and then discuss the modifications or entirely different solutions used for the Indexed method. Each operation will be accompanied by a security argument.
@@ -358,7 +358,7 @@ Prior systems that implement oblivious operators include Opaque~\cite{ZDB+17}, C
 \section{Implementation}\label{imp}
 Our implementation includes the storage methods from Section~\ref{oblivData} as well as the oblivious operator algorithms described in Section~\ref{oblivOps}. It consists of over 14,000 lines of code of which approximately 10,000 are new and builds upon the Remote Attestation sample code provided with the SGX SDK ~\cite{SGXRef} and the B+ tree implementation of~\cite{BPlus}, the latter of which was heavily edited in order to support our ORAM memory allocator. We used SGX SDK libraries for encryption, MACs, and hashing. We will make \name/ open source and publicly available online.
 
-We tuned ObliDB's parameters for the protected memory space made available by SGX. We chose a nonrecursive PATH ORAM~\cite{SDS+13} for our ORAM scheme. The nonrecursive ORAM can fit up to about 15 million rows before needing a second layer of recursion in order to fit in an SGX enclave, so \name/ can handle realistic data sets without recursive ORAM. That said, \name/ can be modified to make use of recursive ORAM at a modest performance penalty for the Indexed storage method because our implementation allows for easy swapping of ORAM schemes through a common interface. This means our choice of ORAM can easily be replaced, say, to optimize the ORAM scheme used to fit the data as in~\cite{ZWR+16}.
+We tuned ObliDB's parameters for the protected memory space provided by SGX. We chose a nonrecursive PATH ORAM~\cite{SDS+13} for our ORAM scheme. This ORAM can fit up to about 15 million rows before needing a second layer of recursion in order to fit in an SGX enclave, so \name/ can handle realistic data sets without recursive ORAM. That said, \name/ can be modified to use recursive ORAM at a modest performance penalty for the Indexed storage method because our implementation allows easy swapping of ORAM schemes through a common interface. This means our choice of ORAM can easily be replaced to optimize the ORAM scheme as in~\cite{ZWR+16}.
 
 \section{Evaluation}\label{eval}
 \begin{figure}
@@ -417,7 +417,7 @@ To evaluate the impact of \name/'s specialized storage methods and operators, we
 
 Figure~\ref{figQueries} compares \name/ to our na\"ive ORAM baseline. \name/ achieves up to 29$\times$ speedup for \texttt{SELECT} queries and over 328$\times$ speedup for aggregates. For comparison to an insecure system, a point selection query in \name/ performs only 7.9$\times$ slower than in mysql over a table stored in memory. \texttt{SELECT} queries over the Linear storage method enjoy much larger speedup over the baseline than index queries because an oblivious B+ tree lookup takes most of time in the indexed \texttt{SELECT} queries. We used the same algorithm for this lookup in both the baseline and actual implementations. We did this because a na\"ive application of ORAM to a B+ tree does not yield an oblivious B+ tree, as described in Section~\ref{oblivData}.
 
-The largest speedups over the baseline appear in aggregation queries, where \name/ gains two orders of magnitude in performance. This arises from the need to hide data structures that keep statistics for each group without revealing when a row does not match with any known groups and needs to begin its own new group. The possibility of this occurrence necessitates, in the na\"ive algorithm, an access to each group's data for each row. With the system-wide maximum number of groups set to the hundreds of thousands, such a query cannot complete within a reasonable time frame and may take well over the 1,000 seconds at which we cut off our experiments. The aggregation over the CFPB table completes in a shorter period of time because we used our prior knowledge of the number of banks to set the maximum number of groups to a lower threshold (200, in this case).
+The largest speedups appear in aggregation queries, where \name/ gains two orders of magnitude in performance. This arises from the need to hide data structures that keep statistics for each group without revealing when a row does not match with any known groups and needs to begin a new group. The possibility of this occurrence forces, in the na\"ive algorithm, an access to each group's data for each row. With a high system-wide maximum number of groups, such a query cannot complete within a reasonable time frame and may take well over the 1,000 seconds at which we cut off our experiments. The aggregation over the CFPB table completes in a shorter period of time because we used our prior knowledge of the number of banks to set the maximum number of groups to a lower threshold (200, in this case).
 
 \begin{figure*}
 \begin{minipage}{.64\textwidth}
@@ -660,7 +660,7 @@ We began by configuring \name/ to use only the Linear storage method, just as Op
 \end{semilogyaxis}
 \end{tikzpicture}\\
 \end{tabular}
-\caption{\small Comparison of Linear and Index versions of operators over 100,000 rows of fabricated data. Linear scans do better when more of the data needs to be accessed, but Indexed structures perform far better for small queries.}
+\caption{\small Comparison of Linear and Indexed versions of operators over 100,000 rows of fabricated data. Linear scans do better when more of the data needs to be accessed, but the Indexed storage method performs far better for small queries.}
 \label{figC1}\vspace{.5cm}
     \centering
     \begin{minipage}{.32\textwidth}
@@ -820,7 +820,7 @@ Opaque~\cite{ZDB+17} describes an oblivious padding mode, but does not implement
 \section{Related Work}\label{related}
 
   \noindent \textbf{Cryptographically Protected Databases}.
-Fuller et al~\cite{FVY+17} summarize prior work on cryptographically protected databases. The well-known CryptDB~\cite{PRZB12} enables a tradeoff between security and performance, encrypting fields with schemes of various strengths according to their security needs. More recently, Arx~\cite{PBP16} uses only strong encryption schemes but leverages special data structures to allow search over encrypted data. Other solutions, including Demertzis et al, Sophos and Diana \cite{DPP+16, Bost16, BMO17}, use searchable encryption to build an index.
+Fuller et al~\cite{FVY+17} summarize prior work on cryptographically protected databases. The well-known CryptDB~\cite{PRZB12} enables a tradeoff between security and performance, encrypting fields with schemes of various strengths according to their security needs. More recently, Arx~\cite{PBP16} uses only strong encryption schemes but leverages special data structures to allow search over encrypted data. Other solutions, including Demertzis et al, Sophos and Diana \cite{DPP+16, Bost16, BMO17}, use searchable encryption.
 %Order-revealing encryption~\cite{BLR+15, LW16} has also been applied in databases.
 
 Although these techniques encrypt data, they do not aim to protect against access pattern leaks.
