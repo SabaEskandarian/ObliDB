@@ -141,7 +141,7 @@ These systems would not be efficient for more general database workloads that al
 
 This paper presents \name/, an oblivious SQL database that supports both transactional and analytical processing using hardware enclaves.
 \name/ goes beyond prior work by providing new \emph{storage methods} (e.g., oblivious B+ trees) and new \emph{operators} that can efficiently support transactional queries, in addition to analytics on the same data.
-Together, these contributions make \name/ the first system to support---and achieve acceptable performance on---both transactional and analytics workloads.
+These contributions make \name/ the first oblivious system to support---and achieve acceptable performance on---both transactional and analytics workloads.
 
 Unlike previous systems, \name/ supports two \emph{storage methods} for its tables: a linear one where the table is encrypted as a contiguous file and always scanned (as in Opaque and Cipherabase), as well as an \emph{oblivious B+ tree} for efficient indexed access.
 Each table can be stored using either one or both methods.
