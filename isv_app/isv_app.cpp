@@ -3445,8 +3445,8 @@ int main(int argc, char* argv[])
         //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)
         //BDB1Index(enclave_id, status);//512
         //BDB1Linear(enclave_id, status);//512
-        BDB2(enclave_id, status, 0);//2048
-        //BDB2Index(enclave_id, status, 0);//2048
+        //BDB2(enclave_id, status, 0);//2048
+        BDB2Index(enclave_id, status, 0);//2048
         //BDB3(enclave_id, status, 0);//2048
         //BDB2(enclave_id, status, 1);//2048 (baseline)
         //BDB3(enclave_id, status, 1);//2048 (baseline)

@@ -2306,7 +2306,9 @@ int highCardLinGroupBy(char* tableName, int colChoice, Condition c, int aggregat
 	int groupCount[MAX_GROUPS] = {0};
 	int groupNum = -1;
 	//printf("oblivStructureSizes %d %d\n", structureId, oblivStructureSizes[structureId]);
-	for(int i = 0; i < oblivStructureSizes[structureId]; i++){
+	int forupto = oblivStructureSizes[structureId];
+	if(MIXED_USE_MODE) forupto*=4;
+	for(int i = 0; i < forupto; i++){
 		opOneLinearScanBlock(structureId, i, (Linear_Scan_Block*)row, 0);
 		memcpy(groupVal, &row[schemas[structureId].fieldOffsets[groupCol]], substrX);
 		memcpy(&aggrVal, &row[schemas[structureId].fieldOffsets[colChoice]], 4);
