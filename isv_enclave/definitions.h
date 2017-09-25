@@ -29,7 +29,7 @@
 #define PADDING 0 //0 - normal, >1: pad to that many rows always
 #define JOINMAX 350000 //how big are we expecting joins to get
 #define MAX_GROUPS 350000
-#define MIXED_USE_MODE 1 //linear scans of indexes
+#define MIXED_USE_MODE 0 //linear scans of indexes
 
 #define MAX_ORDER 62 //biggest value such that a 512-byte block is always big enough to hold a node
 

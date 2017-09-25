@@ -97,11 +97,11 @@ int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, i
 		ocall_read_block(structureId, i, encBlockSize, realEnc);//printf("here\n");
 		//printf("beginning of mac(op)? %d\n", realEnc->macTag[0]);
 		if(decryptBlock(realEnc, real, obliv_key, TYPE_LINEAR_SCAN) != 0) return 1;//printf("here 2\n");
-		if(real->actualAddr != i && real->actualAddr != -1){
+		if(!MIXED_USE_MODE && real->actualAddr != i && real->actualAddr != -1){
 			printf("AUTHENTICITY FAILURE: block address not as expected! Expected %d, got %d\n", i, real->actualAddr);
 			return 1;
 		}
-		if(real->revNum != revNum[structureId][i]){
+		if(!MIXED_USE_MODE && real->revNum != revNum[structureId][i]){
 			printf("AUTHENTICITY FAILURE: block version not as expected! Expected %d, got %d\n", revNum[structureId][i], real->revNum);
 			return 1;
 		}
