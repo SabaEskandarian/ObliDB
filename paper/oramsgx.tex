@@ -821,7 +821,7 @@ Opaque~\cite{ZDB+17} describes an oblivious padding mode, but does not implement
 \section{Related Work}\label{related}
 
   \noindent \textbf{Cryptographically Protected Databases}.
-Fuller et al~\cite{FVY+17} summarize prior work on cryptographically protected databases. The well-known CryptDB~\cite{PRZB12} implements a tradeoff between security and performance, encrypting fields with schemes of various strengths according to their security needs. More recently, Arx~\cite{PBP16} uses only strong encryption schemes but leverages special data structures to allow search over encrypted data. Other solutions, such as that of Demertzis et al~\cite{DPP+16}, use an inverted index to search encrypted data. These schemes use searchable symmetric encryption (SSE), examples of which include Sophos and Diana~\cite{Bost16, BMO17}.
+Fuller et al~\cite{FVY+17} summarize prior work on cryptographically protected databases. The well-known CryptDB~\cite{PRZB12} enables a tradeoff between security and performance, encrypting fields with schemes of various strengths according to their security needs. More recently, Arx~\cite{PBP16} uses only strong encryption schemes but leverages special data structures to allow search over encrypted data. Other solutions, including Demertzis et al, Sophos and Diana \cite{DPP+16, Bost16, BMO17}, use searchable encryption to build an index.
 %Order-revealing encryption~\cite{BLR+15, LW16} has also been applied in databases.
 
 Although these techniques encrypt data, they do not aim to protect against access pattern leaks.
@@ -845,7 +845,7 @@ Several side-channel attacks affect SGX~\cite{XCP15, BMD+17, LSG+16, WKPK16}, bu
 ZeroTrace~\cite{SGF17} provides oblivious memory primitives based on ORAM over SGX, while ObliVM~\cite{oblivm} automatically compiles programs to oblivious representations for use in various cryptographic algorithms. By specializing its data structures and operators to run over ORAM, however, \name/ greatly outperforms a na\"ive translation of database algorithms to ORAM.
 
 \section{Conclusion}\label{conclusion}
-We have presented \name/, a cryptographically-protected database system using SGX that leaks only table sizes and its query plan (and even hides table sizes in padding mode). We have shown that \name/ handles practical data sets with performance surpassing prior work that had similar or weaker security. We hope practical hardware-based solutions like \name/ can enable rapid progress in private databases and search over encrypted data.
+We have presented \name/, the first oblivious, enclave-based database that supports both transactional and analytic workloads. \name/ uses new storage methods (oblivious B+ trees) and operator implementations to support diverse workloads. While obliviousness has a cost, \name/ performs well in absolute and relative terms: it is competitive with previous oblivious systems for analytics, comes within 2.6$\times$ of Spark SQL, and can perform point queries on a 1M row table with 3--9ms latency.
 
 %\section*{Acknowledgements}
 
