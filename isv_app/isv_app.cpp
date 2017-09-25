@@ -581,7 +581,105 @@ void BDB2(sgx_enclave_id_t enclave_id, int status, int baseline){
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	//printf("BDB2 running time: %.5f\n", elapsedTime);
-	//printTable(enclave_id, (int*)&status, "ReturnTable");
+	printTable(enclave_id, (int*)&status, "ReturnTable");
+	printf("BDB2 running time: %.5f\n", elapsedTime);
+
+    deleteTable(enclave_id, (int*)&status, "ReturnTable");
+
+    deleteTable(enclave_id, (int*)&status, "uservisits");
+}
+
+void BDB2Index(sgx_enclave_id_t enclave_id, int status, int baseline){
+//block size 2048
+
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+	int structureIdIndex = -1;
+	int structureIdLinear = -1;
+	Schema userdataSchema;
+	userdataSchema.numFields = 10;
+	userdataSchema.fieldOffsets[0] = 0;
+	userdataSchema.fieldSizes[0] = 1;
+	userdataSchema.fieldTypes[0] = CHAR;
+	userdataSchema.fieldOffsets[1] = 1;
+	userdataSchema.fieldSizes[1] = 255;
+	userdataSchema.fieldTypes[1] = TINYTEXT;
+	userdataSchema.fieldOffsets[2] = 256;
+	userdataSchema.fieldSizes[2] = 255;
+	userdataSchema.fieldTypes[2] = TINYTEXT;
+	userdataSchema.fieldOffsets[3] = 511;
+	userdataSchema.fieldSizes[3] = 4;
+	userdataSchema.fieldTypes[3] = INTEGER;
+	userdataSchema.fieldOffsets[4] = 515;
+	userdataSchema.fieldSizes[4] = 4;
+	userdataSchema.fieldTypes[4] = INTEGER;
+	userdataSchema.fieldOffsets[5] = 519;
+	userdataSchema.fieldSizes[5] = 255;
+	userdataSchema.fieldTypes[5] = TINYTEXT;
+	userdataSchema.fieldOffsets[6] = 774;
+	userdataSchema.fieldSizes[6] = 255;
+	userdataSchema.fieldTypes[6] = TINYTEXT;
+	userdataSchema.fieldOffsets[7] = 1029;
+	userdataSchema.fieldSizes[7] = 255;
+	userdataSchema.fieldTypes[7] = TINYTEXT;
+	userdataSchema.fieldOffsets[8] = 1284;
+	userdataSchema.fieldSizes[8] = 255;
+	userdataSchema.fieldTypes[8] = TINYTEXT;
+	userdataSchema.fieldOffsets[9] = 1539;
+	userdataSchema.fieldSizes[9] = 4;
+	userdataSchema.fieldTypes[9] = INTEGER;
+
+	Condition cond;
+	cond.numClauses = 0;
+	cond.nextCondition = NULL;
+
+	char* tableName = "uservisits";
+	createTable(enclave_id, (int*)&status, &userdataSchema, tableName, strlen(tableName), TYPE_TREE_ORAM, 350010, &structureIdIndex);//TODO temp really 350010
+
+
+	std::ifstream file2("uservisits.csv");
+	char line[BLOCK_DATA_SIZE];//make this big just in case
+	char data[BLOCK_DATA_SIZE];
+	//file.getline(line, BLOCK_DATA_SIZE);//burn first line
+	row[0] = 'a';
+	for(int i = 0; i < 350000; i++){//TODO temp really 350000
+	//for(int i = 0; i < 1000; i++){
+		memset(row, 'a', BLOCK_DATA_SIZE);
+		file2.getline(line, BLOCK_DATA_SIZE);//get the field
+
+		std::istringstream ss(line);
+		for(int j = 0; j < 9; j++){
+			if(!ss.getline(data, BLOCK_DATA_SIZE, ',')){
+				break;
+			}
+			//printf("data: %s\n", data);
+			if(j == 2 || j == 3 || j == 8){//integer
+				int d = 0;
+				if(j==3) d = atof(data)*100;
+				else d = atoi(data);
+				//printf("data: %s\n", data);
+				//printf("d %d ", d);
+				memcpy(&row[userdataSchema.fieldOffsets[j+1]], &d, 4);
+			}
+			else{//tinytext
+				strncpy((char*)&row[userdataSchema.fieldOffsets[j+1]], data, strlen(data)+1);
+			}
+		}
+		int indexval = 0;
+		memcpy(&indexval, &row[userdataSchema.fieldOffsets[9]], 4); //doesn't matter the column for this, we're doing linear scans anyway
+		insertIndexRowFast(enclave_id, (int*)&status, "uservisits", row, indexval);
+	}
+
+	printf("created BDB2 table\n");
+	time_t startTime, endTime;
+	double elapsedTime;
+	//printTable(enclave_id, (int*)&status, "uservisits");
+	startTime = clock();
+	highCardLinGroupBy(enclave_id, (int*)&status, "uservisits", 4, cond, 1, 1, -2, 0);
+	//char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice
+	endTime = clock();
+	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+	//printf("BDB2 running time: %.5f\n", elapsedTime);
+	printTable(enclave_id, (int*)&status, "ReturnTable");
 	printf("BDB2 running time: %.5f\n", elapsedTime);
 
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
@@ -3347,14 +3445,15 @@ int main(int argc, char* argv[])
         //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)
         //BDB1Index(enclave_id, status);//512
         //BDB1Linear(enclave_id, status);//512
-        //BDB2(enclave_id, status, 0);//2048
+        BDB2(enclave_id, status, 0);//2048
+        //BDB2Index(enclave_id, status, 0);//2048
         //BDB3(enclave_id, status, 0);//2048
         //BDB2(enclave_id, status, 1);//2048 (baseline)
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);//512
         //fabTests(enclave_id, status);//512
         //workloadTests(enclave_id, status);//512
-        insdelScaling(enclave_id, status);//512
+        //insdelScaling(enclave_id, status);//512
 
 /*
 	//test for sophos - linear

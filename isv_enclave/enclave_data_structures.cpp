@@ -14,6 +14,7 @@ std::list<Oram_Block>* stashes[NUM_STRUCTURES];
 int stashOccs[NUM_STRUCTURES] = {0};//stash occupancy, number of elements in stash
 int logicalSizes[NUM_STRUCTURES] = {0};
 node *bPlusRoots[NUM_STRUCTURES] = { NULL };
+Oram_Bucket linOramCache = {0};
 
 int newBlock(int structureId){
 	int blockNum = -1;
@@ -40,6 +41,40 @@ int freeBlock(int structureId, int blockNum){
 
 
 int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write){
+
+	if(MIXED_USE_MODE){//need to do this fast without breaking other stuff or interfaces
+		//praise be to God that the formats have the same size for one block
+		//that will let me treat an oram block as a real linear scan block
+		int size = oblivStructureSizes[structureId];
+		int blockSize = sizeof(Real_Linear_Scan_Block);
+		int encBlockSize = sizeof(Encrypted_Oram_Bucket);
+		int i = index;
+		Real_Linear_Scan_Block* real = (Real_Linear_Scan_Block*)malloc(blockSize);
+		int realSize = size*4;
+		if(i%4 == 0){//need to open a new block
+			Encrypted_Oram_Bucket* encBucket = (Encrypted_Oram_Bucket*)malloc(encBlockSize);
+			ocall_read_block(structureId, i/4, encBlockSize, encBucket);
+			if(decryptBlock(encBucket, &linOramCache, obliv_key, TYPE_ORAM) != 0) return 1;//printf("here 2\n");
+			free(encBucket);
+		}
+		i%=4;
+		memcpy(real, &(linOramCache.blocks[i]), blockSize);
+		//we don't care about the order when they're in an oram
+		//if(real->actualAddr != index && real->actualAddr != -1){
+		//	printf("AUTHENTICITY FAILURE: block address not as expected! Expected %d, got %d\n", index, real->actualAddr);
+		//	return 1;
+		//}
+		if(real->revNum != revNum[structureId][real->actualAddr]){
+			printf("AUTHENTICITY FAILURE: block version not as expected! Expected %d, got %d\n", revNum[structureId][index], real->revNum);
+			return 1;
+		}
+		//linear ops in this mode will always be reads for now, but it could also be used
+		memcpy(block, real->data, BLOCK_DATA_SIZE); //keep the value we extracted from real if we're reading
+
+		free(real);
+		return 0;
+	}
+
 	//if(oblivStructureTypes[structureId] != TYPE_LINEAR_SCAN) return 1; //if the designated data structure is not a linear scan structure
 	int size = oblivStructureSizes[structureId];
 	int blockSize = sizeof(Real_Linear_Scan_Block);
