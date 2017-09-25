@@ -42,7 +42,7 @@ int freeBlock(int structureId, int blockNum){
 
 int opOneLinearScanBlock(int structureId, int index, Linear_Scan_Block* block, int write){
 
-	if(MIXED_USE_MODE){//need to do this fast without breaking other stuff or interfaces
+	if(MIXED_USE_MODE && !write){//need to do this fast without breaking other stuff or interfaces
 		//praise be to God that the formats have the same size for one block
 		//that will let me treat an oram block as a real linear scan block
 		int size = oblivStructureSizes[structureId];

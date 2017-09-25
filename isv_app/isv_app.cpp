@@ -679,8 +679,8 @@ void BDB2Index(sgx_enclave_id_t enclave_id, int status, int baseline){
 	endTime = clock();
 	elapsedTime = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
 	//printf("BDB2 running time: %.5f\n", elapsedTime);
-	printTable(enclave_id, (int*)&status, "ReturnTable");
 	printf("BDB2 running time: %.5f\n", elapsedTime);
+	printTable(enclave_id, (int*)&status, "ReturnTable");
 
     deleteTable(enclave_id, (int*)&status, "ReturnTable");
 
