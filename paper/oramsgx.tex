@@ -75,8 +75,8 @@
 
 	% remember to use [htp] or [htpb] for placement
 
-	\setlength{\abovecaptionskip}{2pt}
-	\setlength{\belowcaptionskip}{-9pt}
+\setlength{\abovecaptionskip}{2pt}
+\setlength{\belowcaptionskip}{-9pt}
 
 \begin{document}
 
@@ -820,18 +820,29 @@ Opaque~\cite{ZDB+17} describes an oblivious padding mode, but does not implement
 
 \section{Related Work}\label{related}
 
-  \noindent \textbf{Cryptographically-protected database search}.
-Fuller et al~\cite{FVY+17} describe prior work on cryptographically-protected databases. The well-known CryptDB~\cite{PRZB12} implements a tradeoff between security and performance, encrypting each field according to its own security needs. More recently, Arx~\cite{PBP16} makes clever use of data structures to allow search over encrypted data. Other solutions, such as Demertzis et al~\cite{DPP+16}, use an inverted index to search encrypted data. These schemes use searchable symmetric encryption (SSE), examples of which include Sophos and Diana~\cite{Bost16, BMO17}. Order-revealing encryption~\cite{BLR+15, LW16} provides encryption for legacy databases.
+  \noindent \textbf{Cryptographically Protected Databases}.
+Fuller et al~\cite{FVY+17} summarize prior work on cryptographically protected databases. The well-known CryptDB~\cite{PRZB12} implements a tradeoff between security and performance, encrypting fields with schemes of various strengths according to their security needs. More recently, Arx~\cite{PBP16} uses only strong encryption schemes but leverages special data structures to allow search over encrypted data. Other solutions, such as that of Demertzis et al~\cite{DPP+16}, use an inverted index to search encrypted data. These schemes use searchable symmetric encryption (SSE), examples of which include Sophos and Diana~\cite{Bost16, BMO17}.
+%Order-revealing encryption~\cite{BLR+15, LW16} has also been applied in databases.
 
-Several attacks~\cite{IKK12, NKW15, CGPR15, ZKP16} show that inference from context or leakage can compromise schemes in unexpected ways outside their original security models.
+Although these techniques encrypt data, they do not aim to protect against access pattern leaks.
+Several attacks~\cite{IKK12, NKW15, CGPR15, ZKP16} show that access pattern leakage can compromise these schemes in unexpected ways outside their original security models.
 
-  \noindent \textbf{Trusted hardware}.
+\noindent \textbf{Trusted hardware}.
 A number of generic tools provide legacy applications the heightened security available from SGX~\cite{BPH15, STTS17, ATG+16, HZX+16}, but these tools do not provide protection against access pattern attacks where applicable.
-Many works implement variations of existing systems secured via SGX. M2R~\cite{DSC+15} and VC3~\cite{SCF+15} provide MapReduce and cloud data analytics functionalities, respectively, and Opaque~\cite{ZDB+17} provides secure support for Spark SQL. Like Opaque, Cipherbase~\cite{cipherbase} provides a secure and optionally oblivious variant of Microsoft's SQL Server. Both Opaque and Cipherbase provide oblivious operators only for analytics queries that scan all the data since they rely on oblivious sorts. To our knowledge, \name/ is the first oblivious database to support both transactional and analytics workloads. SecureKeeper~\cite{BWG+16} uses SGX to build a confidential version of Apache's ZooKeeper (\url{zookeeper.apache.org}). HardIDX~\cite{FBB+17} builds a read-only key-value index in SGX but is not oblivious, and ZeroTrace~\cite{SGF17} provides oblivious memory primitives based on ORAM. SGX has also been used to implement otherwise impractical cryptographic primitives~\cite{FVBG16, NFR+17}.
+Many works also implement variations of existing systems on SGX~\cite{FBB+17,FVBG16,NFR+17}.
+M2R~\cite{DSC+15} and VC3~\cite{SCF+15} provide MapReduce and cloud data analytics functionalities,
+while HardIDX~\cite{FBB+17} builds a read-only key-value index in SGX that is is not oblivious.
+Of these works, Opaque~\cite{ZDB+17} and Cipherbase~\cite{cipherbase} are the closest to \name/ because
+they can optionally support oblivious execution.
+However, both Opaque and Cipherbase provide oblivious operators only for analytics queries that scan all the data, because they rely on oblivious sorts of an entire input table.
+To our knowledge, \name/ is the first oblivious database to support both transactional and analytics workloads.
 
 Several side-channel attacks affect SGX~\cite{XCP15, BMD+17, LSG+16, WKPK16}, but other work generically closes side channels~\cite{SLKP17, SCNS16, RLT15, SLK+17}. Outside SGX, some other hardware solutions render programs' memory traces oblivious as well~\cite{CLD16, LHM+15, MLS+13}.
 
-  \noindent \textbf{Data Structures over ORAM}. Wang et al.~\cite{WNL+14} develop several general data structures that can be used on top of ORAM. Their tree-related structures make clever observations that allow them to remove the cost overhead for recursive ORAMs, an improvement that does not impact our setting. Roche et al.~\cite{RAC16}, motivated by a desire for a key-value store that hides its history even after key compromise, design a history-independent ``HIRB tree'' that they build on top of vORAM, an ORAM variant that offers variable-sized blocks. Neither work deals with hardware enclaves or builds a full database system.
+\noindent \textbf{Data Structures over ORAM}. Wang et al.~\cite{WNL+14} develop several high-level data structures that can be used on top of ORAM. Their tree structures make optimizations that reduce the cost overhead for recursive ORAMs, an improvement that does not greatly impact our setting (where one-level ORAM was often enough for large data tables). Roche et al.~\cite{RAC16} build a history-independent ``HIRB tree'' on top of vORAM, an ORAM variant that offers variable-sized blocks. Neither work leverages hardware enclaves or evaluates a full database system, however.
+
+\noindent \textbf{Oblivious Computing}
+ZeroTrace~\cite{SGF17} provides oblivious memory primitives based on ORAM over SGX, while ObliVM~\cite{oblivm} automatically compiles programs to oblivious representations for use in various cryptographic algorithms. By specializing its data structures and operators to run over ORAM, however, \name/ greatly outperforms a na\"ive translation of database algorithms to ORAM.
 
 \section{Conclusion}\label{conclusion}
 We have presented \name/, a cryptographically-protected database system using SGX that leaks only table sizes and its query plan (and even hides table sizes in padding mode). We have shown that \name/ handles practical data sets with performance surpassing prior work that had similar or weaker security. We hope practical hardware-based solutions like \name/ can enable rapid progress in private databases and search over encrypted data.
