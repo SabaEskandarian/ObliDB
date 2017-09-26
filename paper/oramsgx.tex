@@ -833,7 +833,7 @@ Fuller et al~\cite{FVY+17} summarize prior work on cryptographically protected d
 %Order-revealing encryption~\cite{BLR+15, LW16} has also been applied in databases.
 
 Although these techniques encrypt data, they do not aim to protect against access pattern leaks.
-Several attacks~\cite{IKK12, NKW15, CGPR15, ZKP16} show that access pattern leakage can compromise these schemes in unexpected ways outside their original security models.
+Several attacks \cite{IKK12, NKW15, CGPR15, ZKP16} show that access pattern leaks compromise these schemes outside their original security models.
 
 \noindent \textbf{Trusted hardware}.
 A number of generic tools provide legacy applications the heightened security available from SGX~\cite{BPH15, STTS17, ATG+16, HZX+16}, but these tools do not provide protection against access pattern attacks where applicable.
@@ -847,7 +847,8 @@ To our knowledge, \name/ is the first oblivious database to support both transac
 
 Several side-channel attacks affect SGX~\cite{XCP15, BMD+17, LSG+16, WKPK16}, but other work generically closes side channels~\cite{SLKP17, SCNS16, RLT15, SLK+17}. Outside SGX, some other hardware solutions render programs' memory traces oblivious as well~\cite{CLD16, LHM+15, MLS+13}.
 
-\noindent \textbf{Data Structures over ORAM}. Wang et al.~\cite{WNL+14} develop several high-level data structures that can be used on top of ORAM. Their tree structures make optimizations that reduce overhead for recursive ORAMs, an improvement that does not greatly impact our setting (where one-level ORAM is often enough for large data tables). Roche et al.~\cite{RAC16} build a history-independent ``HIRB tree'' over vORAM, an ORAM variant with variable-sized blocks. Unlike these systems, \name/'s B+ trees improve performance regardless of the choice of ORAM scheme.
+\noindent \textbf{Data Structures over ORAM}. Wang et al.~\cite{WNL+14} develop several high-level data structures that can be used on top of ORAM. Their tree structures focus on optimizations that reduce overhead for recursive ORAMs, which does not greatly impact our setting (where one-level ORAM is often enough). Roche et al.~\cite{RAC16} build a history-independent ``HIRB tree'' over vORAM, an ORAM with variable-sized blocks. Unlike these systems, \name/ focuses on optimizing B+ trees and introduces optimizations to reduce the worst-case cost of B+ tree operations and to tune parameters to maximize their performance.
+%These optimizations apply over any ORAM scheme.
 
 \noindent \textbf{Oblivious Computing}
 ZeroTrace~\cite{SGF17} provides oblivious memory primitives based on ORAM over SGX, while ObliVM~\cite{oblivm} automatically compiles programs to oblivious representations for use in various cryptographic algorithms. By specializing its data structures and operators to run over ORAM, however, \name/ greatly outperforms a na\"ive translation of database algorithms to ORAM.
