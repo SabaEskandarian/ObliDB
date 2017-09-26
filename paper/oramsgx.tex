@@ -854,7 +854,7 @@ Several side-channel attacks affect SGX~\cite{XCP15, BMD+17, LSG+16, WKPK16}, bu
 ZeroTrace~\cite{SGF17} provides oblivious memory primitives based on ORAM over SGX, while ObliVM~\cite{oblivm} automatically compiles programs to oblivious representations for use in various cryptographic algorithms. By specializing its data structures and operators to run over ORAM, however, \name/ greatly outperforms a na\"ive translation of database algorithms to ORAM.
 
 \section{Conclusion}\label{conclusion}
-We have presented \name/, the first oblivious, enclave-based database that supports both transactional and analytic workloads. \name/ uses new storage methods (oblivious B+ trees) and operator implementations to support diverse workloads. While obliviousness has a cost, \name/ performs well in absolute and relative terms: it is competitive with previous oblivious systems for analytics, comes within 2.6$\times$ of Spark SQL, and can perform point queries on a 1M row table with 3--9ms latency.
+We have presented \name/, the first oblivious, enclave-based database that supports both transactional and analytic workloads. \name/ uses new storage methods (oblivious B+ trees) and operator implementations to support diverse workloads. While obliviousness has a cost, \name/ performs well in absolute and relative terms: it is competitive with previous oblivious systems for analytics, comes within 2.6$\times$ of Spark SQL, and can perform point queries on a 1 million row table with 3--9ms latency.
 
 %\section*{Acknowledgements}
 
