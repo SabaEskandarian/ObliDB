@@ -1,15 +1,7 @@
-Oram on SGX project built on top of remote attestation example code.
-
-
-----------------------------
-Purpose of RemoteAttestation
-----------------------------
-The project demonstrates:
-- How an application enclave can attest to a remote party
-- How an application enclave and the remote party can establish a secure session
+Prototype source code for ObliDB, an oblivious general-purpose SQL database for the cloud.
 
 ------------------------------------
-How to Build/Execute the Sample Code
+How to Build/Execute the Code
 ------------------------------------
 1. Install Intel(R) SGX SDK for Linux* OS
 2. Build the project with the prepared Makefile:
