@@ -951,7 +951,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 				retNumRows = count; //printf("count %d %d\n", count, rangeCount);
 			}
 			else{//hash
-				retNumRows = count*3/2;
+				retNumRows = 5*count;
 			}
 			if(colChoice != -1){ //include selected col only
 				retSchema.numFields = 2;
@@ -1131,15 +1131,19 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 				while(pauseCounter < rangeCount);
 				free(storage);
 			}
-			else{//hash
+            else{//hash
 				printf("HASH\n");
 				//data structure is of size 5*output and use it as a hash table. each row is written to one of two hash values
 				//hash should be first several bits of output of sha256. input will be the input row number concatenated with 0 and 1 for the two hashes
 				int rowi = -1, dummyVar = 0;
 				row2 = (uint8_t*)malloc(sizeof(Linear_Scan_Block));
-				uint8_t* hashIn = (uint8_t*)malloc(5);
-				sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
-				unsigned int index = 0;
+				uint8_t* hashIn1 = (uint8_t*)malloc(5);
+				uint8_t* hashIn2 = (uint8_t*)malloc(5);
+				sgx_sha256_hash_t* hashOut1 = (sgx_sha256_hash_t*)malloc(256);
+				sgx_sha256_hash_t* hashOut2 = (sgx_sha256_hash_t*)malloc(256);
+				hashIn1[0] = '0';
+				hashIn2[0] = '1';//doesn't really matter what these are as long as they're different
+				unsigned int index1 = 0, index2 = 0;
 
 				numRows[retStructId] = count;
 
@@ -1159,30 +1163,46 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 							memset(&row[0], 'a', 1);
 							memmove(&row[1], &row[colChoiceOffset], colChoiceSize);//row[0] will already be not '\0'
 						}
-						
-						int insertCounter = 0;
-                        do{
-                                //compute hash
-                                memcpy(&hashIn[1], &rowi, 4);
-                                hashIn[0] = insertCounter;
-                                sgx_sha256_msg(hashIn, 5, hashOut);
-                                memcpy(&index, hashOut, 4);
-                                index %= count*3/2;
-                                                
-                                //try inserting or increment counter
-                                opOneLinearScanBlock(retStructId, index, (Linear_Scan_Block*)row2, 0);
-                                if(match && row2[0] == '\0'){
-									opOneLinearScanBlock(retStructId, index, (Linear_Scan_Block*)row, 1);
-                                    insertCounter = -1;
-                                }
-				else if(!match) insertCounter = -1;
-                                else{
-                                    insertCounter++;
-                                }
-                            }
-                            while(insertCounter != -1);
-                            
-                    }
+						//take two hashes of rowi
+						memcpy(&hashIn1[1], &rowi, 4);
+						memcpy(&hashIn2[1], &rowi, 4);
+						sgx_sha256_msg(hashIn1, 5, hashOut1);
+						sgx_sha256_msg(hashIn2, 5, hashOut2);
+						memcpy(&index1, hashOut1, 4);
+						memcpy(&index2, hashOut2, 4);
+						index1 %= count;
+						index2 %= count;
+						//printf("here %d %d %d %d\n", index1, index2, match, count);
+
+						//walk through the 5 entries for each hash and write in the first place that has room, dummy write the rest
+						int written = 0;
+						if(match && row[0]!='\0') written = 0;
+						else written = 1;
+						for(int j = 0; j < 5; j++){//printf("heer");
+							opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 0);
+							//printf("%d ", j*count+index1);
+							if(match && !written && row2[0]=='\0'){//printf("write1\n");
+								opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row, 1);
+								written++;								}
+							else{
+								opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 1);
+								dummyVar++;
+							}//printf("heer2\n");
+							opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 0);
+							if(match && !written && row2[0]=='\0'){//printf("write2\n");
+								opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row, 1);
+								written++;
+							}
+							else{
+								opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 1);
+								dummyVar++;
+							}
+						}
+						if(!written) {
+							printf("ohhhh");
+							return 1; //panic
+						}
+					}
 					if(n->pointers[MAX_ORDER-1] == -1 || n->keys[i-1] > key_end){i = 0; break;}
 					followNodePointer(structureId, n, n->pointers[MAX_ORDER - 1]);
 					//n = (node*)n->pointers[order - 1];
@@ -1565,7 +1585,7 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 					retNumRows = count;
 				}
 				else{//hash
-					retNumRows = count*3/2;
+					retNumRows = 5*count;
 				}
 				if(colChoice != -1){ //include selected col only
 					retSchema.numFields = 2;
@@ -1745,10 +1765,16 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 					}
 					else{//hashing solution
 						printf("HASH\n");
+						//data structure is of size 5*output and use it as a hash table. each row is written to one of two hash values
+						//hash should be first several bits of output of sha256. input will be the input row number concatenated with 0 and 1 for the two hashes
 						int rowi = -1, dummyVar = 0;
-						uint8_t* hashIn = (uint8_t*)malloc(5);
-						sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
-						unsigned int index = 0;
+						uint8_t* hashIn1 = (uint8_t*)malloc(5);
+						uint8_t* hashIn2 = (uint8_t*)malloc(5);
+						sgx_sha256_hash_t* hashOut1 = (sgx_sha256_hash_t*)malloc(256);
+						sgx_sha256_hash_t* hashOut2 = (sgx_sha256_hash_t*)malloc(256);
+						hashIn1[0] = '0';
+						hashIn2[0] = '1';//doesn't really matter what these are as long as they're different
+						unsigned int index1 = 0, index2 = 0;
 
 						numRows[retStructId] = count;
 
@@ -1766,30 +1792,45 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 								memset(&row[0], 'a', 1);
 								memmove(&row[1], &row[colChoiceOffset], colChoiceSize);//row[0] will already be not '\0'
 							}
-							
-							int insertCounter = 0;
-                            do{
-                                //compute hash
-                                memcpy(&hashIn[1], &rowi, 4);
-                                hashIn[0] = insertCounter;
-                                sgx_sha256_msg(hashIn, 5, hashOut);
-                                memcpy(&index, hashOut, 4);
-                                index %= count*3/2;
-                                                
-                                //try inserting or increment counter
-                                opOneLinearScanBlock(retStructId, index, (Linear_Scan_Block*)row2, 0);
-                                if(match && row2[0] == '\0'){
-									opOneLinearScanBlock(retStructId, index, (Linear_Scan_Block*)row, 1);
-                                    insertCounter = -1;
-                                }
-				else if(!match) insertCounter = -1;
-                                else{
-					//printf("try again %d %d\n", insertCounter, index);
-                                    insertCounter++;
-                                }
-                            }
-                            while(insertCounter != -1);
-							
+							//take two hashes of rowi
+							memcpy(&hashIn1[1], &rowi, 4);
+							memcpy(&hashIn2[1], &rowi, 4);
+							sgx_sha256_msg(hashIn1, 5, hashOut1);
+							sgx_sha256_msg(hashIn2, 5, hashOut2);
+							memcpy(&index1, hashOut1, 4);
+							memcpy(&index2, hashOut2, 4);
+							index1 %= count;
+							index2 %= count;
+							//printf("here %d %d %d %d\n", index1, index2, match, count);
+
+							//walk through the 5 entries for each hash and write in the first place that has room, dummy write the rest
+							int written = 0;
+							if(match && row[0]!='\0') written = 0;
+							else written = 1;
+							for(int j = 0; j < 5; j++){
+								opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 0);
+								//printf("%d ", j*count+index1);
+								if(match && !written && row2[0]=='\0'){//printf("write1\n");
+									opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row, 1);
+									written++;								}
+								else{
+									opOneLinearScanBlock(retStructId, j*count+index1, (Linear_Scan_Block*)row2, 1);
+									dummyVar++;
+								}
+								opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 0);
+								if(match && !written && row2[0]=='\0'){//printf("write2\n");
+									opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row, 1);
+									written++;
+								}
+								else{
+									opOneLinearScanBlock(retStructId, j*count+index2, (Linear_Scan_Block*)row2, 1);
+									dummyVar++;
+								}
+							}
+							if(!written) {
+								printf("ohhhh");
+								return 1; //panic
+							}
 
 						}
 					}
