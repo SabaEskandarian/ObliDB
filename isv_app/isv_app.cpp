@@ -2467,7 +2467,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 	int testSize = testSizes[0];
 	sprintf(tableName, "testTable%d", testSize);
     createTestTable(enclave_id, (int*)&status, "testTable", testSize);
-    //createTestTableIndex(enclave_id, (int*)&status, tableName, testSize);
+    createTestTableIndex(enclave_id, (int*)&status, tableName, testSize);
     //loadIndexTable(enclave_id, (int*)&status, testSize);
     printf("created tables\n");
 	for(int i = 0; i < numTests; i++){
@@ -2475,7 +2475,7 @@ void fabTests(sgx_enclave_id_t enclave_id, int status){
 		printf("\n\n|Test Size %d:\n", testSize);
 
 		//first we'll do the read-only tests
-		int numInnerTests = 15;//how many points do we want along the line
+		int numInnerTests = 3;//how many points do we want along the line
 		for(int testRound = 0; testRound <= numInnerTests; testRound++){
 			//if(testRound > numInnerTests/6){
 			//	testRound = numInnerTests;
@@ -3475,8 +3475,8 @@ int main(int argc, char* argv[])
         //BDB2(enclave_id, status, 1);//2048 (baseline)
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);//512
-        //fabTests(enclave_id, status);//512
-        workloadTests(enclave_id, status);//512
+        fabTests(enclave_id, status);//512
+        //workloadTests(enclave_id, status);//512
         //insdelScaling(enclave_id, status);//512
 
 /*

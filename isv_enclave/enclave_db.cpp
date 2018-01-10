@@ -1175,6 +1175,7 @@ extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregat
 									opOneLinearScanBlock(retStructId, index, (Linear_Scan_Block*)row, 1);
                                     insertCounter = -1;
                                 }
+				else if(!match) insertCounter = -1;
                                 else{
                                     insertCounter++;
                                 }
@@ -1781,7 +1782,9 @@ int selectRows(char* tableName, int colChoice, Condition c, int aggregate, int g
 									opOneLinearScanBlock(retStructId, index, (Linear_Scan_Block*)row, 1);
                                     insertCounter = -1;
                                 }
+				else if(!match) insertCounter = -1;
                                 else{
+					//printf("try again %d %d\n", insertCounter, index);
                                     insertCounter++;
                                 }
                             }
