@@ -472,7 +472,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		uint8_t* block = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		//allocate hash table
-		uint8_t* hashTable = (uint8_t*)malloc(ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
+		uint8_t* hashTable = (uint8_t*)malloc(ROWS_IN_ENCLAVE_JOIN*BLOCK_DATA_SIZE);
 		uint8_t* hashIn = (uint8_t*)malloc(1+s.fieldSizes[joinCol1]);
 		sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
 		unsigned int index = 0;
@@ -481,11 +481,11 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		//createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
 		//printf("table creation returned %d %d %d\n", retStructId, size, strlen(retTableName));
 
-		for(int i = 0; i < oblivStructureSizes[structureId1]; i+=(ROWS_IN_ENCLAVE/4)){
+		for(int i = 0; i < oblivStructureSizes[structureId1]; i+=(ROWS_IN_ENCLAVE_JOIN/4)){
 			//initialize hash table
-			memset(hashTable, '\0', ROWS_IN_ENCLAVE*BLOCK_DATA_SIZE);
+			memset(hashTable, '\0', ROWS_IN_ENCLAVE_JOIN*BLOCK_DATA_SIZE);
 
-			for(int j = 0; j<(ROWS_IN_ENCLAVE/4) && i+j < oblivStructureSizes[structureId1]; j++){
+			for(int j = 0; j<(ROWS_IN_ENCLAVE_JOIN/4) && i+j < oblivStructureSizes[structureId1]; j++){
 				//get row
 				opOneLinearScanBlock(structureId1, i+j, (Linear_Scan_Block*)row, 0);
 				if(row[0] == '\0') continue;
@@ -502,7 +502,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 						strncpy((char*)&hashIn[1], (char*)&row[s.fieldOffsets[joinCol1]], s.fieldSizes[joinCol1]);
 					sgx_sha256_msg(hashIn, 1+s.fieldSizes[joinCol1], hashOut);
 					memcpy(&index, hashOut, 4);
-					index %= ROWS_IN_ENCLAVE;
+					index %= ROWS_IN_ENCLAVE_JOIN;
 					//printf("hash input: %s\nhash output: %d\n", &hashIn[1], index);
 					//try inserting or increment counter
 					if(hashTable[BLOCK_DATA_SIZE*index] == '\0'){
@@ -534,7 +534,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 					}
 					sgx_sha256_msg(hashIn, 1+s2.fieldSizes[joinCol2], hashOut);
 					memcpy(&index, hashOut, 4);
-					index %= ROWS_IN_ENCLAVE;
+					index %= ROWS_IN_ENCLAVE_JOIN;
 					//printf("hash input: %s\nhash output: %d\n", &hashIn[1], index);
 					//printf("%d %d %d %d\n", joinCol2, s2.fieldSizes[joinCol2], s2.fieldOffsets[joinCol2], s2.fieldTypes[joinCol2]);
 					//compare hash against hash table
