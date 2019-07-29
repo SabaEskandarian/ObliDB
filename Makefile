@@ -35,6 +35,7 @@
 
 ######## SGX SDK Settings ########
 
+
 SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= HW
 SGX_ARCH ?= x64
@@ -135,7 +136,7 @@ Crypto_Library_Name := sgx_tcrypto
 
 Enclave_Headers := isv_enclave/isv_enclave.h
 Enclave_Cpp_Files := isv_enclave/isv_enclave.cpp isv_enclave/definitions.cpp isv_enclave/enclave_db.cpp isv_enclave/enclave_tests.cpp isv_enclave/enclave_data_structures.cpp isv_enclave/bplustree.cpp
-Enclave_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport 
+Enclave_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I$(SGX_SDK)/include/libcxx
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) #$(My_Flags)
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++ #$(My_Flags)
@@ -149,7 +150,7 @@ Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++ #$(My_Flags)
 # Otherwise, you may get some undesirable errors.
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -lsgx_tkey_exchange -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_tkey_exchange -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 \
