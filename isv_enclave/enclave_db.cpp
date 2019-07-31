@@ -423,13 +423,46 @@ int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int
 	free(dummyRow);
 }
 
-
-void bitonicSort(uint8_t* bothTables, int startIndex, int size, int flipped, int structureId1, int structureId2, int joinCol1, int joinCol2){
-	//TODO
+void bitonicSort(uint8_t* bothTables, int startIndex, int size, int flipped){
+	//might have issues if the size is not a power of 2, probably easy to check and fix
+	if(size <= 1) {
+		return;
+	} else {
+		bitonicSort(bothTables, startIndex, size/2, 1);
+		bitonicSort(bothTables, startIndex+(size/2), size/2, 0);
+		bitonicMerge(bothTables, startIndex, size, flipped);
+	}
 }
 
-void bitonicMerge(uint8_t* bothtables, int startIndex, int size, int flipped, int structureId1, int structureId2, int joinCol1, int joinCol2){
-	//TODO
+void bitonicMerge(uint8_t* bothTables, int startIndex, int size, int flipped){
+	if(size == 1) {
+		return;
+	} else {
+		int swap = 0;
+		int half = size/2;
+		for(int i = 0; i < half; i++){
+			int num1 = 0;
+			int num2 = 0;
+			memcpy(&num1, &bothTables[(startIndex+i)*(BLOCK_DATA_SIZE+8)+4], 4);
+			memcpy(&num2, &bothTables[(startIndex+half+i)*(BLOCK_DATA_SIZE+8)+4], 4);
+			uint8_t type1 = 0;
+			uint8_t type2 = 0;
+			memcpy(&type1, &bothTables[(startIndex+i)*(BLOCK_DATA_SIZE+8)], 1);
+			memcpy(&type2, &bothTables[(startIndex+half+i)*(BLOCK_DATA_SIZE+8)], 1);
+			swap = num1 > num2 || (num1 == num2 && type1 == 2 && type2 == 1);
+			swap = swap ^ flipped;
+
+			//use row for temporary storage
+			for(int j = 0; j < BLOCK_DATA_SIZE+8; j++){
+				uint8_t v1 = bothTables[(startIndex+i)*(BLOCK_DATA_SIZE+8)+j];
+				uint8_t v2 = bothTables[(startIndex+half+i)*(BLOCK_DATA_SIZE+8)+j];
+				bothTables[(startIndex+i)*(BLOCK_DATA_SIZE+8)+j] = (!swap * v1) + (swap * v2);
+				bothTables[(startIndex+i+half)*(BLOCK_DATA_SIZE+8)+j] = (swap * v1) + (!swap * v2);
+			}
+		}
+		bitonicMerge(bothTables, startIndex, size/2, flipped);
+		bitonicMerge(bothTables, startIndex+(size/2), size/2, flipped);
+	}
 }
 
 int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
@@ -493,31 +526,34 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, outSize, &realRetStructId);
 
 		//create new 'table' of size sum of both tables
-		uint8_t* bothTables = (uint8_t*)malloc((s1Size+s2Size)*(BLOCK_DATA_SIZE+4));
+		uint8_t* bothTables = (uint8_t*)malloc((s1Size+s2Size)*(BLOCK_DATA_SIZE+8));
+		printf("past the malloc\n");
 		//fill new 'table' with original contents of both tables
 		for(int i = 0; i < s1Size; i++){
-			memset(&bothTables[(4+BLOCK_DATA_SIZE)*i], 1, 4);
-			opOneLinearScanBlock(structureId1, i, (Linear_Scan_Block*)&bothTables[(4+BLOCK_DATA_SIZE)*i+4], 0);
+			memset(&bothTables[(8+BLOCK_DATA_SIZE)*i], 1, 4);
+			opOneLinearScanBlock(structureId1, i, (Linear_Scan_Block*)&bothTables[(8+BLOCK_DATA_SIZE)*i+8], 0);
+			memcpy(&bothTables[(8+BLOCK_DATA_SIZE)*i+4], &bothTables[(8+BLOCK_DATA_SIZE)*i+8+fOffset1], 4);
 		}
 		for(int i = 0; i < s2Size; i++){
-			memset(&bothTables[(4+BLOCK_DATA_SIZE)*(i+s1Size)], 2, 4);
-			opOneLinearScanBlock(structureId2, i, (Linear_Scan_Block*)&bothTables[(4+BLOCK_DATA_SIZE)*(i+s1Size)+4], 0);
+			memset(&bothTables[(8+BLOCK_DATA_SIZE)*(i+s1Size)], 2, 4);
+			opOneLinearScanBlock(structureId2, i, (Linear_Scan_Block*)&bothTables[(8+BLOCK_DATA_SIZE)*(i+s1Size)+8], 0);
+			memcpy(&bothTables[(8+BLOCK_DATA_SIZE)*(i+s1Size)+4], &bothTables[(8+BLOCK_DATA_SIZE)*(i+s1Size)+8+fOffset2], 4);
 		}
+		
 
 		//sort new table with bitonic sort
-		bitonicSort(bothTables, 0, s1Size+s2Size, 0, structureId1, structureId2, joinCol1, joinCol2);
-		
+		bitonicSort(bothTables, 0, s1Size+s2Size, 0);
 
 		//linear scan of sorted table with outputs to a final table of size max of two inputs
 		for(int i = 1; i < outSize; i++){
-			int rowAddr1 = (i-1)*(4+BLOCK_DATA_SIZE);
-			int rowAddr2 = (i)*(4+BLOCK_DATA_SIZE);
+			int rowAddr1 = (i-1)*(8+BLOCK_DATA_SIZE);
+			int rowAddr2 = (i)*(8+BLOCK_DATA_SIZE);
 			int match = -1;
 			shift = getRowSize(&schemas[structureId1]);
 
 			//form the row we would write regardless of whether this is a match
-			memcpy(&row1[0], &bothTables[rowAddr1+4], BLOCK_DATA_SIZE);
-			memcpy(&row[0], &bothTables[rowAddr2+4], BLOCK_DATA_SIZE);
+			memcpy(&row1[0], &bothTables[rowAddr1+8], BLOCK_DATA_SIZE);
+			memcpy(&row[0], &bothTables[rowAddr2+8], BLOCK_DATA_SIZE);
 			
 			for(int k = 1; k < schemas[structureId2].numFields; k++){
 				if(k == joinCol2) continue;
@@ -527,7 +563,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 
 			//check if this entry and the previous one are from different tables and match on the join col	
 			if(bothTables[rowAddr1] == 1 && bothTables[rowAddr2] == 2
-				&& memcmp(&bothTables[rowAddr1+4+fOffset1], &bothTables[rowAddr2+4+fOffset2], s.fieldSizes[joinCol1]) == 0){
+				&& memcmp(&bothTables[rowAddr1+8+fOffset1], &bothTables[rowAddr2+8+fOffset2], s.fieldSizes[joinCol1]) == 0){
 				//if so write out real entry
 				match = 1;
 			}
