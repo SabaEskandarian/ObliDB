@@ -2390,12 +2390,12 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	//comparing our original join and sort merge join for linear tables
 	//using same schema as used for synthetic data in FabTests	
 
-	//int testSizes[] = {100, 500, 1000, 5000, 10000, 50000, 100000, 500000};
-	//int numTests = 8;
+	int testSizes[] = {100, 500, 1000, 5000, 10000, 50000, 100000, 500000};
+	int numTests = 8;
     
     //for testing
-	int testSizes[] = {50000};
-	int numTests = 1;
+	//int testSizes[] = {50000};
+	//int numTests = 1;
     
     createTestTable(enclave_id, (int*)&status, "jTable", 5000);//decide what to do with the size of this one
     //deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
