@@ -428,7 +428,7 @@ void bitonicSort(int tableId, int startIndex, int size, int flipped, uint8_t* ro
 	if(size <= 1) {
 		return;
 	} else if(size < ROWS_IN_ENCLAVE_JOIN) {
-		uint8_t* workingSpace = (uint8_t*)malloc(ROWS_IN_ENCLAVE_JOIN*BLOCK_DATA_SIZE);		
+		uint8_t* workingSpace = (uint8_t*)malloc(size*BLOCK_DATA_SIZE);		
 		//copy all the needed rows into the working memory
 		for(int i = startIndex; i < size; i++){
 			opOneLinearScanBlock(tableId, startIndex+i, (Linear_Scan_Block*)&workingSpace[i*BLOCK_DATA_SIZE], 0);
@@ -449,12 +449,39 @@ void bitonicSort(int tableId, int startIndex, int size, int flipped, uint8_t* ro
 	}
 }
 
+/*
+void bitonicHelper(uint8_t* table, int size, int flipped){
+	int swap = 0;
+	int half = size/2;
+	for(int i = 0; i < half; i++){
+		int num1 = 0;
+		int num2 = 0;
+		memcpy(&num1, &table[(i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
+		memcpy(&num2, &table[(half+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
+		uint8_t type1 = 0;
+		uint8_t type2 = 0;
+		memcpy(&type1, &table[(i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 4);
+		memcpy(&type2, &table[(half+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 4);
+		swap = num1 > num2 || (num1 == num2 && type1 == 2 && type2 == 1);
+		swap = swap ^ flipped;
+
+		//use row for temporary storage
+		for(int j = 0; j < BLOCK_DATA_SIZE; j++){
+			uint8_t v1 = table[(i)*(BLOCK_DATA_SIZE)+j];
+			uint8_t v2 = table[(half+i)*(BLOCK_DATA_SIZE)+j];
+			table[(i)*(BLOCK_DATA_SIZE)+j] = (!swap * v1) + (swap * v2);
+			table[(i+half)*(BLOCK_DATA_SIZE)+j] = (swap * v1) + (!swap * v2);
+		}
+	}
+}
+*/
+	
 void bitonicMerge(int tableId, int startIndex, int size, int flipped, uint8_t* row1, uint8_t* row2){
 
 	if(size == 1) {
 		return;
 	} else if(size < ROWS_IN_ENCLAVE_JOIN) { 
-		uint8_t* workingSpace = (uint8_t*)malloc(ROWS_IN_ENCLAVE_JOIN*BLOCK_DATA_SIZE);		
+		uint8_t* workingSpace = (uint8_t*)malloc(size*BLOCK_DATA_SIZE);		
 		//copy all the needed rows into the working memory
 		for(int i = startIndex; i < size; i++){
 			opOneLinearScanBlock(tableId, startIndex+i, (Linear_Scan_Block*)&workingSpace[i*BLOCK_DATA_SIZE], 0);
@@ -471,6 +498,8 @@ void bitonicMerge(int tableId, int startIndex, int size, int flipped, uint8_t* r
 	} else {
 		int swap = 0;
 		int half = size/2;
+		
+		//without helper
 		for(int i = 0; i < half; i++){
 			opOneLinearScanBlock(tableId, startIndex+i, (Linear_Scan_Block*)row1, 0);
 			opOneLinearScanBlock(tableId, startIndex+half+i, (Linear_Scan_Block*)row2, 0);
@@ -495,6 +524,36 @@ void bitonicMerge(int tableId, int startIndex, int size, int flipped, uint8_t* r
 			opOneLinearScanBlock(tableId, startIndex+i, (Linear_Scan_Block*)row1, 1);
 			opOneLinearScanBlock(tableId, startIndex+half+i, (Linear_Scan_Block*)row2, 1);
 		}
+		//end without helper
+		/*
+		//with helper
+		//
+		//this currently fails in a segfault
+		//could probably be fixed, but I won't bother
+		int baseIndex = startIndex;
+		uint8_t* workingSpace = (uint8_t*)malloc(ROWS_IN_ENCLAVE_JOIN*BLOCK_DATA_SIZE);		
+		while(baseIndex < startIndex+half){
+			
+			//copy the needed rows into the working memory
+			for(int i = baseIndex; i < ROWS_IN_ENCLAVE_JOIN; i++){
+				int plusHalf = !(i < ROWS_IN_ENCLAVE_JOIN/2);
+				opOneLinearScanBlock(tableId, baseIndex+i+(plusHalf*half), (Linear_Scan_Block*)&workingSpace[i*BLOCK_DATA_SIZE], 0);
+			}
+	
+			bitonicHelper(workingSpace, size, flipped);
+	
+			//write back to the table
+			for(int i = baseIndex; i < ROWS_IN_ENCLAVE_JOIN; i++){
+				int plusHalf = !(i < ROWS_IN_ENCLAVE_JOIN/2);
+				opOneLinearScanBlock(tableId, baseIndex+i+(plusHalf*half), (Linear_Scan_Block*)&workingSpace[i*BLOCK_DATA_SIZE], 1);
+			}
+				
+			baseIndex += ROWS_IN_ENCLAVE_JOIN/2;
+		}
+
+		free(workingSpace);
+		//end with helper
+		*/
 		bitonicMerge(tableId, startIndex, size/2, flipped, row1, row2);
 		bitonicMerge(tableId, startIndex+(size/2), size/2, flipped, row1, row2);
 	}
