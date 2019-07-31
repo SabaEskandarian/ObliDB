@@ -2394,8 +2394,8 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	int numTests = 8;
     
     //for testing
-	//int testSizes[] = {50000};
-	//int numTests = 1;
+	//int testSizes[] = {5000, 10000, 50000};
+	//int numTests = 3;
     
     createTestTable(enclave_id, (int*)&status, "jTable", 5000);//decide what to do with the size of this one
     //deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
