@@ -11,7 +11,7 @@
 #include "string.h"
 
 
-#define BLOCK_DATA_SIZE 2048
+#define BLOCK_DATA_SIZE 512
 
 //these two are no longer used
 //#define NUM_BLOCKS_POW 10

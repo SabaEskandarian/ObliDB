@@ -423,6 +423,15 @@ int updateRows(char* tableName, Condition c, int colChoice, uint8_t* colVal, int
 	free(dummyRow);
 }
 
+
+void bitonicSort(uint8_t* bothTables, int startIndex, int size, int flipped, int structureId1, int structureId2, int joinCol1, int joinCol2){
+	//TODO
+}
+
+void bitonicMerge(uint8_t* bothtables, int startIndex, int size, int flipped, int structureId1, int structureId2, int joinCol1, int joinCol2){
+	//TODO
+}
+
 int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
 	//create an oram, do block nested loop join in it, and manually convert it to a linear scan table
 	int structureId1 = getTableId(tableName1);
@@ -463,7 +472,89 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		shift++;
 	}
 
-	if(type1 == TYPE_LINEAR_SCAN && type2 == TYPE_LINEAR_SCAN){
+	if(type1 == TYPE_LINEAR_SCAN && type2 == TYPE_LINEAR_SCAN && endKey == -248){//hack to add in support for the opaque join
+		//note: to match the functionality of the index join where we specify a range of keys,
+		//we would have to do a select after this join
+		printf("Sort-Merge JOIN\n");
+		row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+		row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+		row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+		uint8_t* block = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+
+		int s1Size = numRows[structureId1];
+		int s2Size = numRows[structureId2];
+		int outSize = s1Size+s2Size;
+
+		int fOffset1 = schemas[structureId1].fieldOffsets[joinCol1];
+		int fOffset2 = schemas[structureId2].fieldOffsets[joinCol2];
+
+
+		//output table will be of size max of two inputs
+		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, outSize, &realRetStructId);
+
+		//create new 'table' of size sum of both tables
+		uint8_t* bothTables = (uint8_t*)malloc((s1Size+s2Size)*(BLOCK_DATA_SIZE+4));
+		//fill new 'table' with original contents of both tables
+		for(int i = 0; i < s1Size; i++){
+			memset(&bothTables[(4+BLOCK_DATA_SIZE)*i], 1, 4);
+			opOneLinearScanBlock(structureId1, i, (Linear_Scan_Block*)&bothTables[(4+BLOCK_DATA_SIZE)*i+4], 0);
+		}
+		for(int i = 0; i < s2Size; i++){
+			memset(&bothTables[(4+BLOCK_DATA_SIZE)*(i+s1Size)], 2, 4);
+			opOneLinearScanBlock(structureId2, i, (Linear_Scan_Block*)&bothTables[(4+BLOCK_DATA_SIZE)*(i+s1Size)+4], 0);
+		}
+
+		//sort new table with bitonic sort
+		bitonicSort(bothTables, 0, s1Size+s2Size, 0, structureId1, structureId2, joinCol1, joinCol2);
+		
+
+		//linear scan of sorted table with outputs to a final table of size max of two inputs
+		for(int i = 1; i < outSize; i++){
+			int rowAddr1 = (i-1)*(4+BLOCK_DATA_SIZE);
+			int rowAddr2 = (i)*(4+BLOCK_DATA_SIZE);
+			int match = -1;
+			shift = getRowSize(&schemas[structureId1]);
+
+			//form the row we would write regardless of whether this is a match
+			memcpy(&row1[0], &bothTables[rowAddr1+4], BLOCK_DATA_SIZE);
+			memcpy(&row[0], &bothTables[rowAddr2+4], BLOCK_DATA_SIZE);
+			
+			for(int k = 1; k < schemas[structureId2].numFields; k++){
+				if(k == joinCol2) continue;
+				memcpy(&row1[shift], &row[schemas[structureId2].fieldOffsets[k]], schemas[structureId2].fieldSizes[k]);
+				shift+= schemas[structureId2].fieldSizes[k];
+			}
+
+			//check if this entry and the previous one are from different tables and match on the join col	
+			if(bothTables[rowAddr1] == 1 && bothTables[rowAddr2] == 2
+				&& memcmp(&bothTables[rowAddr1+4+fOffset1], &bothTables[rowAddr2+4+fOffset2], s.fieldSizes[joinCol1]) == 0){
+				//if so write out real entry
+				match = 1;
+			}
+			else{
+				//otherwise write out dummy entry
+				match = 0;
+				row1[0] = '\0';
+			}
+
+			memcpy(block, &row1[0], BLOCK_DATA_SIZE);
+			
+			opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)block, match);
+			if(match) {
+				numRows[realRetStructId]++;
+			}
+			else {
+				dummyVal++;
+			}
+		}
+
+		free(bothTables);
+		free(row);
+		free(row1);
+		free(row2);
+		free(block);
+	}
+	else if(type1 == TYPE_LINEAR_SCAN && type2 == TYPE_LINEAR_SCAN){
 		//note: to match the functionality of the index join where we specify a range of keys,
 		//we would have to do a select after this join
 		printf("JOIN\n");
@@ -471,6 +562,8 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		uint8_t* block = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+
+
 		//allocate hash table
 		uint8_t* hashTable = (uint8_t*)malloc(ROWS_IN_ENCLAVE_JOIN*BLOCK_DATA_SIZE);
 		uint8_t* hashIn = (uint8_t*)malloc(1+s.fieldSizes[joinCol1]);
