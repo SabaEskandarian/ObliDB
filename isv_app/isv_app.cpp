@@ -2390,12 +2390,12 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	//comparing our original join and sort merge join for linear tables
 	//using same schema as used for synthetic data in FabTests	
 
-	int testSizes[] = {100, 500, 1000, 5000, 10000, 50000, 100000, 500000};
-	int numTests = 8;
+	//int testSizes[] = {100, 500, 1000, 5000, 10000, 50000, 100000, 500000};
+	//int numTests = 8;
     
     //for testing
-	//int testSizes[] = {5000, 10000, 50000};
-	//int numTests = 3;
+	int testSizes[] = {5000};
+	int numTests = 1;
     
     createTestTable(enclave_id, (int*)&status, "jTable", 5000);//decide what to do with the size of this one
     //deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
@@ -2408,6 +2408,7 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 
         	double join1Times[6] = {0};
         	double join2Times[6] = {0};
+        	double join3Times[6] = {0};
         	time_t startTime, endTime;
         	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
         	const char* text = "You would measure time the measureless and the immeasurable.";
@@ -2428,17 +2429,27 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
                 join2Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
                 deleteTable(enclave_id, (int*)&status, "JoinReturn");
 
+                //join 3
+                startTime = clock();
+                joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -249, -248);
+                endTime = clock();
+                join3Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+                printTableCheating(enclave_id, (int*)&status, "JoinReturn");
+                deleteTable(enclave_id, (int*)&status, "JoinReturn");
 
     		}
     		free(row);
     		for(int j = 0; j < 5; j++){
             		join1Times[5] += join1Times[j];
             		join2Times[5] += join2Times[j];
+            		join3Times[5] += join3Times[j];
     		}
         	join1Times[5] /= 5;
         	join2Times[5] /= 5;
+        	join3Times[5] /= 5;
     		printf("join1Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join1Times[0], join1Times[1], join1Times[2], join1Times[3], join1Times[4], join1Times[5]);
     		printf("join2Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join2Times[0], join2Times[1], join2Times[2], join2Times[3], join2Times[4], join2Times[5]);
+    		printf("join3Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join3Times[0], join3Times[1], join3Times[2], join3Times[3], join3Times[4], join3Times[5]);
             
             deleteTable(enclave_id, (int*)&status, "testTable");
 	}

@@ -85,10 +85,19 @@ extern int printTableCheating(char* tableName);
 extern int createTestTable(char* tableName, int numRows);
 extern Schema getTableSchema(char *tableName);
 extern int deleteTable(char *tableName);
+
 extern void bitonicSort(int tableId, int startIndex, int size, int flipped, uint8_t* row1, uint8_t* row2);
 extern void bitonicMerge(int tableId, int startIndex, int size, int flipped, uint8_t* row1, uint8_t* row2);
 extern void smallBitonicSort(uint8_t* bothTables, int startIndex, int size, int flipped);
 extern void smallBitonicMerge(uint8_t* bothTables, int startIndex, int size, int flipped);
+
+extern int partition (uint8_t* table, int low, int high);
+extern void quickSort(uint8_t* table, int m, int n);
+extern void blockBitonicSort(uint8_t* workSpace, int tableId, int startIndex, int size, int flipped, int tableSize);
+extern void mergeTwoBlocks(uint8_t* workSpace, int tableId, int block1, int block2, int flipped, int tableSize);
+extern void blockBitonicMerge(uint8_t* workSpace, int tableId, int startIndex, int size, int flipped, int tableSize);
+extern void opaqueSort(int tableId, int size);
+
 extern int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey);
 extern int indexSelect(char* tableName, int colChoice, Condition c, int aggregate, int groupCol, int algChoice, int key_start, int key_end, int intermediate);
 extern int createTestTableIndex(char* tableName, int numberOfRows);

@@ -509,8 +509,8 @@ void bitonicMerge(int tableId, int startIndex, int size, int flipped, uint8_t* r
 			memcpy(&num2, &row2[BLOCK_DATA_SIZE-8], 4);
 			uint8_t type1 = 0;
 			uint8_t type2 = 0;
-			memcpy(&type1, &row1[BLOCK_DATA_SIZE-4], 4);
-			memcpy(&type2, &row2[BLOCK_DATA_SIZE-4], 4);
+			memcpy(&type1, &row1[BLOCK_DATA_SIZE-4], 1);
+			memcpy(&type2, &row2[BLOCK_DATA_SIZE-4], 1);
 			swap = num1 > num2 || (num1 == num2 && type1 == 2 && type2 == 1);
 			swap = swap ^ flipped;
 
@@ -583,8 +583,8 @@ void smallBitonicMerge(uint8_t* bothTables, int startIndex, int size, int flippe
 			memcpy(&num2, &bothTables[(startIndex+half+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
 			uint8_t type1 = 0;
 			uint8_t type2 = 0;
-			memcpy(&type1, &bothTables[(startIndex+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 4);
-			memcpy(&type2, &bothTables[(startIndex+half+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 4);
+			memcpy(&type1, &bothTables[(startIndex+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
+			memcpy(&type2, &bothTables[(startIndex+half+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
 			swap = num1 > num2 || (num1 == num2 && type1 == 2 && type2 == 1);
 			swap = swap ^ flipped;
 
@@ -599,6 +599,203 @@ void smallBitonicMerge(uint8_t* bothTables, int startIndex, int size, int flippe
 		smallBitonicMerge(bothTables, startIndex, size/2, flipped);
 		smallBitonicMerge(bothTables, startIndex+(size/2), size/2, flipped);
 	}
+}
+
+int partition (uint8_t* table, int low, int high) 
+{
+	int pivotVal = 0;
+	uint8_t pivotType = 0;
+	memcpy(&pivotVal, &table[BLOCK_DATA_SIZE*high+BLOCK_DATA_SIZE-8], 4);
+	memcpy(&pivotType, &table[BLOCK_DATA_SIZE*high+BLOCK_DATA_SIZE-4], 1);
+	int leftPointer = low;
+	int rightPointer = high-1;
+	int leftPointerVal = 0;
+	uint8_t leftPointerType = 0;
+	int rightPointerVal = 0;
+	uint8_t rightPointerType = 0;
+	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
+
+	while(true){
+		memcpy(&leftPointerVal, &table[BLOCK_DATA_SIZE*leftPointer+BLOCK_DATA_SIZE-8], 4);
+		memcpy(&leftPointerType, &table[BLOCK_DATA_SIZE*leftPointer+BLOCK_DATA_SIZE-4], 1);
+		while(leftPointerVal < pivotVal || (leftPointerVal == pivotVal && leftPointerType == 1 && pivotType == 2)){
+			leftPointer++;
+			memcpy(&leftPointerVal, &table[BLOCK_DATA_SIZE*leftPointer+BLOCK_DATA_SIZE-8], 4);
+			memcpy(&leftPointerType, &table[BLOCK_DATA_SIZE*leftPointer+BLOCK_DATA_SIZE-4], 1);
+		}
+
+		if(rightPointer > 0){
+			memcpy(&rightPointerVal, &table[BLOCK_DATA_SIZE*rightPointer+BLOCK_DATA_SIZE-8], 4);
+			memcpy(&rightPointerType, &table[BLOCK_DATA_SIZE*rightPointer+BLOCK_DATA_SIZE-4], 1);
+			while(rightPointerVal > pivotVal || (rightPointerVal == pivotVal && rightPointerType == 2 && pivotType == 1)){
+				rightPointer--;
+				memcpy(&rightPointerVal, &table[BLOCK_DATA_SIZE*rightPointer+BLOCK_DATA_SIZE-8], 4);
+				memcpy(&rightPointerType, &table[BLOCK_DATA_SIZE*rightPointer+BLOCK_DATA_SIZE-4], 1);
+			}
+		}
+		//printf("in loop %d %d %d %d %d %d %d %d\n", leftPointer, rightPointer, leftPointerVal, rightPointerVal, pivotVal, leftPointerType, pivotType, rightPointerType);
+
+		if(leftPointer >= rightPointer){
+			//printf("breaking loop\n");
+			break;
+		} else {
+			//swap leftPointer and rightPointer indexes
+			memcpy(row, &table[leftPointer*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
+			memcpy(&table[leftPointer*BLOCK_DATA_SIZE], &table[rightPointer*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
+			memcpy(&table[rightPointer*BLOCK_DATA_SIZE], row, BLOCK_DATA_SIZE);
+		}
+	}
+
+	//swap leftPointer and high indexes
+	memcpy(row, &table[leftPointer*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
+	memcpy(&table[leftPointer*BLOCK_DATA_SIZE], &table[high*BLOCK_DATA_SIZE], BLOCK_DATA_SIZE);
+	memcpy(&table[high*BLOCK_DATA_SIZE], row, BLOCK_DATA_SIZE);
+
+	free(row);
+	return leftPointer;
+} 
+
+void quickSort(uint8_t* table, int m, int n){
+	if(m<n) {
+		//printf("left %d, right %d\n", m, n);
+		int pi = partition(table, m, n);
+		//printf("pi %d\n", pi);	
+      
+		/* recursively sort the lesser list */
+        	quickSort(table,m,pi-1);
+        	quickSort(table,pi+1,n);
+	}
+}
+
+
+void blockBitonicSort(uint8_t* workSpace, int tableId, int startIndex, int size, int flipped, int tableSize){
+	//might have issues if the size is not a power of 2, probably easy to check and fix
+	if(size <= 1) {
+		return;
+	} else {
+		blockBitonicSort(workSpace, tableId, startIndex, size/2, 1, tableSize);
+		blockBitonicSort(workSpace, tableId, startIndex+(size/2), size/2, 0, tableSize);
+		blockBitonicMerge(workSpace, tableId, startIndex, size, flipped, tableSize);
+	}
+}
+
+void mergeTwoBlocks(uint8_t* workSpace, int tableId, int block1, int block2, int flipped, int tableSize){
+	int count1 = 0;
+	int count2 = 0;
+	int outIndex = 0;
+	int index1 = 0;
+	int index2 = 0;
+	//printf("here0 %d %d %d\n", block1, block2, tableSize);
+	for(int i = 0; i < ROWS_IN_ENCLAVE_JOIN/2; i++){
+		opOneLinearScanBlock(tableId, ROWS_IN_ENCLAVE_JOIN/2*block1+i, (Linear_Scan_Block*)&workSpace[i*BLOCK_DATA_SIZE], 0);
+		count1++;
+	}
+	for(int i = 0; i < ROWS_IN_ENCLAVE_JOIN/2 && ROWS_IN_ENCLAVE_JOIN/2*block2+i < tableSize; i++){
+		opOneLinearScanBlock(tableId, ROWS_IN_ENCLAVE_JOIN/2*block2+i, (Linear_Scan_Block*)&workSpace[(i+ROWS_IN_ENCLAVE_JOIN/2)*BLOCK_DATA_SIZE], 0);
+		count2++;
+	}
+	for(int i = 0; i < count1+count2; i++){
+		int startPoint = ROWS_IN_ENCLAVE_JOIN/2*block1;
+		if(i >= count1){
+			startPoint = ROWS_IN_ENCLAVE_JOIN/2*block2-count1;
+		}
+
+		if(index1 == -1){
+			opOneLinearScanBlock(tableId, startPoint+i, (Linear_Scan_Block*)&workSpace[(index2+ROWS_IN_ENCLAVE_JOIN/2)*BLOCK_DATA_SIZE], 1);	
+			index2++;
+		} else if(index2 == -1){
+			opOneLinearScanBlock(tableId, startPoint+i, (Linear_Scan_Block*)&workSpace[(index1)*BLOCK_DATA_SIZE], 1);	
+			index1++;
+		} else {
+			int val1 = 0;
+			int val2 = 0;
+			memcpy(&val1, &workSpace[(i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
+			memcpy(&val2, &workSpace[(ROWS_IN_ENCLAVE_JOIN/2+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
+			uint8_t type1 = 0;
+			uint8_t type2 = 0;
+			memcpy(&type1, &workSpace[(i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
+			memcpy(&type2, &workSpace[(ROWS_IN_ENCLAVE_JOIN/2+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
+			//if gt2 is true then the entry from the second half is written first
+			int gt2 = val1 > val2 || (val1 == val2 && type2 == 1 && type1 == 2);
+			gt2 = gt2 ^ flipped;
+
+			if(gt2){
+				opOneLinearScanBlock(tableId, startPoint+i, (Linear_Scan_Block*)&workSpace[(index2+ROWS_IN_ENCLAVE_JOIN/2)*BLOCK_DATA_SIZE], 1);	
+				index2++;
+			} else{
+				opOneLinearScanBlock(tableId, startPoint+i, (Linear_Scan_Block*)&workSpace[(index1)*BLOCK_DATA_SIZE], 1);	
+				index1++;
+			}
+		}
+		if(index1 == count1) index1 = -1;
+		if(index2 == count2) index2 = -1;
+	}
+}
+
+void blockBitonicMerge(uint8_t* workSpace, int tableId, int startIndex, int size, int flipped, int tableSize){
+	if(size == 1) {
+		return;
+	} else {
+		int swap = 0;
+		int half = size/2;
+		for(int i = 0; i < half; i++){
+			//merge the pairs of chunks
+			//printf("merging\n");
+			mergeTwoBlocks(workSpace, tableId, startIndex+i, startIndex+i+half, flipped, tableSize);	
+			//printf("merged\n");
+		}
+		blockBitonicMerge(workSpace, tableId, startIndex, size/2, flipped, tableSize);
+		blockBitonicMerge(workSpace, tableId, startIndex+(size/2), size/2, flipped, tableSize);
+	}
+}
+
+void opaqueSort(int tableId, int size){
+	//might have issues if the size is not a power of 2, probably easy to check and fix
+	if(size <= 1) {
+		return;
+	} else if(size < ROWS_IN_ENCLAVE_JOIN) {
+		uint8_t* workingSpace = (uint8_t*)malloc(size*BLOCK_DATA_SIZE);		
+		//copy all the needed rows into the working memory
+		for(int i = 0; i < size; i++){
+			opOneLinearScanBlock(tableId, i, (Linear_Scan_Block*)&workingSpace[i*BLOCK_DATA_SIZE], 0);
+		}
+
+		quickSort(workingSpace, 0, size-1);
+
+		//write back to the table
+		for(int i = 0; i < size; i++){
+			opOneLinearScanBlock(tableId, i, (Linear_Scan_Block*)&workingSpace[i*BLOCK_DATA_SIZE], 1);
+		}
+
+		free(workingSpace);
+	} else {
+		//form chunks of size ROWS_IN_ENCLAVE_JOIN/2
+		uint8_t* workSpace = (uint8_t*)malloc(BLOCK_DATA_SIZE*ROWS_IN_ENCLAVE_JOIN);
+		int numChunks = size/(ROWS_IN_ENCLAVE_JOIN/2);
+		if(size % (ROWS_IN_ENCLAVE_JOIN/2) != 0) numChunks++;
+		int sortSize = 0;
+		for(int i = 0; i < numChunks; i++){
+			for(int j = 0; j < ROWS_IN_ENCLAVE_JOIN/2 && i*(ROWS_IN_ENCLAVE_JOIN/2)+j < size; j++){
+				opOneLinearScanBlock(tableId, i*(ROWS_IN_ENCLAVE_JOIN/2)+j, (Linear_Scan_Block*)&workSpace[j*BLOCK_DATA_SIZE], 0);
+				sortSize = j;
+			}
+			//quicksort each chunk separately
+			//printf("quicksorting\n");
+			quickSort(workSpace, 0, sortSize);
+			//printf("done quicksorting\n");
+			//write back to the table
+			for(int j = 0; j < ROWS_IN_ENCLAVE_JOIN/2 && i*(ROWS_IN_ENCLAVE_JOIN/2)+j < size; j++){
+				opOneLinearScanBlock(tableId, i*(ROWS_IN_ENCLAVE_JOIN/2)+j, (Linear_Scan_Block*)&workSpace[j*BLOCK_DATA_SIZE], 1);
+				sortSize = j;
+			}
+		}
+		//printf("about to bitonic sort in opaque sort\n");
+		//do a bitonic sort merge of the chunks
+		blockBitonicSort(workSpace, tableId, 0, numChunks, 0, size);
+		//printf("completed bitonic sort in opaque sort\n");
+
+		free(workSpace);
+	}	
 }
 
 int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, int startKey, int endKey) {//put the smaller table first for
@@ -675,9 +872,15 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			opOneLinearScanBlock(realRetStructId, i+s1Size, (Linear_Scan_Block*)row, 1);
 		}
 
-		//sort new table with bitonic sort
-		bitonicSort(realRetStructId, 0, s1Size+s2Size, 0, row1, row2);
-		opOneLinearScanBlock(realRetStructId, 0, (Linear_Scan_Block*)row, BLOCK_DATA_SIZE);
+		if(startKey == -249) { //do the opaque sort
+			printf("using Opaque sort\n");
+			opaqueSort(realRetStructId, s1Size+s2Size);
+			//printf("done with Opaque sort\n");	
+		} else {
+			//sort new table with bitonic sort
+			bitonicSort(realRetStructId, 0, s1Size+s2Size, 0, row1, row2);
+		}
+		opOneLinearScanBlock(realRetStructId, 0, (Linear_Scan_Block*)row, 0);
 		//linear scan of sorted table with outputs to a final table of size max of two inputs
 		for(int i = 1; i < outSize; i++){
 			int match = -1;
@@ -686,7 +889,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			//form the row we would write regardless of whether this is a match
 			//opOneLinearScanBlock(realRetStructId, i-1, (Linear_Scan_Block*)row1, BLOCK_DATA_SIZE);
 			memcpy(row1, row, BLOCK_DATA_SIZE);//avoid one read by reusing the thing we read on the previous iteration
-			opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)row, BLOCK_DATA_SIZE);
+			opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)row, 0);
 			for(int k = 1; k < schemas[structureId2].numFields; k++){
 				if(k == joinCol2) continue;
 				memcpy(&row1[shift], &row[schemas[structureId2].fieldOffsets[k]], schemas[structureId2].fieldSizes[k]);
@@ -697,21 +900,16 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			if(row1[BLOCK_DATA_SIZE-4] == 1 && row[BLOCK_DATA_SIZE-4] == 2
 				&& memcmp(&row1[BLOCK_DATA_SIZE-8], &row[BLOCK_DATA_SIZE-8], s.fieldSizes[joinCol1]) == 0){
 				//if so write out real entry
-				match = 1;
+				numRows[realRetStructId]++;
+				//printf("seeing: %d %d %d %d\n", row1[BLOCK_DATA_SIZE-4], row[BLOCK_DATA_SIZE-4], row1[BLOCK_DATA_SIZE-8], row[BLOCK_DATA_SIZE-8]);
 			}
 			else{
 				//otherwise write out dummy entry
-				match = 0;
+				dummyVal++;
 				row1[0] = '\0';
 			}
 
-			opOneLinearScanBlock(realRetStructId, i-1, (Linear_Scan_Block*)row1, match);
-			if(match) {
-				numRows[realRetStructId]++;
-			}
-			else {
-				dummyVal++;
-			}
+			opOneLinearScanBlock(realRetStructId, i-1, (Linear_Scan_Block*)row1, 1);
 
 			//edge case for last row
 			if(i == outSize-1){
@@ -719,13 +917,13 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				row1[0] = '\0';
 				opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)row1, 1);
 			}
-		}
+		} printf("number of rows: %d\n", numRows[realRetStructId]);
 
 		free(row);
 		free(row1);
 		free(row2);
 		free(block);
-	}
+	} 
 	else if(type1 == TYPE_LINEAR_SCAN && type2 == TYPE_LINEAR_SCAN){
 		//note: to match the functionality of the index join where we specify a range of keys,
 		//we would have to do a select after this join
