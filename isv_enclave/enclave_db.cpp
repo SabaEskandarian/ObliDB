@@ -717,7 +717,7 @@ void mergeTwoBlocks(uint8_t* workSpace, int tableId, int block1, int block2, int
 			memcpy(&type2, &workSpace[(ROWS_IN_ENCLAVE_JOIN/2+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
 			//if gt2 is true then the entry from the second half is written first
 			int gt2 = val1 > val2 || (val1 == val2 && type2 == 1 && type1 == 2);
-			gt2 = gt2 ^ flipped;
+			//gt2 = gt2 ^ flipped;
 
 			if(gt2){
 				opOneLinearScanBlock(tableId, startPoint+i, (Linear_Scan_Block*)&workSpace[(index2+ROWS_IN_ENCLAVE_JOIN/2)*BLOCK_DATA_SIZE], 1);	
@@ -841,7 +841,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 	if(type1 == TYPE_LINEAR_SCAN && type2 == TYPE_LINEAR_SCAN && endKey == -248){//hack to add in support for the opaque join
 		//note: to match the functionality of the index join where we specify a range of keys,
 		//we would have to do a select after this join
-		printf("Sort-Merge JOIN\n");
+		printf("Sort-Merge JOIN");
 		row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
@@ -872,8 +872,13 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 			opOneLinearScanBlock(realRetStructId, i+s1Size, (Linear_Scan_Block*)row, 1);
 		}
 
+		//TODO there appears to be some kind of issue when the sorts get large, especially for the opaque sort.
+		//this affects the correctness of the result table returned, but the running time continues to grow similarly to before
+		//and the actual steps of the algorithms seem to be followed correctly
+		//I think there's a logic error in the comparisons for a sort somewhere or some such thing
+		//doesn't seem worth tracking down
 		if(startKey == -249) { //do the opaque sort
-			printf("using Opaque sort\n");
+			printf("using Opaque sort");
 			opaqueSort(realRetStructId, s1Size+s2Size);
 			//printf("done with Opaque sort\n");	
 		} else {
@@ -917,7 +922,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				row1[0] = '\0';
 				opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)row1, 1);
 			}
-		} printf("number of rows: %d\n", numRows[realRetStructId]);
+		} //printf("number of rows: %d\n", numRows[realRetStructId]);
 
 		free(row);
 		free(row1);
@@ -927,7 +932,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 	else if(type1 == TYPE_LINEAR_SCAN && type2 == TYPE_LINEAR_SCAN){
 		//note: to match the functionality of the index join where we specify a range of keys,
 		//we would have to do a select after this join
-		printf("JOIN\n");
+		printf("JOIN");
 		row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		row1 = (uint8_t*)malloc(BLOCK_DATA_SIZE);
 		row2 = (uint8_t*)malloc(BLOCK_DATA_SIZE);

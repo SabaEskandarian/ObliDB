@@ -2390,12 +2390,12 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	//comparing our original join and sort merge join for linear tables
 	//using same schema as used for synthetic data in FabTests	
 
-	//int testSizes[] = {100, 500, 1000, 5000, 10000, 50000, 100000, 500000};
-	//int numTests = 8;
+	int testSizes[] = {100, 500, 1000, 5000, 10000, 50000, 100000};
+	int numTests = 7;
     
     //for testing
-	int testSizes[] = {5000};
-	int numTests = 1;
+	//int testSizes[] = {5000};
+	//int numTests = 1;
     
     createTestTable(enclave_id, (int*)&status, "jTable", 5000);//decide what to do with the size of this one
     //deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
@@ -2404,7 +2404,7 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	for(int i = 0; i < numTests; i++){
 		int testSize = testSizes[i];
         	createTestTable(enclave_id, (int*)&status, "testTable", testSize);
-		printf("\n\n|Test Size %d:\n", testSize);
+		printf("\n|Test Size %d:\n", testSize);
 
         	double join1Times[6] = {0};
         	double join2Times[6] = {0};
@@ -2434,7 +2434,6 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
                 joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -249, -248);
                 endTime = clock();
                 join3Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-                printTableCheating(enclave_id, (int*)&status, "JoinReturn");
                 deleteTable(enclave_id, (int*)&status, "JoinReturn");
 
     		}
@@ -2447,7 +2446,7 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
         	join1Times[5] /= 5;
         	join2Times[5] /= 5;
         	join3Times[5] /= 5;
-    		printf("join1Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join1Times[0], join1Times[1], join1Times[2], join1Times[3], join1Times[4], join1Times[5]);
+    		printf("\njoin1Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join1Times[0], join1Times[1], join1Times[2], join1Times[3], join1Times[4], join1Times[5]);
     		printf("join2Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join2Times[0], join2Times[1], join2Times[2], join2Times[3], join2Times[4], join2Times[5]);
     		printf("join3Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join3Times[0], join3Times[1], join3Times[2], join3Times[3], join3Times[4], join3Times[5]);
             
@@ -3540,7 +3539,7 @@ int main(int argc, char* argv[])
         //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)
         //BDB1Index(enclave_id, status);//512
-        //BDB1Linear(enclave_id, status);//512
+        BDB1Linear(enclave_id, status);//512
         //BDB2(enclave_id, status, 0);//2048
         //BDB2Index(enclave_id, status, 0);//2048
         //BDB3(enclave_id, status, 0);//2048
@@ -3548,7 +3547,7 @@ int main(int argc, char* argv[])
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);//512
 	//fabTests(enclave_id, status);//512
-        joinTests(enclave_id, status);//512
+        //joinTests(enclave_id, status);//512
         //workloadTests(enclave_id, status);//512
         //insdelScaling(enclave_id, status);//512
 
