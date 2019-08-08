@@ -2397,18 +2397,21 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	//int testSizes[] = {5000};
 	//int numTests = 1;
     
-    createTestTable(enclave_id, (int*)&status, "jTable", 5000);//decide what to do with the size of this one
+    createTestTable(enclave_id, (int*)&status, "jTable", 15000);//decide what to do with the size of this one
+    //createTestTableIndex(enclave_id, (int*)&status, "jTableIndex", 10000);//decide what to do with the size of this one
     //deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
 
     printf("created tables\n");
 	for(int i = 0; i < numTests; i++){
 		int testSize = testSizes[i];
         	createTestTable(enclave_id, (int*)&status, "testTable", testSize);
+        	//createTestTableIndex(enclave_id, (int*)&status, "testTableIndex", testSize);
 		printf("\n|Test Size %d:\n", testSize);
 
         	double join1Times[6] = {0};
         	double join2Times[6] = {0};
         	double join3Times[6] = {0};
+        	double join4Times[6] = {0};
         	time_t startTime, endTime;
         	uint8_t* row = (uint8_t*)malloc(BLOCK_DATA_SIZE);
         	const char* text = "You would measure time the measureless and the immeasurable.";
@@ -2420,6 +2423,7 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
                 joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
                 endTime = clock();
                 join1Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+		//printTableCheating(enclave_id, (int*)&status, "JoinReturn");
                 deleteTable(enclave_id, (int*)&status, "JoinReturn");
 
                 //join 2
@@ -2427,32 +2431,49 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
                 joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -248);
                 endTime = clock();
                 join2Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+		//printTableCheating(enclave_id, (int*)&status, "JoinReturn");
                 deleteTable(enclave_id, (int*)&status, "JoinReturn");
-
-                //join 3
+	
+		//join 3
                 startTime = clock();
                 joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -249, -248);
                 endTime = clock();
                 join3Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+		printTableCheating(enclave_id, (int*)&status, "JoinReturn");
                 deleteTable(enclave_id, (int*)&status, "JoinReturn");
+break;
+		/*
+                //join 4
+                startTime = clock();
+                joinTables(enclave_id, (int*)&status, "jTableIndex", "testTableIndex", 1, 1, 1, testSize);
+                endTime = clock();
+                join4Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+                deleteTable(enclave_id, (int*)&status, "JoinReturn");
+		*/
 
     		}
+break;	
     		free(row);
     		for(int j = 0; j < 5; j++){
             		join1Times[5] += join1Times[j];
             		join2Times[5] += join2Times[j];
             		join3Times[5] += join3Times[j];
+            		join4Times[5] += join4Times[j];
     		}
         	join1Times[5] /= 5;
         	join2Times[5] /= 5;
         	join3Times[5] /= 5;
+        	join4Times[5] /= 5;
     		printf("\njoin1Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join1Times[0], join1Times[1], join1Times[2], join1Times[3], join1Times[4], join1Times[5]);
     		printf("join2Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join2Times[0], join2Times[1], join2Times[2], join2Times[3], join2Times[4], join2Times[5]);
     		printf("join3Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join3Times[0], join3Times[1], join3Times[2], join3Times[3], join3Times[4], join3Times[5]);
+    		printf("(not in use) join4Times | %.5f %.5f %.5f %.5f %.5f : %.5f\n", join4Times[0], join4Times[1], join4Times[2], join4Times[3], join4Times[4], join4Times[5]);
             
             deleteTable(enclave_id, (int*)&status, "testTable");
+            //deleteTable(enclave_id, (int*)&status, "testTableIndex");
 	}
     deleteTable(enclave_id, (int*)&status, "jTable");
+    //deleteTable(enclave_id, (int*)&status, "jTableIndex");
 }
 
 
@@ -3539,7 +3560,7 @@ int main(int argc, char* argv[])
         //complaintTables(enclave_id, status); //4096
         //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)
         //BDB1Index(enclave_id, status);//512
-        BDB1Linear(enclave_id, status);//512
+        //BDB1Linear(enclave_id, status);//512
         //BDB2(enclave_id, status, 0);//2048
         //BDB2Index(enclave_id, status, 0);//2048
         //BDB3(enclave_id, status, 0);//2048
@@ -3547,7 +3568,7 @@ int main(int argc, char* argv[])
         //BDB3(enclave_id, status, 1);//2048 (baseline)
         //basicTests(enclave_id, status);//512
 	//fabTests(enclave_id, status);//512
-        //joinTests(enclave_id, status);//512
+        joinTests(enclave_id, status);//512
         //workloadTests(enclave_id, status);//512
         //insdelScaling(enclave_id, status);//512
 
