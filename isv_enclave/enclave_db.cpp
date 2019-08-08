@@ -510,7 +510,6 @@ void bitonicMerge(int tableId, int startIndex, int size, int flipped, uint8_t* r
 }
 
 void smallBitonicSort(uint8_t* bothTables, int startIndex, int size, int flipped){
-	//might have issues if the size is not a power of 2, probably easy to check and fix
 	if(size <= 1) {
 		return;
 	} else {
@@ -627,7 +626,6 @@ void quickSort(uint8_t* table, int m, int n){
 
 
 void blockBitonicSort(uint8_t* workSpace, int tableId, int startIndex, int size, int flipped, int tableSize){
-	//might have issues if the size is not a power of 2, probably easy to check and fix
 	if(size <= 1) {
 		return;
 	} else {
@@ -644,7 +642,7 @@ void mergeTwoBlocks(uint8_t* workSpace, int tableId, int block1, int block2, int
 	int outIndex = 0;
 	int index1 = 0;
 	int index2 = 0;
-	//printf("here0 %d %d %d\n", block1, block2, tableSize);
+	//if(!flipped){
 	for(int i = 0; i < ROWS_IN_ENCLAVE_JOIN/2; i++){
 		opOneLinearScanBlock(tableId, ROWS_IN_ENCLAVE_JOIN/2*block1+i, (Linear_Scan_Block*)&workSpace[i*BLOCK_DATA_SIZE], 0);
 		count1++;
@@ -653,6 +651,23 @@ void mergeTwoBlocks(uint8_t* workSpace, int tableId, int block1, int block2, int
 		opOneLinearScanBlock(tableId, ROWS_IN_ENCLAVE_JOIN/2*block2+i, (Linear_Scan_Block*)&workSpace[(i+ROWS_IN_ENCLAVE_JOIN/2)*BLOCK_DATA_SIZE], 0);
 		count2++;
 	}
+	/*} else{ //read in tables in reverse
+		for(int i = ROWS_IN_ENCLAVE_JOIN/2-1; i >= 0; i--){
+			opOneLinearScanBlock(tableId, ROWS_IN_ENCLAVE_JOIN/2*block1+i, (Linear_Scan_Block*)&workSpace[count1*BLOCK_DATA_SIZE], 0);
+			count1++;
+		}
+		int i = ROWS_IN_ENCLAVE_JOIN/2-1;
+		if(ROWS_IN_ENCLAVE_JOIN/2*(block2+1)> tableSize){
+			i = tableSize - ROWS_IN_ENCLAVE_JOIN/2*block2-1;
+			printf("this line is used\n");
+		}
+		while(i >= 0){
+			opOneLinearScanBlock(tableId, ROWS_IN_ENCLAVE_JOIN/2*block2+i, (Linear_Scan_Block*)&workSpace[(count2+ROWS_IN_ENCLAVE_JOIN/2)*BLOCK_DATA_SIZE], 0);
+			count2++;
+			i--;
+		}
+	}*/
+	//printf("here0 %d %d %d %d %d %d\n", block1, block2, tableSize, flipped, count1, count2);
 	for(int i = 0; i < count1+count2; i++){
 		int startPoint = ROWS_IN_ENCLAVE_JOIN/2*block1;
 		if(i >= count1){
@@ -668,15 +683,15 @@ void mergeTwoBlocks(uint8_t* workSpace, int tableId, int block1, int block2, int
 		} else {
 			int val1 = 0;
 			int val2 = 0;
-			memcpy(&val1, &workSpace[(i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
-			memcpy(&val2, &workSpace[(ROWS_IN_ENCLAVE_JOIN/2+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
+			memcpy(&val1, &workSpace[(index1)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
+			memcpy(&val2, &workSpace[(ROWS_IN_ENCLAVE_JOIN/2+index2)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-8], 4);
 			uint8_t type1 = 0;
 			uint8_t type2 = 0;
-			memcpy(&type1, &workSpace[(i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
-			memcpy(&type2, &workSpace[(ROWS_IN_ENCLAVE_JOIN/2+i)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
+			memcpy(&type1, &workSpace[(index1)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
+			memcpy(&type2, &workSpace[(ROWS_IN_ENCLAVE_JOIN/2+index2)*(BLOCK_DATA_SIZE)+BLOCK_DATA_SIZE-4], 1);
 			//if gt2 is true then the entry from the second half is written first
 			int gt2 = val1 > val2 || (val1 == val2 && type2 == 1 && type1 == 2);
-			//gt2 = gt2 ^ flipped;
+			//gt2 = gt2 ^ flipped; 
 
 			if(gt2){
 				opOneLinearScanBlock(tableId, startPoint+i, (Linear_Scan_Block*)&workSpace[(index2+ROWS_IN_ENCLAVE_JOIN/2)*BLOCK_DATA_SIZE], 1);	
@@ -700,7 +715,11 @@ void blockBitonicMerge(uint8_t* workSpace, int tableId, int startIndex, int size
 		for(int i = 0; i < size-mid; i++){
 			//merge the pairs of chunks
 			//printf("merging\n");
-			mergeTwoBlocks(workSpace, tableId, startIndex+i, startIndex+i+mid, flipped, tableSize);	
+			if(!flipped){
+				mergeTwoBlocks(workSpace, tableId, startIndex+i, startIndex+i+mid, flipped, tableSize);	
+			} else{
+				mergeTwoBlocks(workSpace, tableId, startIndex+i+mid, startIndex+i, flipped, tableSize);	
+			}
 			//printf("merged\n");
 		}
 		blockBitonicMerge(workSpace, tableId, startIndex, mid, flipped, tableSize);
@@ -748,6 +767,7 @@ void opaqueSort(int tableId, int size){
 				sortSize = j;
 			}
 		}
+		//printf("numChunks: %d\n", numChunks);
 		//printf("about to bitonic sort in opaque sort\n");
 		//do a bitonic sort merge of the chunks
 		blockBitonicSort(workSpace, tableId, 0, numChunks, 0, size);
@@ -845,14 +865,14 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		memset(row, 0, BLOCK_DATA_SIZE);
 		memset(row1, 0, BLOCK_DATA_SIZE);
 		memset(row2, 0, BLOCK_DATA_SIZE);
-		///*debug
+		/*debug
 		for(int i = 0; i < outSize; i++){
 			opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)row, 0);
 			int tempval = 0;
 			memcpy(&tempval, &row[BLOCK_DATA_SIZE-8], 4);
 			printf("real: %d, table: %d, value: %d\n", row[0], row[BLOCK_DATA_SIZE-1], tempval);
 		}
-		//*/
+		*/
 
 		//linear scan of sorted table with outputs to a final table of size max of two inputs
 		for(int i = 0; i < outSize; i++){
@@ -883,7 +903,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 
 			opOneLinearScanBlock(realRetStructId, i, (Linear_Scan_Block*)row, 1);
 
-		} printf("number of rows: %d\n", numRows[realRetStructId]);
+		} //printf("number of rows: %d\n", numRows[realRetStructId]);
 
 		free(row);
 		free(row1);
@@ -1023,7 +1043,7 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 
 			}
 			//printf("insertionCounter: %d\n", insertionCounter);
-		} printf("number of rows: %d\n", numRows[realRetStructId]);
+		} //printf("number of rows: %d\n", numRows[realRetStructId]);
 
 		free(hashTable);
 		free(hashIn);

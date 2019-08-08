@@ -2397,7 +2397,8 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	//int testSizes[] = {5000};
 	//int numTests = 1;
     
-    createTestTable(enclave_id, (int*)&status, "jTable", 15000);//decide what to do with the size of this one
+	int table2Size = 1000;
+    createTestTable(enclave_id, (int*)&status, "jTable", table2Size);//decide what to do with the size of this one
     //createTestTableIndex(enclave_id, (int*)&status, "jTableIndex", 10000);//decide what to do with the size of this one
     //deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
 
@@ -2418,13 +2419,15 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 
     		for(int j = 0; j < 5; j++){ //want to average 5 trials
 
-		//join 1
-                startTime = clock();
-                joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
-                endTime = clock();
-                join1Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-		//printTableCheating(enclave_id, (int*)&status, "JoinReturn");
-                deleteTable(enclave_id, (int*)&status, "JoinReturn");
+		if(table2Size/5000*3*testSize < 350000){
+			//join 1
+                	startTime = clock();
+                	joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
+                	endTime = clock();
+                	join1Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+			//printTableCheating(enclave_id, (int*)&status, "JoinReturn");
+                	deleteTable(enclave_id, (int*)&status, "JoinReturn");
+		}
 
                 //join 2
                 startTime = clock();
@@ -2439,9 +2442,8 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
                 joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -249, -248);
                 endTime = clock();
                 join3Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-		printTableCheating(enclave_id, (int*)&status, "JoinReturn");
+		//printTableCheating(enclave_id, (int*)&status, "JoinReturn");
                 deleteTable(enclave_id, (int*)&status, "JoinReturn");
-break;
 		/*
                 //join 4
                 startTime = clock();
@@ -2452,7 +2454,6 @@ break;
 		*/
 
     		}
-break;	
     		free(row);
     		for(int j = 0; j < 5; j++){
             		join1Times[5] += join1Times[j];
