@@ -792,7 +792,22 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 	int realRetStructId = -1;
 	int dummyVal = 0;
 
-	int size = JOINMAX;
+	int size = 350000;//not used anymore
+
+	int ps1 = oblivStructureSizes[structureId1];
+	int ps2 = oblivStructureSizes[structureId2];
+	double logTerm = log2((double)(ps1+ps2)*2/(ROWS_IN_ENCLAVE_JOIN));
+	double leftSide = ps1*ps2*4/ROWS_IN_ENCLAVE_JOIN;
+	double rightSide = (ps1+ps2)/2*((int)(logTerm*logTerm));
+	//Join planner
+	//looks like the first if does most of the heavy lifting. It usually goes to sort-merge if it doesn't hash because of lots of memory
+	if(ROWS_IN_ENCLAVE_JOIN*5 > ps1){
+		printf("join planner chooses hash join (lots of obliv mem)");
+	} else if(leftSide < rightSide) {
+		printf("join planner chooses hash join %.2f < %.2f", leftSide, rightSide);
+	} else {
+		printf("join planner chooses sort-merge join %.2f > %.2f", leftSide, rightSide);
+	}
 
 	//this may cause issues if the table returned is big. Table ordering matters on the input
 
@@ -926,7 +941,8 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 		sgx_sha256_hash_t* hashOut = (sgx_sha256_hash_t*)malloc(256);
 		unsigned int index = 0;
 
-		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
+		createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, (ps1*4/ROWS_IN_ENCLAVE_JOIN+1)*ps2, &realRetStructId);
+		//printf("table size %d\n", (ps1*4/ROWS_IN_ENCLAVE+1)*ps2);
 		//createTable(&s, realRetTableName, strlen(realRetTableName), TYPE_LINEAR_SCAN, size, &realRetStructId);
 		//printf("table creation returned %d %d %d\n", retStructId, size, strlen(retTableName));
 
@@ -965,7 +981,6 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 				}
 				while(insertCounter != -1);
 			}
-			//printf("\n");
 			for(int j = 0; j<oblivStructureSizes[structureId2]; j++){
 				//get row
 				opOneLinearScanBlock(structureId2, j, (Linear_Scan_Block*)row, 0);
@@ -1030,8 +1045,9 @@ int joinTables(char* tableName1, char* tableName2, int joinCol1, int joinCol2, i
 
 				//block->actualAddr = numRows[retStructId];
 				memcpy(block, &row1[0], BLOCK_DATA_SIZE);
-
+				//printf("before %d\n", insertionCounter);
 				opOneLinearScanBlock(realRetStructId, insertionCounter, (Linear_Scan_Block*)block, 1);
+				//printf("after %d\n", insertionCounter);
 				insertionCounter++;
 				if(match) {
 					//printf("here? %d\n", numRows[realRetStructId]);

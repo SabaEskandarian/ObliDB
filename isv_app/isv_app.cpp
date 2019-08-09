@@ -2390,14 +2390,22 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	//comparing our original join and sort merge join for linear tables
 	//using same schema as used for synthetic data in FabTests	
 
-	int testSizes[] = {100, 500, 1000, 5000, 10000, 50000, 100000};
-	int numTests = 7;
+	int testSizes[] = {5000, 10000, 25000};
+	int numTests = 3;
     
     //for testing
 	//int testSizes[] = {5000};
 	//int numTests = 1;
-    
-	int table2Size = 1000;
+   
+	//confusingly, thi sis the first table
+	int table2Sizes[] = {1000,5000,10000};
+	int num2Tests = 3;
+
+	for(int k = 0; k < num2Tests; k++){
+	
+	
+
+	int table2Size = table2Sizes[k];
     createTestTable(enclave_id, (int*)&status, "jTable", table2Size);//decide what to do with the size of this one
     //createTestTableIndex(enclave_id, (int*)&status, "jTableIndex", 10000);//decide what to do with the size of this one
     //deleteRows(enclave_id, (int*)&status, "jTable", condition1, -1, -1);
@@ -2407,7 +2415,7 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 		int testSize = testSizes[i];
         	createTestTable(enclave_id, (int*)&status, "testTable", testSize);
         	//createTestTableIndex(enclave_id, (int*)&status, "testTableIndex", testSize);
-		printf("\n|Test Size %d:\n", testSize);
+		printf("\n|Test Sizes %d %d:\n", table2Size, testSize);
 
         	double join1Times[6] = {0};
         	double join2Times[6] = {0};
@@ -2419,15 +2427,13 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 
     		for(int j = 0; j < 5; j++){ //want to average 5 trials
 
-		if(table2Size/5000*3*testSize < 350000){
-			//join 1
-                	startTime = clock();
-                	joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
-                	endTime = clock();
-                	join1Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
-			//printTableCheating(enclave_id, (int*)&status, "JoinReturn");
-                	deleteTable(enclave_id, (int*)&status, "JoinReturn");
-		}
+		//join 1
+               	startTime = clock();
+               	joinTables(enclave_id, (int*)&status, "jTable", "testTable", 1, 1, -1, -1);
+               	endTime = clock();
+               	join1Times[j] = (double)(endTime - startTime)/(CLOCKS_PER_SEC);
+		//printTableCheating(enclave_id, (int*)&status, "JoinReturn");
+               	deleteTable(enclave_id, (int*)&status, "JoinReturn");
 
                 //join 2
                 startTime = clock();
@@ -2475,6 +2481,7 @@ void joinTests(sgx_enclave_id_t enclave_id, int status){
 	}
     deleteTable(enclave_id, (int*)&status, "jTable");
     //deleteTable(enclave_id, (int*)&status, "jTableIndex");
+	}
 }
 
 

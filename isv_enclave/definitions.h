@@ -12,6 +12,7 @@
 
 
 #define BLOCK_DATA_SIZE 512
+//#define BLOCK_DATA_SIZE 2048
 
 //these two are no longer used
 //#define NUM_BLOCKS_POW 10
@@ -25,10 +26,11 @@
 #define MAX_COLS 15
 #define MAX_CONDITIONS 3 //number of ORs allowed in one clause of a condition
 #define ROWS_IN_ENCLAVE 7000
-#define ROWS_IN_ENCLAVE_JOIN 7800
+#define ROWS_IN_ENCLAVE_JOIN 7500
+//#define ROWS_IN_ENCLAVE_JOIN 500
 #define PERCENT_ALMOST_ALL 90 //when to switch to large strategy
 #define PADDING 0 //0 - normal, >1: pad to that many rows always
-#define JOINMAX 350000 //how big are we expecting joins to get
+//#define JOINMAX 350000 //how big are we expecting joins to get
 #define MAX_GROUPS 350000
 #define MIXED_USE_MODE 0 //linear scans of indexes
 
