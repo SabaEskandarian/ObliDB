@@ -59,7 +59,7 @@
 #include "sgx_urts.h"
 
 // Needed to query extended epid group id.
-#include "sgx_uae_service.h"
+#include "sgx_uae_epid.h"
 
 #include "service_provider.h"
 #include "../isv_enclave/definitions.h"//structs, enums, fixed constants
