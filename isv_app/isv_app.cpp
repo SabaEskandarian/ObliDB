@@ -3564,21 +3564,22 @@ int main(int argc, char* argv[])
         //real world query tests
         //PICK EXPERIMENT TO RUN HERE
 
-        //nasdaqTables(enclave_id, status); //2048
-        //complaintTables(enclave_id, status); //4096
-        //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)
-        //BDB1Index(enclave_id, status);//512
-        //BDB1Linear(enclave_id, status);//512
-        //BDB2(enclave_id, status, 0);//2048
-        //BDB2Index(enclave_id, status, 0);//2048
-        //BDB3(enclave_id, status, 0);//2048
-        //BDB2(enclave_id, status, 1);//2048 (baseline)
-        //BDB3(enclave_id, status, 1);//2048 (baseline)
-        //basicTests(enclave_id, status);//512
-	//fabTests(enclave_id, status);//512
-        joinTests(enclave_id, status);//512
-        //workloadTests(enclave_id, status);//512
-        //insdelScaling(enclave_id, status);//512
+        nasdaqTables(enclave_id, status); //2048	SEG_FAULT
+        //complaintTables(enclave_id, status); //4096	SEG_FAULT
+        //flightTables(enclave_id, status); //512 (could be less, but we require 512 minimum)	SEG_FAULT
+        //BDB1Index(enclave_id, status);//512		SUCCESS
+        //BDB1Linear(enclave_id, status);//512		SUCCESS
+        //BDB2(enclave_id, status, 0);//2048		SEG_FAULT
+        //BDB2Index(enclave_id, status, 0);//2048	SEG_FAULT
+        //BDB3(enclave_id, status, 0);//2048		SEG_FAULT
+        //BDB2(enclave_id, status, 1);//2048 (baseline)	SEG_FAULT
+        //BDB3(enclave_id, status, 1);//2048 (baseline)	SEG_FAULT
+        //basicTests(enclave_id, status);//512		SEG_FAULT & PuTTyPuTTyPuTTy
+	//fabTests(enclave_id, status);//512		SUCCESS
+        //joinTests(enclave_id, status);//512		SUCCESS
+        //workloadTests(enclave_id, status);//512	SUCCESS
+        //insdelScaling(enclave_id, status);//512	failed to allocate space (4420794308 bytes) for structure;Segmentation fault (core dumped)
+
 
 /*
 	//test for sophos - linear
